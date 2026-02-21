@@ -23,7 +23,6 @@ jobs:
       - name: Extract branch contents to public folder
         run: |
           mkdir public
-          cd public
           
           # Loop through all remote branches, ignoring the HEAD pointer
           for branch in $(git branch -r | grep -v '\->' | sed 's/^[[:space:]]*//'); do
@@ -31,13 +30,15 @@ jobs:
             branch_name=${branch#origin/}
             
             echo "Extracting branch: $branch_name"
-            mkdir -p "$branch_name"
+            mkdir -p "public/$branch_name"
             
-            # Archive the branch contents and extract them into the target folder
-            git archive "$branch" | tar -x -C "$branch_name"
+            # Archive the branch contents from the repo root and extract them into the target folder
+            git archive "$branch" | tar -x -C "public/$branch_name"
 
-            cd "$branch_name"
+            # Navigate into the extracted folder to run npm commands
+            cd "public/$branch_name"
             ls -laR
+            
             # Check if package.json exists before running npm install
             if [ -f "package.json" ]; then
               echo "Installing dependencies for $branch_name"
@@ -49,9 +50,10 @@ jobs:
             else
               echo "No package.json found for $branch_name, skipping npm install and build"
             fi
-            cd ..
+            
+            # Navigate back to the repository root for the next iteration
+            cd ../..
           done
-          cd ..
  
           
       
