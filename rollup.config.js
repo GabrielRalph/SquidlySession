@@ -2,7 +2,7 @@ import terser from '@rollup/plugin-terser';
 import fs from 'fs';
 import path from 'path';
 
-const outputDir = 'production/';
+const outputDir = 'build/';
 
 // Delete all files in dist (synchronously)
 if (fs.existsSync(outputDir)) {
