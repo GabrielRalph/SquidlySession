@@ -1,4 +1,5 @@
 name: Multi-Branch Deployment
+run-name: Multi-Branch Push by ${{ github.actor }}
 on:
   push:
     branches:
@@ -31,6 +32,6 @@ jobs:
           done
           
           echo "Contents of public directory:"
-          ls -la public/
+          ls -laR public/
       
  
