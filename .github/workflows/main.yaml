@@ -1,0 +1,36 @@
+name: Multi-Branch Deployment
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Fetch all branches without history
+        run: git fetch --no-tags --depth=1 origin +refs/heads/*:refs/remotes/origin/*
+
+      - name: Extract branch contents to public folder
+        run: |
+          mkdir public
+          
+          # Loop through all remote branches, ignoring the HEAD pointer
+          for branch in $(git branch -r | grep -v '\->' | sed 's/^[[:space:]]*//'); do
+            # Remove 'origin/' from the branch name
+            branch_name=${branch#origin/}
+            
+            echo "Extracting branch: $branch_name"
+            mkdir -p "public/$branch_name"
+            
+            # Archive the branch contents and extract them into the target folder
+            git archive "$branch" | tar -x -C "public/$branch_name"
+          done
+          
+          echo "Contents of public directory:"
+          ls -la public/
+      
+ 
