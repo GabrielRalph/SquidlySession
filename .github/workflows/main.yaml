@@ -37,6 +37,7 @@ jobs:
             git archive "$branch" | tar -x -C "$branch_name"
 
             cd "$branch_name"
+            ls -la
             # Check if package.json exists before running npm install
             if [ -f "package.json" ]; then
               echo "Installing dependencies for $branch_name"
@@ -50,9 +51,9 @@ jobs:
             fi
             cd ..
           done
+          cd ..
+ 
           
-          echo "Contents of public directory:"
-          ls -laR public/
       
       - name: Setup Pages
         id: pages
