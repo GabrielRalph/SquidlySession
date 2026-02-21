@@ -1,0 +1,17 @@
+{
+  "name": "testinggithubactions",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "rollup -c"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@rollup/plugin-terser": "^0.4.4"
+  },
+  "dependencies": {
+    "three": "^0.183.1"
+  }
+}
