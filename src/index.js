@@ -47,7 +47,7 @@ class Main extends SvgPlus {
              texture.colorSpace = SRGBColorSpace;
             texture.mapping = EquirectangularReflectionMapping;
             this.scene.environment = texture;
-            this.scene.background = new Color(0xFFFFFF);
+            this.scene.background = new Color(0xFFEEFF);
             // scene.needsUpdate = true;
         })
     }
