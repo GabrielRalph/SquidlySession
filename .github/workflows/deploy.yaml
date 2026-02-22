@@ -1,16 +1,19 @@
 name: Multi-Branch Deployment
-run-name: Multi-Branch Push by ${{ github.actor }}
 on:
-  push:
-    branches:
-      - '**'
+  workflow_run:
+    workflows: ["Trigger Build"]
+    types:
+      - completed
 
 jobs:
   build:
+    # Only run if the trigger workflow succeeded
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
+        # Because of workflow_run, this automatically checks out the 'main' branch!
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -21,8 +24,7 @@ jobs:
         run: git fetch --no-tags --depth=1 origin +refs/heads/*:refs/remotes/origin/*
 
       - name: Run build script
-        run: node build-all.js
-
+        run: node .github/build-all.js
       
       - name: Setup Pages
         id: pages
@@ -48,5 +50,3 @@ jobs:
       - name: Deploy to Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
- 

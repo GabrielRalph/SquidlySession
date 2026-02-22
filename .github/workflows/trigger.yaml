@@ -1,0 +1,11 @@
+name: Trigger Build
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Triggering main deployment workflow..."
