@@ -8,30 +8,56 @@ import {
 
 } from '../node_modules/three/src/Three.js';
 
-const width = window.innerWidth, height = window.innerHeight;
+import {SvgPlus} from "../SvgPlus/4.js";
 
-// init
+class Main extends SvgPlus {
+    constructor(){
+        super("three-js");
+        this.camera = new PerspectiveCamera( 70, 1, 0.01, 10 );
+        this.camera.position.z = 1;
+        this.scene = new Scene();
+        const geometry = new BoxGeometry( 0.2, 0.2, 0.2 );
+        const material = new MeshNormalMaterial();
+        this.mesh = new Mesh( geometry, material );
+        this.scene.add( this.mesh );
 
-const camera = new PerspectiveCamera( 70, width / height, 0.01, 10 );
-camera.position.z = 1;
+        this.renderer = new WebGLRenderer( { antialias: true } );
+        this.renderer.setAnimationLoop( this.onFrame.bind(this) );
+        this.appendChild( this.renderer.domElement );
 
-const scene = new Scene();
+        this._resizeObserver = new ResizeObserver(this.resize.bind(this));
+        this._resizeObserver.observe(this);
+    }
 
-const geometry = new BoxGeometry( 0.2, 0.2, 0.2 );
-const material = new MeshNormalMaterial();
 
-const mesh = new Mesh( geometry, material );
-scene.add( mesh );
+    /**
+     * @param {ResizeObserverEntry[]} e
+     */
+    resize(e){
+        const {width, height} = e[0].contentRect
+        console.log(width, height);
+        this.renderer.setSize( width, height );
+        this.renderer.setPixelRatio( window.devicePixelRatio );
+        let oldCamera = this.camera;
+        this.camera = new PerspectiveCamera( 70, width / height, 0.01, 10 );
+        this.camera.position.copy(oldCamera.position);
+    }
 
-const renderer = new WebGLRenderer( { antialias: true } );
-renderer.setSize( width, height );
-renderer.setAnimationLoop( animate );
-document.body.appendChild( renderer.domElement );
 
-function animate( time ) {
+    onFrame(time){
+        this.mesh.rotation.x = time / 2000;
+        this.mesh.rotation.y = time / 1000;
 
-	mesh.rotation.x = time / 2000;
-	mesh.rotation.y = time / 1000;
-
-	renderer.render( scene, camera );
+        this.renderer.render( this.scene, this.camera );
+    }
 }
+
+
+document.body.appendChild(new Main());
+
+
+
+
+
+
+
