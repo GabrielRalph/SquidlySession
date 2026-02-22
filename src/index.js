@@ -4,7 +4,8 @@ import {
     BoxGeometry,
     MeshNormalMaterial,
     Mesh,
-    WebGLRenderer
+    WebGLRenderer,
+    Color
 
 } from '../node_modules/three/src/Three.js';
 
@@ -27,6 +28,7 @@ class Main extends SvgPlus {
 
         this._resizeObserver = new ResizeObserver(this.resize.bind(this));
         this._resizeObserver.observe(this);
+        this.scene.background = new Color( 0xFFFFFF );
     }
 
 
