@@ -129,7 +129,7 @@ function buildBranches(buildDir, rootScript = "index.js", tempDir = "temp") {
         import('./' + branch + '/${rootScript}');
     </script>`;
 
-    let indexHTML = getBranchIndexHTML(tempDir);
+    let indexHTML = getBranchIndexHTML(brancheInfo['main']?.tempDir || brancheInfo['master']?.tempDir);
     if (!indexHTML) {
         indexHTML = `<!DOCTYPE html>
         <html lang="en">
@@ -147,10 +147,13 @@ function buildBranches(buildDir, rootScript = "index.js", tempDir = "temp") {
         indexHTML = indexHTML.replace(new RegExp(scirptRegex, 'i'), queryScript);
     }
 
+
+    // Clean up and create a new build directory
     if (fs.existsSync(buildDir)) {
         fs.rmSync(buildDir, { recursive: true, force: true });
     }
      fs.mkdirSync(buildDir, { recursive: true });
+
 
     fs.writeFileSync(path.join(buildDir, 'index.html'), indexHTML, 'utf-8');
 
@@ -162,6 +165,11 @@ function buildBranches(buildDir, rootScript = "index.js", tempDir = "temp") {
     }
 
     fs.rmSync(tempDir, { recursive: true, force: true });
+
+     // Clean up any stale git worktree records from previous script runs
+    try {
+        execSync('git worktree prune', { stdio: 'ignore' });
+    } catch (e) { }
 }
 
 
