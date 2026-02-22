@@ -1,51 +1,11 @@
-name: Multi-Branch Deployment
-run-name: Multi-Branch Push by ${{ github.actor }}
+name: Trigger Build
 on:
   push:
     branches:
       - '**'
 
 jobs:
-  build:
+  ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Fetch all branches without history
-        run: git fetch --no-tags --depth=1 origin +refs/heads/*:refs/remotes/origin/*
-
-    
-      
-      - name: Setup Pages
-        id: pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: src
-    
-
-  deploy:
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
-    steps:
-      - name: Deploy to Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
-
- 
+      - run: echo "Triggering main deployment workflow..."

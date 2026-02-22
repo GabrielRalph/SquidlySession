@@ -19,7 +19,7 @@ class Main extends SvgPlus {
         this.camera.position.z = 1;
         this.scene = new Scene();
         const geometry = new BoxGeometry( 0.2, 0.2, 0.2 );
-        const material = new MeshPhysicalMaterial( { color: 0x00ff00, roughness: 0.5, metalness: 0.5 } );
+        const material = new MeshPhysicalMaterial( { color: 0xff0000, roughness: 0.5, metalness: 0.5 } );
         this.mesh = new Mesh( geometry, material );
         this.scene.add( this.mesh );
 
