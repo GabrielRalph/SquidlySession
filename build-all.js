@@ -147,8 +147,6 @@ function buildBranches(buildDir, rootScript = "index.js", tempDir = "temp") {
         indexHTML = indexHTML.replace(new RegExp(scirptRegex, 'i'), queryScript);
     }
 
-
-    
     if (fs.existsSync(buildDir)) {
         fs.rmSync(buildDir, { recursive: true, force: true });
     }
