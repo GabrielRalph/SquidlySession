@@ -11,8 +11,18 @@ function getBranches() {
     const branches = branchesOutput
         .split('\n')
         .map(b => b.trim())
-        .filter(b => b.length > 0 && !b.includes('->')) // Exclude symbolic refs
-        .map(b => [b, b.replace('origin/', '')]); // Remove 'origin/' prefix
+        .map(b => {
+            let res = {branch: b, name: b.replace(/^origin\//, ''), valid: false};
+            // let name = b.replace(/^origin\//, '');
+            if (!(b.length > 0 && !b.includes('->'))) {
+                 // Get the latest commit SHA for the branch
+                const commitSha = execSync(`git rev-parse ${b}`, { encoding: 'utf-8' }).trim();
+                res.commitSha = commitSha;
+                res.valid = true;
+            }
+            return res;
+        // Exclude symbolic refs
+        }).filter(b => b.valid);
 
     return branches;
 }
@@ -89,12 +99,32 @@ function buildBranches(buildDir, rootScript = "index.js", tempDir = "temp") {
         fs.mkdirSync(tempDir, { recursive: true });
     }
 
-    const brancheInfo = {
+    
 
-    }
+   
 
     const branches = getBranches();
-    for (const [branch, name] of branches) {
+
+
+     // Retrieve cache file
+    const cacheFile = path.join(buildDir, 'build-cache.json');
+    let buildCache = {};
+    if (fs.existsSync(cacheFile)) {
+        buildCache = JSON.parse(fs.readFileSync(cacheFile, 'utf-8'));
+    }
+
+    const branchesToUpdate = branches.filter(({name, commitSha}) => {
+        // build if branch has changed since last build or if it doesn't exist in the build directory
+        if ( buildCache[name] !== commitSha || !fs.existsSync(path.join(buildDir, name))) { 
+            return true;
+        } else {
+            console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n~~~~ USING CACHE FOR: '" + name + "' ~~~~\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+            return false;
+        }
+    });
+
+    const brancheInfo = { }
+    for (const {branch, name, commitSha} of branchesToUpdate) {
         try {
 
             const branchDir = path.join(tempDir, name);
@@ -118,6 +148,7 @@ function buildBranches(buildDir, rootScript = "index.js", tempDir = "temp") {
             } else {
                 console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n~~~~ NO SRC IN BRANCH: '" + branch + "' ~~~~\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
             }
+            buildCache[name] = commitSha;
         } catch (error) {
             console.error(`Error processing branch ${branch}:`, error);
         }
@@ -148,22 +179,28 @@ function buildBranches(buildDir, rootScript = "index.js", tempDir = "temp") {
     }
 
 
-    // Clean up and create a new build directory
-    if (fs.existsSync(buildDir)) {
-        fs.rmSync(buildDir, { recursive: true, force: true });
+    // If it doesn't exist, create the build directory
+    if (!fs.existsSync(buildDir)) {
+        fs.mkdirSync(buildDir, { recursive: true });
     }
-     fs.mkdirSync(buildDir, { recursive: true });
 
-
+    // save new index.html to build directory
     fs.writeFileSync(path.join(buildDir, 'index.html'), indexHTML, 'utf-8');
 
-    for (const [branch, {src, tempDir}] of Object.entries(brancheInfo)) {
+    // Save updated cache file
+    fs.writeFileSync(cacheFile, JSON.stringify(buildCache, null, 2), 'utf-8');
+
+    // For each branch that was built
+    for (const [branch, {src}] of Object.entries(brancheInfo)) {
         const destDir = path.join(buildDir, branch);
+        if (fs.existsSync(destDir)) {
+            fs.rmSync(destDir, { recursive: true, force: true });
+        } 
         fs.mkdirSync(destDir, { recursive: true });
         fs.renameSync(src, destDir);
-        fs.rmSync(tempDir, { recursive: true, force: true });
     }
 
+    // Completely remove temp directory after processing all branches
     fs.rmSync(tempDir, { recursive: true, force: true });
 
      // Clean up any stale git worktree records from previous script runs

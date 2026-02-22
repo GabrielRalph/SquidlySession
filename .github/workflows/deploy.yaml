@@ -13,7 +13,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-        # Because of workflow_run, this automatically checks out the 'main' branch!
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -23,9 +22,24 @@ jobs:
       - name: Fetch all branches without history
         run: git fetch --no-tags --depth=1 origin +refs/heads/*:refs/remotes/origin/*
 
+
+      - name: Restore cached Public Directory
+        id: restore-public-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: public
+          key: public-cache
+
       - name: Run build script
         run: node .github/build-all.js
       
+      - name: Save cached Public Directory
+        id: save-public-cache
+        uses: actions/cache/save@v4
+        with:
+          path: public
+          key: public-cache
+
       - name: Setup Pages
         id: pages
         uses: actions/configure-pages@v5
