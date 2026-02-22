@@ -18,7 +18,7 @@ function getBranches() {
             const commitSha = execSync(`git rev-parse ${b}`, { encoding: 'utf-8' }).trim();
             return { branch: b, name, commitSha };
         });
-        
+
     return branches;
 }
 
@@ -182,6 +182,17 @@ function buildBranches(buildDir, rootScript = "index.js", tempDir = "temp") {
 
         // save new index.html to build directory
         fs.writeFileSync(path.join(buildDir, 'index.html'), indexHTML, 'utf-8');
+    }
+
+    // Delete old branches that are no longer in the repository
+    const activeBranchNames = new Set(branches.map(b => b.name));
+    const branchesToRemove = fs.readdirSync(buildDir)
+        .filter(f => fs.lstatSync(path.join(buildDir, f)).isDirectory() && !activeBranchNames.has(f));
+
+    for (const branch of branchesToRemove) {
+        console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n~~~~ REMOVING OLD BRANCH FROM BUILD: '" + branch + "' ~~~~\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+        fs.rmSync(path.join(buildDir, branch), { recursive: true, force: true });
+        delete buildCache[branch];
     }
 
     // Save updated cache file
