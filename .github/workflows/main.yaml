@@ -12,6 +12,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - name: Fetch all branches without history
         run: git fetch --no-tags --depth=1 origin +refs/heads/*:refs/remotes/origin/*
 
@@ -27,11 +32,54 @@ jobs:
             echo "Extracting branch: $branch_name"
             mkdir -p "public/$branch_name"
             
-            # Archive the branch contents and extract them into the target folder
+            # Archive the branch contents from the repo root and extract them into the target folder
             git archive "$branch" | tar -x -C "public/$branch_name"
+
+            # Navigate into the extracted folder to run npm commands
+            cd "public/$branch_name"
+            ls -laR
+            
+            # Check if package.json exists before running npm install
+            if [ -f "package.json" ]; then
+              echo "Installing dependencies for $branch_name"
+              npm install
+              echo "Building project for $branch_name"
+              npm run build
+              echo "Build completed for $branch_name removing node_modules and package-lock.json"
+              rm -rf node_modules package-lock.json package.json
+            else
+              echo "No package.json found for $branch_name, skipping npm install and build"
+            fi
+            
+            # Navigate back to the repository root for the next iteration
+            cd ../..
           done
+ 
           
-          echo "Contents of public directory:"
-          ls -laR public/
       
+      - name: Setup Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v4
+        with: 
+          path: public
+
+  deploy:
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
  
