@@ -20,7 +20,7 @@ jobs:
       - name: Fetch all branches without history
         run: git fetch --no-tags --depth=1 origin +refs/heads/*:refs/remotes/origin/*
 
-     
+    
       
       - name: Setup Pages
         id: pages
@@ -28,6 +28,8 @@ jobs:
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4
+        with:
+          path: src
     
 
   deploy:
