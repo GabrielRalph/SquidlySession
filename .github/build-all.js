@@ -8,22 +8,17 @@ function getBranches() {
     const branchesOutput = execSync('git branch -r', { encoding: 'utf-8' });
     
     // Filter and clean branch names
+    // Exclude symbolic refs (those containing '->') and trim whitespace
     const branches = branchesOutput
         .split('\n')
         .map(b => b.trim())
+        .filter(b => b.length > 0 && !b.includes('->'))
         .map(b => {
-            let res = {branch: b, name: b.replace(/^origin\//, ''), valid: false};
-            // let name = b.replace(/^origin\//, '');
-            if (!(b.length > 0 && !b.includes('->'))) {
-                 // Get the latest commit SHA for the branch
-                const commitSha = execSync(`git rev-parse ${b}`, { encoding: 'utf-8' }).trim();
-                res.commitSha = commitSha;
-                res.valid = true;
-            }
-            return res;
-        // Exclude symbolic refs
-        }).filter(b => !b.valid);
-
+            const name = b.replace(/^origin\//, '');
+            const commitSha = execSync(`git rev-parse ${b}`, { encoding: 'utf-8' }).trim();
+            return { branch: b, name, commitSha };
+        });
+        
     return branches;
 }
 
@@ -87,7 +82,6 @@ function getBranchIndexHTML(dir) {
 }
 
 
-
 function buildBranches(buildDir, rootScript = "index.js", tempDir = "temp") {
     // Clean up any stale git worktree records from previous script runs
     try {
@@ -99,10 +93,7 @@ function buildBranches(buildDir, rootScript = "index.js", tempDir = "temp") {
         fs.mkdirSync(tempDir, { recursive: true });
     }
 
-    
-
-   
-
+    // Get all branches and their latest commit SHAs
     const branches = getBranches();
 
 
