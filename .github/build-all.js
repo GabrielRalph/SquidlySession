@@ -22,7 +22,7 @@ function getBranches() {
             }
             return res;
         // Exclude symbolic refs
-        }).filter(b => b.valid);
+        }).filter(b => !b.valid);
 
     return branches;
 }
@@ -154,38 +154,44 @@ function buildBranches(buildDir, rootScript = "index.js", tempDir = "temp") {
         }
     }
 
-    const queryScript = `<script type = "module">
-        const params = new URLSearchParams(window.location.search);
-        const branch = params.get('branch') || 'main';
-        import('./' + branch + '/${rootScript}');
-    </script>`;
-
-    let indexHTML = getBranchIndexHTML(brancheInfo['main']?.tempDir || brancheInfo['master']?.tempDir);
-    if (!indexHTML) {
-        indexHTML = `<!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Branch Viewer</title>
-            ${queryScript}
-        </head>
-        <body>
-        </body>
-        </html>`;
-    } else {
-        const scirptRegex = `<script\\s+(type\\s*=\\s*("module"|module)\\s*)?src\\s*=\\s*"\\.\\/(build|src)\\/${rootScript}"\\s*(type\\s*=\\s*"module"\\s*)?>\\s*<\\/\\s*script>`;
-        indexHTML = indexHTML.replace(new RegExp(scirptRegex, 'i'), queryScript);
-    }
-
-
     // If it doesn't exist, create the build directory
     if (!fs.existsSync(buildDir)) {
         fs.mkdirSync(buildDir, { recursive: true });
     }
 
-    // save new index.html to build directory
-    fs.writeFileSync(path.join(buildDir, 'index.html'), indexHTML, 'utf-8');
+
+    // If the main branch was built, update the root index.html to point 
+    // to the correct script, otherwise leave it alone 
+    // (assuming it was already set up correctly in a previous build).
+    const mainBranch = branchesToUpdate.find(b => b.name === 'main' || b.name === 'master');
+    if (mainBranch) {
+        const queryScript = `<script type = "module">
+            const params = new URLSearchParams(window.location.search);
+            const branch = params.get('branch') || 'main';
+            import('./' + branch + '/${rootScript}');
+        </script>`;
+    
+        let indexHTML = getBranchIndexHTML(brancheInfo[mainBranch.name].tempDir);
+        if (!indexHTML) {
+            indexHTML = `<!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Branch Viewer</title>
+                ${queryScript}
+            </head>
+            <body>
+            </body>
+            </html>`;
+        } else {
+            const scirptRegex = `<script\\s+(type\\s*=\\s*("module"|module)\\s*)?src\\s*=\\s*"\\.\\/(build|src)\\/${rootScript}"\\s*(type\\s*=\\s*"module"\\s*)?>\\s*<\\/\\s*script>`;
+            indexHTML = indexHTML.replace(new RegExp(scirptRegex, 'i'), queryScript);
+        }
+
+        // save new index.html to build directory
+        fs.writeFileSync(path.join(buildDir, 'index.html'), indexHTML, 'utf-8');
+    }
 
     // Save updated cache file
     fs.writeFileSync(cacheFile, JSON.stringify(buildCache, null, 2), 'utf-8');
