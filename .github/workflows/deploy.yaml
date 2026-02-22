@@ -5,6 +5,10 @@ on:
     types:
       - completed
 
+concurrency:
+  group: "pages-deployment"
+  cancel-in-progress: true
+
 jobs:
   build:
     # Only run if the trigger workflow succeeded
