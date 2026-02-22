@@ -17,7 +17,7 @@ class Main extends SvgPlus {
         this.camera = new PerspectiveCamera( 70, 1, 0.01, 10 );
         this.camera.position.z = 1;
         this.scene = new Scene();
-        const geometry = new BoxGeometry( 0.2, 0.2, 0.2 );
+        const geometry = new BoxGeometry( 0.3, 0.3, 0.3 );
         const material = new MeshNormalMaterial();
         this.mesh = new Mesh( geometry, material );
         this.scene.add( this.mesh );
@@ -28,7 +28,7 @@ class Main extends SvgPlus {
 
         this._resizeObserver = new ResizeObserver(this.resize.bind(this));
         this._resizeObserver.observe(this);
-        this.scene.background = new Color( 0xFFFFFF );
+        this.scene.background = new Color( 0xFFEEFF );
     }
 
 
