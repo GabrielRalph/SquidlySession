@@ -9,7 +9,8 @@ import {
     AmbientLight,
     TextureLoader,
     SRGBColorSpace,
-    EquirectangularReflectionMapping
+    EquirectangularReflectionMapping,
+    Color
 
 } from '../node_modules/three/src/Three.js';
 
@@ -46,7 +47,7 @@ class Main extends SvgPlus {
              texture.colorSpace = SRGBColorSpace;
             texture.mapping = EquirectangularReflectionMapping;
             this.scene.environment = texture;
-            // this.scene.background = texture;
+            this.scene.background = new Color(0xFFFFFF);;
             // scene.needsUpdate = true;
         })
     }
