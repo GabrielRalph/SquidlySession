@@ -517,7 +517,6 @@ export class SquidlySessionElement extends ShadowElement {
     setLoadState("connection", 0, "Connecting to session");
     if (sessionConnection === null) {
       let {key} = getQueryKey();
-      console.log("Session key:", key);
       if (key) {
         sessionConnection = new SessionConnection(key);
       } else {
