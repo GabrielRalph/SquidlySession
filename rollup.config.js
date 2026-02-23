@@ -84,7 +84,7 @@ function relURLAssetPlugin({ srcDir = 'src', outDir = 'build/assets' } = {}) {
 
                                 let urlMap = {};
                                 if (urls.length > 0) {
-                                    console.log(`${colorText("Processing CSS asset", 111)}: ${urls.map(u => u.url).join(', ')}`);
+                                    console.log(`${colorText("Processing CSS assets", 27)}: ${urls.map(u => u.url).join(', ')}`);
                                     for (let {url} of urls) {
                                         let assetPath = path.resolve(path.dirname(absPath), url);
                                         
@@ -109,6 +109,7 @@ function relURLAssetPlugin({ srcDir = 'src', outDir = 'build/assets' } = {}) {
                                     source: cssFile,
                                     ext: '.css'
                                 });
+                                console.log(`${colorText("Emitted CSS asset", 27)}: ${origPath} -> import.meta.ROLLUP_FILE_URL_${id}`);
                                 value = `import.meta.ROLLUP_FILE_URL_${id}`;
                                 fileMap[absPath] = value;
 
