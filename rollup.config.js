@@ -67,7 +67,7 @@ function relURLAssetPlugin({ srcDir = 'src', outDir = 'build/assets' } = {}) {
                                 });
                                 value = `import.meta.ROLLUP_FILE_URL_${id}`;
                                 fileMap[absPath] = value;
-                                console.log(`${colorText("Emitted JS asset", 118)}: ${origPath} -> ${value}`);
+                                console.log(`${colorText("Emitted JS asset", 40)}: ${origPath} -> ${value}`);
                             
                                 // Otherwise the file exists, is not a JS module, 
                             // and we haven't processed it yet, so we copy it

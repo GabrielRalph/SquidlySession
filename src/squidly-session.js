@@ -939,4 +939,4 @@ export class SquidlySession extends SquildyFeatureProxy {
   }
 }
 
-SvgPlus.defineHTMLElement(SquidlySessionElement);
+SvgPlus.defineHTMLElement(SquidlySessionElement, "squidly-session-element");
