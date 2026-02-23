@@ -288,7 +288,6 @@ export class WaveStateVariable extends TransitionVariable {
 
 export function getQueryKey(string = window.location.search) {
   let query = new URLSearchParams(string);
-  console.log("Query parameters:", [...query.entries()]);
   let key = [...query.entries()].find(([k, v]) => 
     k.match(/^([-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz]{20})$/) 
     && v == "" 
