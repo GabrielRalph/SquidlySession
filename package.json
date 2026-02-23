@@ -1,17 +1,17 @@
 {
-  "name": "testinggithubactions",
+  "name": "squidly-session",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "build": "rollup -c"
+    "build": "node ./build-scripts/build.js",
+    "compile-for-deployment": "rollup -c"
   },
-  "author": "",
+  "author": "Gabriel L. T. Ralph",
   "license": "ISC",
-  "description": "",
-
+  "description": "Squidly is an accessibility-focused 1-to-1 video call platform.",
   "dependencies": {
-    "rollup": "^4.58.0",
-    "three": "^0.183.1",
-    "@rollup/plugin-terser": "^0.4.4"
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-url": "^8.0.2",
+    "rollup": "^4.58.0"
   }
 }
