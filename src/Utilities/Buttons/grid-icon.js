@@ -159,6 +159,9 @@ export class GridIconSymbol extends SvgPlus{
                         "font-size": symbol.size || null
                     }
                 });
+            } else if ("svg" in symbol) {
+                this.innerHTML = symbol.svg;
+                
             }
         }
         this.isLoaded = true;
