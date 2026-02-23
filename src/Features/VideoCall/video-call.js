@@ -72,11 +72,20 @@ export default class VideoCall extends Features {
         }
     }
     
+    /**
+     * @param {import("../features-interface.js").SquidlySession} session
+     * @param {import("../features-interface.js").SessionDataFrame} sdata
+     */
     constructor(session, sdata){
         super(session, sdata);
         this.topPanelWidget = new VideoPanelWidget();
         this.sidePanelWidget = new VideoPanelWidget();
         this.mainAreaWidget = new VideoPanelWidget();
+
+        this.mainAreaWidget.isVisibleForUser = () => !session.isOccupied
+        this.sidePanelWidget.isVisibleForUser = () => session.getToggleState("sidePanel").some(s => s === true);
+        this.topPanelWidget.isVisibleForUser = () => session.getToggleState("topPanel").some(s => s === true);
+        
 
         /** @type {[VideoPanelWidget]} */
         this._allWidgets = [this.topPanelWidget, this.sidePanelWidget, this.mainAreaWidget]
@@ -102,22 +111,20 @@ export default class VideoCall extends Features {
          // For each video, set up a loop to capture frames and send them to the widgets
         for (let user in this.videos) {
             const video = this.videos[user];
-            video.addEventListener("suspend", () => {
-                this._setWidgetWaitingState(true, user);
-            })
-            video.addEventListener("loadeddata", () => {
-                this._setWidgetWaitingState(false, user);
-            })
-
+            
             this.mainAreaWidget.appendChild(video); // needed to get frames from some browsers
            
             if (!video.requestVideoFrameCallback instanceof Function) {
                 video.requestVideoFrameCallback = window.requestAnimationFrame.bind(window);
             }
-
             let next = () => {
+                if (video.videoWidth > 0 && video.videoHeight > 0) {
+                     this._setWidgetWaitingState(user, false);
+                }
                 for (let w of this._allWidgets) {
-                    w[user].captureFrame(this._muteState[user].video ? video : null);
+                    if (w.isVisibleForUser()) {
+                        w[user].captureFrame(this._muteState[user].video ? video : null);
+                    }
                 }
                 video.requestVideoFrameCallback(next);
             }
@@ -191,7 +198,7 @@ export default class VideoCall extends Features {
         })
     }
 
-    _setWidgetWaitingState(bool, user) {
+    _setWidgetWaitingState(user, bool) {
         this._allWidgets.forEach(w => {
             w[user].waiting = bool;
         })
@@ -202,10 +209,16 @@ export default class VideoCall extends Features {
      * @param {("host"|"participant")} user
      */
     _clearWidgets(user) {
-        this._allWidgets.forEach(w => {
-            w[user].emptyFrame();
-        });
+        this._setWidgetVisibility(user, false);
     }
+
+
+    _setWidgetVisibility(user, isVisible) {
+        this._allWidgets.forEach(w => {
+            w.toggleUserVideoDisplay(user, isVisible);
+        })
+    }
+
 
     /**
      * If the webRTC state changes, update the video streams accordingly
@@ -215,6 +228,7 @@ export default class VideoCall extends Features {
         let stream = state.remoteStream;
         if (state.isRemoteStreamReady) {
             this._setUserStream(stream, this.sdata.them)
+            this._setWidgetVisibility(this.sdata.them, true);
         }
     }
 
@@ -320,7 +334,7 @@ export default class VideoCall extends Features {
 
 
     async _onUserLeft(){
-        this._setWidgetWaitingState(true, this.sdata.them);
+        this._setWidgetWaitingState(this.sdata.them, true);
         setTimeout(() => {
             if (!this.sdata.isUserActive(this.sdata.them)) {
                 this._clearWidgets(this.sdata.them);
@@ -439,6 +453,8 @@ export default class VideoCall extends Features {
             })
 
             this._setVolume(this.session.settings.get(`${this.sdata.me}/volume/level`));
+
+            this._setWidgetVisibility(this.sdata.me, true);
         } else {
             this.throwInitialisationError("Could not start webcam. Please check your camera permissions.", "https://firebasestorage.googleapis.com/v0/b/eyesee-d0a42.appspot.com/o/videopermissions.mp4?alt=media&token=743c04cc-974e-4ed9-bb21-8f0ac56c2d83");
         }

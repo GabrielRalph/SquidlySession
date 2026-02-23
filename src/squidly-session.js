@@ -300,6 +300,9 @@ export class SquidlySessionElement extends ShadowElement {
   /** @type {ShadowElement[]} */
   keyboardCaptureElements = [];
 
+  /**  */
+  toggleStates = {}
+
   /** @type {string} */
   occupier = null;
 
@@ -380,16 +383,19 @@ export class SquidlySessionElement extends ShadowElement {
       let nextOccupier = name in this.occupiables ? this.occupiables[name] : null;
       name = name in this.occupiables ? name : null;
 
-      
-
+      this.nextOncupier = name;
       let proms = [
         this.currentOccupier instanceof Element
           ? this.currentOccupier.close()
           : null,
+
         nextOccupier != null ? nextOccupier.open() : null,
+
+        
         nextOccupier != null && nextOccupier.fixToolBarWhenOpen
           ? this.toolBar.toggleToolBar(false)
           : null,
+
         nextOccupier != null
           ? this.togglePanel(this.panelMode, true)
           : this.togglePanel(this.panelMode, false),
@@ -881,7 +887,9 @@ export class SquidlySessionElement extends ShadowElement {
    * @param {boolean} isShown
    * */
   async togglePanel(name, isShown) {
+    this.toggleStates[name] = [true, isShown];
     await this.sessionView.show(name, isShown);
+    this.toggleStates[name] = [false, isShown];
   }
 }
 
@@ -913,6 +921,23 @@ export class SquidlySession extends SquildyFeatureProxy {
    */
   get currentOpenFeature() {
     return $$.get(this).occupier;
+  }
+
+  get nextOpenFeature() {
+    return $$.get(this).nextOncupier;
+  }
+
+
+  /**
+   * Gets the toggle state of a panel.
+   * @param {string} panel - The name of the panel to get the toggle state for.
+   * @returns {[boolean, boolean]} An array where the first element indicates 
+   *                              if the panel is currently toggling, and the 
+   *                              second element indicates if the panel is 
+   *                              shown or hidden.
+   */
+  getToggleState(panel) {
+    return [...($$.get(this).toggleStates[panel] || [false, false])];
   }
 
 
