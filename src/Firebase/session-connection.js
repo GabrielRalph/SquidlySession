@@ -6,17 +6,6 @@ import { SvgPlus } from "../SvgPlus/4.js";
 const UPDATE_CYCLE_TIME_MS = 3 * 1000;
 const MAX_TIME_SINCE_PING = 5 * 1000;
 
-
-window.createSession = async () => {
-    let res = await callFunction("sessions-create", {startTime: 123});
-    let sessionID = res.data.sid;
-    if (sessionID == null) {
-        console.log(res);
-    } else {
-        window.location = window.location.origin + "/?" + sessionID;
-    }
-}
-
 export const ERROR_CODES = {
     REQUEST_DATA: 0,
     REQUEST_AUTH: 1,
@@ -29,6 +18,18 @@ export const ERROR_CODES = {
     SESSION_NOT_STARTED: 7,
     JOINING_IN_PROCESS: 8,
     WAITING_APPROVAL: 9,
+
+    NO_SESSION_KEY: 10,
+}
+
+class SessionConnectionError extends Error {
+    constructor(code, message) {
+        super(message);
+        this.code = code;
+    }
+    static NO_SESSION_KEY(sid) {
+        return new SessionConnectionError(ERROR_CODES.NO_SESSION_KEY, `The session ID "${sid}" is not valid.`);
+    }
 }
 
 export class SessionConnection extends FirebaseFrame {
@@ -41,8 +42,8 @@ export class SessionConnection extends FirebaseFrame {
     /** @type {string} */
     sid;
     constructor(sid){
-        if (sid === null) {
-            throw "No SID"
+        if (typeof sid !== "string") {
+            throw SessionConnectionError.NO_SESSION_KEY(sid);
         }
         super(`sessions-v3/${sid}`);
         this.sid = sid;

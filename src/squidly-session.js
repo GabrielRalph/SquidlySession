@@ -303,6 +303,8 @@ export class SquidlySessionElement extends ShadowElement {
   /** @type {OccupiableWindow} */
   currentOccupier = null;
 
+  panelMode = "sidePanel";
+
   constructor(el) {
     if (instanceCount !== 0) {
       throw "There can only be one instance of the squidly session element per document";
@@ -369,8 +371,6 @@ export class SquidlySessionElement extends ShadowElement {
     } else {
     }
   }
-
-  panelMode = "sidePanel";
 
   async openWindow(name) {
     if (name != this.occupier) {
@@ -512,15 +512,16 @@ export class SquidlySessionElement extends ShadowElement {
   }
 
   async initialiseSessionConnection() {
+    try{
     let error = [false, ""];
     setLoadState("connection", 0, "Connecting to session");
     if (sessionConnection === null) {
-      let key = getQueryKey();
-
-      if (key == null) {
-        error = [ERROR_CODES.NO_SESSION, "no key provided"];
+      let {key} = getQueryKey();
+      console.log("Session key:", key);
+      if (key) {
+        sessionConnection = new SessionConnection(key);
       } else {
-        sessionConnection = new SessionConnection(key.key);
+        error = [ERROR_CODES.NO_SESSION, "no key provided"];
       }
     }
 
@@ -561,6 +562,10 @@ export class SquidlySessionElement extends ShadowElement {
 
     this.endlinkHost = this.endlinkHost;
     this.endlinkParticipant = this.endlinkParticipant;
+    }catch(e) {
+      console.error("Error initialising session connection:", e.stack);
+      this.loaderText = `An unexpected error occurred while connecting to the session. Please refresh and try again.`;
+    }
   }
 
   async initialiseFixedAspect() {

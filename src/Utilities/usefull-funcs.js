@@ -287,18 +287,17 @@ export class WaveStateVariable extends TransitionVariable {
 }
 
 export function getQueryKey(string = window.location.search) {
-  let key = null;
-  try {
-    let match = string.match(/^\?([ !"%&'()*+\,\-\/0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ\^_`abcdefghijklmnopqrstuvwxyz{|}]{20})(?:\.(\w*))?$/);
-    if (match) {
-      if (!match[2]) match[2] = null;
-      key = {
-        key: match[1],
-        option: match[2]
-      }
-    }
-  } catch (e) { }
-  return key;
+  let query = new URLSearchParams(string);
+  console.log("Query parameters:", [...query.entries()]);
+  let key = [...query.entries()].find(([k, v]) => 
+    k.match(/^([-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz]{20})$/) 
+    && v == "" 
+  );
+
+  return {
+    key: key ? key[0] : null,
+    options: query,
+  };
 }
 
 export function makeLogger(name, style) {

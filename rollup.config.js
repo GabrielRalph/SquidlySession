@@ -192,19 +192,19 @@ export default {
         dir: outputDir,
         format: 'es',
         plugins: [
-			// terser({
-			// 	mangle: {
-			// 		toplevel: true
-			// 	},
-			// 	compress: {
-			// 		passes: 3,
-			// 		pure_getters: true,
-			// 		unsafe: true
-			// 	},
-			// 	format: {
-			// 		comments: false
-			// 	}
-			// })
+			terser({
+				mangle: {
+					toplevel: true
+				},
+				compress: {
+					passes: 3,
+					pure_getters: true,
+					unsafe: true
+				},
+				format: {
+					comments: false
+				}
+			})
 		]
     },
     plugins: [

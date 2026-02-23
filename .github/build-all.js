@@ -218,4 +218,4 @@ function buildBranches(buildDir, rootScript = "index.js", tempDir = "temp") {
 }
 
 
-buildBranches('public', rootScript = "squidly-session.js");
+buildBranches('public', "squidly-session.js");
