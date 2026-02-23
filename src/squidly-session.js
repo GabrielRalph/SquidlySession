@@ -297,6 +297,9 @@ export class SquidlySessionElement extends ShadowElement {
   /** @type {Object.<string, OccupiableWindow>} */
   occupiables = {};
 
+  /** @type {ShadowElement[]} */
+  keyboardCaptureElements = [];
+
   /** @type {string} */
   occupier = null;
 
@@ -465,13 +468,18 @@ export class SquidlySessionElement extends ShadowElement {
             );
           } else {
             let res = this.sessionView[func](layer.area, element);
-            if (res instanceof Element)
+
+            if (res) {
               res.setAttribute("name", name + "." + key);
-            if (layer.index) {
-              res.styles = { "z-index": layer.index };
+              if (layer.index) {
+                res.styles = { "z-index": layer.index };
+              }
             }
+
             if (SvgPlus.is(element, OccupiableWindow)) {
               occupiables.push([element, key]);
+            } else if (element.captureKeyboardEvents === true) {
+              this.keyboardCaptureElements.push(element);
             }
           }
         }
@@ -707,6 +715,15 @@ export class SquidlySessionElement extends ShadowElement {
   };
 
   async initialiseKeyboardShortcuts() {
+    let copyEvent = (e) => {
+        let json = {}
+        for (let key in e) json[key] = e[key];
+        json.cancelable = true;
+        json.bubbles = false;
+        const eventCopy = new KeyboardEvent("keydown", json);
+        return eventCopy;
+    }
+
     window.addEventListener("keydown", (e) => {
       let active = getDeepActiveElement();
 
@@ -714,17 +731,21 @@ export class SquidlySessionElement extends ShadowElement {
       if (active === document.body || active?.tagName === "IFRAME") {
 
         // Create a copy of the event that can be dispatched to the occupier
-        let json = {}
-        for (let key in e) json[key] = e[key];
-        json.cancelable = true;
-        json.bubbles = false;
-        const copyEvent = new KeyboardEvent("keydown", json);
-        if (this.currentOccupier instanceof Element) {
-          this.currentOccupier.dispatchEvent(copyEvent);
+        let keyboardElements = [this.currentOccupier, ...this.keyboardCaptureElements].filter((el) => el);
+        console.log("Dispatching key event to", keyboardElements);
+        let isPrevented = false;
+        for (let element of keyboardElements) {
+          const event = copyEvent(e);
+          element.dispatchEvent(event);
+          if (event.defaultPrevented) {
+            isPrevented = true;
+            break;
+          }
         }
+
         
         // Check the occupier didn't prevent the default action for the key event
-        if (!copyEvent.defaultPrevented) {
+        if (!isPrevented) {
 
           // Given the key is a valid shortcut and the shortcut is enabled in 
           // settings, trigger the corresponding action.

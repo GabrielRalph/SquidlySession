@@ -51,7 +51,7 @@
 
 
 .slider .slot-1, .slider .slot-2 {
-    will-change: transform;;
+    will-change: transform;
 }
 
 .slider[y] > .slot-1, 

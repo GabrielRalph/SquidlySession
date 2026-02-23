@@ -112,7 +112,7 @@ class LetterLayout extends GridLayout {
 export class FolderKeyboard extends KeyboardLayout {
     constructor() {
         super(4, 5);
-
+        this.classList.add("folder-keyboard");
         this.events = {
             "show-letters": this.showLetters.bind(this),
             "close": e => {

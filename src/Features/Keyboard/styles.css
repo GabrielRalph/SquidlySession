@@ -21,3 +21,8 @@ grid-layout {
 .grid-icon .content {
     gap: 0;
 }
+
+
+.folder-keyboard .grid-icon[suggestion] .content {
+    font-size: 1.5em;
+}

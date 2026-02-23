@@ -33,7 +33,9 @@ class Keyboard extends ShadowElement {
 
         this.events = {
             "keydown": (e) => {
-                this.currentKeyboard.handleKeyEvent(e);
+                if (this.root.shown) {
+                    this.currentKeyboard.handleKeyEvent(e);
+                }
             }
         }
 
@@ -82,6 +84,9 @@ class Keyboard extends ShadowElement {
         })
     }
 
+    get captureKeyboardEvents() {
+        return true;
+    }
 
     static get usedStyleSheets() {
         return [
@@ -149,13 +154,7 @@ export default class KeyboardFeature extends Features {
 
 
     async initialise() {
-        this.session.toolBar.addMenuItem("share", {
-            name: "keyboard",
-            displayValue: "Keyboard",
-            onSelect: () => {
-                this.open();
-            }
-        })
+       
     }
 
     /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */

@@ -195,6 +195,7 @@ export class SuggestionIcon extends GridIcon {
             }
         }, group);
         this.value = null;
+        this.toggleAttribute("suggestion", true);
     }
 
     set value(word) {
