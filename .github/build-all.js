@@ -61,7 +61,7 @@ function buildBranch(dir) {
         execSync('npm install', { cwd: dir, stdio: 'inherit' });
 
         console.log(`Building project...`);
-        execSync('npm run build', { cwd: dir, stdio: 'inherit' });
+        execSync('npm run compile-for-deployment', { cwd: dir, stdio: 'inherit' });
 
         console.log(`Cleaning up build files...`);
         fs.rmSync(path.join(dir, 'node_modules'), { recursive: true, force: true });
@@ -132,9 +132,15 @@ function buildBranches(buildDir, rootScript = "index.js", tempDir = "temp") {
                 } else {
                     console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n~~~~ NO BUILD SCRIPT IN BRANCH: '" + branch + "' ~~~~\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
                 }
-                brancheInfo[name] = {
-                    src: srcCode,
-                    tempDir: branchDir,
+
+                // check if srcCode directory exists before adding to brancheInfo
+                if (fs.existsSync(srcCode)  && fs.lstatSync(srcCode).isDirectory()) {
+                    brancheInfo[name] = {
+                        src: srcCode,
+                        tempDir: branchDir,
+                    }
+                } else {
+                    console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n~~~~ NO SRC OR BUILD DIR IN BRANCH: '" + branch + "' ~~~~\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
                 }
             } else {
                 console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n~~~~ NO SRC IN BRANCH: '" + branch + "' ~~~~\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
