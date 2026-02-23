@@ -1,6 +1,6 @@
 import { SvgPlus } from "../SvgPlus/4.js";
 import { HideShowTransition } from "./hide-show.js";
-import { relURL } from "./usefull-funcs.js";
+import { delay, relURL } from "./usefull-funcs.js";
 
 
 class RotaterFrame extends HideShowTransition {
@@ -135,10 +135,13 @@ export class Slider extends SlotTransition {
     constructor(mode = "vertical"){
         super("div");
         this.class = "slider";
-        this.slot1 = this.createChild(HideShowTransition, {class: "slot-1"}, "div", "up");
-        this.slot2 = this.createChild(HideShowTransition, {class: "slot-2"}, "div", "up");
-        this.slot1.shown = true;
-        this._directions = mode === "vertical" ? ["down", "up"] : ["left", "right"];
+        this.slots = this.createChild(HideShowTransition, {class: "slider-transitioner"}, "div", "up");
+        this.slots.hiddenStyle = {"display": null};
+        this.slots.shown = true;
+
+        this.slot1 = this.slots.createChild("div", {class: "slot"});
+        this.slot2 = this.slots.createChild("div", {class: "slot", mode: "none"});
+        this.mode = mode;
     }
 
     /**
@@ -146,11 +149,18 @@ export class Slider extends SlotTransition {
      * @param {"vertical"|"horizontal"} mode
      */
     set mode(mode){
-        if (mode === "vertical") {
-            this._directions = ["down", "up"];
-        } else if (mode === "horizontal") {
+        if (mode === "horizontal") {
+            this.setAttribute("mode", "horizontal");
             this._directions = ["left", "right"];
+            this._mode = "horizontal";
+        } else {
+            this.setAttribute("mode", "vertical");
+            this._directions = ["down", "up"];
+            this._mode = "vertical";
         }
+    }
+    get mode(){
+        return this._mode;
     }
 
     /** @return {string} The slider mode */
@@ -176,7 +186,7 @@ export class Slider extends SlotTransition {
     async _applyTransition(content, direction = 1) {
         let immediate = !(direction === 1 || direction === -1);
        
-        let element = immediate ? this.shownSlot : this.hiddenSlot;
+        let element = immediate ? this.slot1 : this.slot2;
         
         element.innerHTML = "";
         if (content instanceof Element) {
@@ -184,26 +194,35 @@ export class Slider extends SlotTransition {
         }
 
         if (!immediate) {
-            await this._slide(direction > 0);
+            let [dL, dR] = this._directions;
+            let dir = direction > 0 ? dL : dR;
+            let opDir = direction > 0 ? dR : dL;
+            if (this.mode == "vertical") {
+                this.slot2.setAttribute("mode", opDir);
+                this.slots.animationSequence = dir
+            } else {
+                this.slot2.setAttribute("mode", dir);
+                this.slots.animationSequence = dir;
+            }
+            await this.slots.hide();
+
+            this.slot2.setAttribute("mode", "none");
+            this.slot1.innerHTML = "";
+            this.slot1.appendChild(content)
+            this.slots.shown = true;
         }
     }
 
 
     async _slide(direction = false){
-        let [dL, dR] = this._directions;
-        this.shownSlot.animationSequence = direction ? dL : dR;
-        this.hiddenSlot.animationSequence = direction ? dR : dL;
-        await Promise.all([
-            this.slot1.toggle(!this.slot1.shown, this.transitionTime * 1000),
-            this.slot2.toggle(!this.slot2.shown, this.transitionTime * 1000)
-        ]);
+        
     }
 
     get shownSlot(){
-        return this.slot1.shown ? this.slot1 : this.slot2;
+        return this.slot1;
     }
     get hiddenSlot() {
-        return this.slot1.shown ? this.slot2 : this.slot1;
+        return this.slot2;
     }
 
     static get styleSheet(){

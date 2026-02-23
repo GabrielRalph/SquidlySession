@@ -173,8 +173,8 @@ export class FolderKeyboard extends KeyboardLayout {
     }
 
     buildKeyboard() {
-        [this.closeIcon] = this.addItemInstances(KeyboardIcon, ["close", "space", null, null, "call2action"], 0, 0);
-        this._textArea = this.addItemInstance(AccessTextArea,null, 0, [2, 3]);
+        [this.closeIcon] = this.addItemInstances(KeyboardIcon, ["close", null, null, null, "space"], 0, 0);
+        this._textArea = this.addItemInstance(AccessTextArea,null, 0, [1, 3]);
 
         let rotater = new Rotater();
         this.add(rotater, [1,3], [0,4]);
