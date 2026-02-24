@@ -13,15 +13,6 @@ const ScreenAreaNames = {
     popupArea: "popup-area"
 }
 
-function copyEvent(event) {
-    let json = {}
-    for (let key in event) json[key] = event[key];
-    json.bubbles = false;
-    let copyevent = new event.__proto__.constructor("sv-" + json.type, json);
-    copyevent.sessionView = true;
-    return copyevent
-}
-
 function isTouch(e) {
     if (Window.TouchEvent) return e instanceof TouchEvent
     else return "touches" in e;
@@ -305,85 +296,82 @@ export class SessionView extends ShadowElement {
         this.hideableElements = {sideScreen, topPanel, sidePanel, bottomPanel, toolBarArea};
         this.panels = {side: sidePanel, top: topPanel, bottom: bottomPanel, tools: toolBarArea};
         this.sideScreen = sideScreen;
-
-        this._registerWindowEventListeners();
-       
     }
 
 
-   _registerWindowEventListeners(){
-        let oldMove = new Set();
-        window.addEventListener("mousemove", (e) => {
-            let move = new Set(this.getElementsAtPoints(new Vector(e)));
-            move.forEach(el => el.dispatchEvent(copyEvent(e)))
+//    _registerWindowEventListeners(){
+//         let oldMove = new Set();
+//         window.addEventListener("mousemove", (e) => {
+//             let move = new Set(this.getElementsAtPoints(new Vector(e)));
+//             move.forEach(el => el.dispatchEvent(copyEvent(e)))
             
-            let leave = new MouseEvent("mouseleave");
-            for (let el of oldMove) {
-                if (!(move.has(el))) {
-                    el.dispatchEvent(copyEvent(leave))
-                }
-            }
-            oldMove = move;
-        })
+//             let leave = new MouseEvent("mouseleave");
+//             for (let el of oldMove) {
+//                 if (!(move.has(el))) {
+//                     el.dispatchEvent(copyEvent(leave))
+//                 }
+//             }
+//             oldMove = move;
+//         })
 
-        window.addEventListener("mousedown", (e) => {
-            let elements = this.getElementsAtPoints(new Vector(e));
-            elements.forEach(el => el.dispatchEvent(copyEvent(e)))
-        })
-        window.addEventListener("mouseup", (e) => {
-            let elements = this.getElementsAtPoints(new Vector(e));
-            elements.forEach(el => el.dispatchEvent(copyEvent(e)))
-        })
+//         window.addEventListener("mousedown", (e) => {
+//             let elements = this.getElementsAtPoints(new Vector(e));
+//             elements.forEach(el => el.dispatchEvent(copyEvent(e)))
+//         })
+//         window.addEventListener("mouseup", (e) => {
+//             let elements = this.getElementsAtPoints(new Vector(e));
+//             elements.forEach(el => el.dispatchEvent(copyEvent(e)))
+//         })
 
-        window.addEventListener("mouseout", (e) => {
-            let leave = new MouseEvent("mouseleave");
-            for (let el of oldMove) {
-                el.dispatchEvent(copyEvent(leave))
-            }
-            oldMove = new Set();
-        })
-
-
-        let lastTouch = [];
-        window.addEventListener("touchstart", (e) => {
-            let {touches} = e;
-            let points = [...touches].map(t => new Vector(t.clientX, t.clientY));
-            let elements = this.getElementsAtPoints(points);
-            elements.forEach(el => el.dispatchEvent(copyEvent(e)));
-            lastTouch = elements
-        });
-        window.addEventListener("touchmove", (e) => {
-            let {touches} = e;
-            let points = [...touches].map(t => new Vector(t.clientX, t.clientY));
-            let elements = this.getElementsAtPoints(points);
-            elements.forEach(el => el.dispatchEvent(copyEvent(e)));
-            lastTouch = elements
-        })
-        window.addEventListener("touchend", (e) => {
-            for (let el of lastTouch) {
-                el.dispatchEvent(copyEvent(e));
-            }
-            lastTouch = [];
-        })
-
-    }
+//         window.addEventListener("mouseout", (e) => {
+//             let leave = new MouseEvent("mouseleave");
+//             for (let el of oldMove) {
+//                 el.dispatchEvent(copyEvent(leave))
+//             }
+//             oldMove = new Set();
+//         })
 
 
-    getElementsAtPoints(points) {
-        if (points instanceof Vector) points = [points];
+//         let lastTouch = [];
+//         window.addEventListener("touchstart", (e) => {
+//             let {touches} = e;
+//             let points = [...touches].map(t => new Vector(t.clientX, t.clientY));
+//             let elements = this.getElementsAtPoints(points);
+//             elements.forEach(el => el.dispatchEvent(copyEvent(e)));
+//             lastTouch = elements
+//         });
+//         window.addEventListener("touchmove", (e) => {
+//             let {touches} = e;
+//             let points = [...touches].map(t => new Vector(t.clientX, t.clientY));
+//             let elements = this.getElementsAtPoints(points);
+//             elements.forEach(el => el.dispatchEvent(copyEvent(e)));
+//             lastTouch = elements
+//         })
+//         window.addEventListener("touchend", (e) => {
+//             for (let el of lastTouch) {
+//                 el.dispatchEvent(copyEvent(e));
+//             }
+//             lastTouch = [];
+//         })
 
-        let elements = [...Object.values(this.panels).map(p => p.content.children[0]), ...this.screenAreas.keys()].filter((a) => a instanceof Element)
+//     }
+
+
+//     getElementsAtPoints(points) {
+//         if (points instanceof Vector) points = [points];
+
+//         let elements = [...Object.values(this.panels).map(p => p.content.children[0]), ...this.screenAreas.keys()].filter((a) => a instanceof Element)
         
-        return elements.filter(el => {
-            let [pos, size] = el.bbox;
-            let c = pos.add(size);
+//         return elements.filter(el => {
+//             let [pos, size] = el.bbox;
+//             let c = pos.add(size);
 
-            let inside = points.map(p => p.x > pos.x && p.x < c.x && p.y > pos.y && p.y < c.y);
-            inside = inside.reduce((a, b) => a || b)
+//             let inside = points.map(p => p.x > pos.x && p.x < c.x && p.y > pos.y && p.y < c.y);
+//             inside = inside.reduce((a, b) => a || b)
 
-            return inside;
-        })
-    }
+//             return inside;
+//         })
+//     }
 
     /** setPanelContent can be used to the content of a panel 
      * @param {("top"|"bottom"|"side"|"tools")} name

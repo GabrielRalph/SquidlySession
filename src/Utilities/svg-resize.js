@@ -1,7 +1,7 @@
 
 import { SvgPlus, Vector } from "../SvgPlus/4.js";
 import { HideShow, HideShowTransition } from "./hide-show.js";
-import { dotGrid, transition } from "./usefull-funcs.js";
+import { delay, dotGrid, transition } from "./usefull-funcs.js";
 
 export class SvgResize extends HideShowTransition {
   constructor() {
@@ -10,18 +10,25 @@ export class SvgResize extends HideShowTransition {
     this.W = 0;
     this.H = 0;
     this._drawbables = [];
-    this.resizeObserver = new ResizeObserver(() => {
-      this.resize();
-      this.draw();
+    this.resizeObserver = new ResizeObserver((e) => {
+      let { width, height } = e[0].contentRect;
+      this.W = width;
+      this.H = height;
+      this._changeFlag = true;
+      if (!this._rendering) {
+        this.resize();
+        this.draw();   
+      }   
     })
     this.resizeObserver.observe(this);
   }
 
   resize() {
-    let {clientWidth, clientHeight} = this;
-    this.props = { viewBox: `0 0 ${clientWidth} ${clientHeight}` };
-    this.W = clientWidth;
-    this.H = clientHeight
+    if (this._changeFlag) {
+      let {W, H} = this;
+      this.props = { viewBox: `0 0 ${W} ${H}` };
+    }
+    this._changeFlag = false;
   }
 
   addDrawable(drawable) {
@@ -55,22 +62,29 @@ export class SvgResize extends HideShowTransition {
   }
 
   start() {
-    let stop = false;
-    this.stop();
-    this.stop = () => { stop = true }
-    let next = () => {
-      if (!stop) {
-        this.resize();
-        this.draw();
-        window.requestAnimationFrame(next);
-      } else {
-        this.stop = () => { }
+    if (!this._rendering) {
+      this._rendering = true
+      let stop = false;
+      
+      let renderLoop = async () => {
+        while (!stop) {
+          this.resize();
+          this.draw();
+          await delay()
+        }
+        this._rendering = false;
+      }
+
+      let renderPromise = renderLoop();
+
+      this.stop = async () => {
+        stop = true;
+        await renderPromise;
       }
     }
-    window.requestAnimationFrame(next);
   }
 
-  stop() { }
+  async stop() { }
 }
 
 const CURSOR_PATHS = {

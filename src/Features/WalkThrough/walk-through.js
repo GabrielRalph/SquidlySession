@@ -1,9 +1,8 @@
 import { Vector } from "../../SvgPlus/vector.js";
 import { GridIcon, GridLayout } from "../../Utilities/Buttons/grid-icon.js";
 import { HideShowTransition } from "../../Utilities/hide-show.js";
-import { ShadowElement } from "../../Utilities/shadow-element.js";
 import { delay, relURL } from "../../Utilities/usefull-funcs.js";
-import { Features } from "../features-interface.js";
+import { Features, SquidlyFeatureWindow } from "../features-interface.js";
 import { MaskOverlay } from "./mask-overlay.js";
 
 /**
@@ -57,9 +56,9 @@ class HintsBox extends HideShowTransition {
  * This is the main overlay element for the walk-through feature.
  * It contains the mask overlay and the hints box. You can add 
  * more elements as needed.
- * @extends {ShadowElement}
+ * @extends {SquidlyFeatureWindow<SvgPlus>}
  */
-class WalkThroughOverlayElement extends ShadowElement {
+class WalkThroughOverlayElement extends SquidlyFeatureWindow {
     constructor() {
         super("walk-through-overlay");
 

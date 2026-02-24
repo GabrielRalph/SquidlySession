@@ -4,8 +4,9 @@ import { relURL } from '../Utilities/usefull-funcs.js';
 /** @typedef {import('./Settings/settings.js').default} SettingsFeature */
 /** @typedef {import('./Cursors/cursors.js').default} Cursors */
 /** @typedef {import('./EyeGaze/eye-gaze.js').default} EyeGazeFeature */
-/** @typedef {import('./VideoCall/video-call.js').default} VideoCall */
 /** @typedef {import('./Text2Speech/text2speech.js').default} Text2Speech */
+/** @typedef {import('./VideoCall/video-call.js').default} VideoCall */
+/** @typedef {import('./Keyboard/keyboard.js').default} KeyboardFeature */
 /** @typedef {import('./Notifications/notifications.js').default} Notifications */
 /** @typedef {import('./AccessControl/access-control.js').default} AccessControl */
 /** @typedef {import('./AAC/grid.js').default} AACGrid */
@@ -28,11 +29,14 @@ export class SquildyFeatureProxy {
 	/** @return {EyeGazeFeature} */
 	get eyeGaze() { return this.getFeature("eyeGaze"); }
 
+	/** @return {Text2Speech} */
+	get text2speech() { return this.getFeature("text2speech"); }
+
 	/** @return {VideoCall} */
 	get videoCall() { return this.getFeature("videoCall"); }
 
-	/** @return {Text2Speech} */
-	get text2speech() { return this.getFeature("text2speech"); }
+	/** @return {KeyboardFeature} */
+	get keyboard() { return this.getFeature("keyboard"); }
 
 	/** @return {Notifications} */
 	get notifications() { return this.getFeature("notifications"); }
@@ -65,8 +69,9 @@ export const FeaturesList = [
 	[() => import("./Settings/settings.js"), "settings"],
 	[() => import("./Cursors/cursors.js"), "cursors"],
 	[() => import("./EyeGaze/eye-gaze.js"), "eyeGaze"],
-	[() => import("./VideoCall/video-call.js"), "videoCall"],
 	[() => import("./Text2Speech/text2speech.js"), "text2speech"],
+	[() => import("./VideoCall/video-call.js"), "videoCall"],
+	[() => import("./Keyboard/keyboard.js"), "keyboard"],
 	[() => import("./Notifications/notifications.js"), "notifications"],
 	[() => import("./AccessControl/access-control.js"), "accessControl"],
 	[() => import("./AAC/grid.js"), "aacGrid"],

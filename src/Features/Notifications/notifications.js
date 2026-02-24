@@ -1,8 +1,7 @@
-import { ShadowElement } from "../../Utilities/shadow-element.js";
 import { delay, relURL } from "../../Utilities/usefull-funcs.js";
-import { Features } from "../features-interface.js";
+import { Features, SquidlyFeatureWindow } from "../features-interface.js";
 
-class NotificationPanel extends ShadowElement {
+class NotificationPanel extends SquidlyFeatureWindow {
     
     constructor(){
         super("notification-panel");

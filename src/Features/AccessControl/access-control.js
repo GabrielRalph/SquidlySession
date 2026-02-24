@@ -1,8 +1,7 @@
 import { SvgPlus, Vector } from "../../SvgPlus/4.js";
 import { AccessButton, getButtonAtPoint, getButtonGroups } from "../../Utilities/Buttons/access-buttons.js";
-import { ShadowElement } from "../../Utilities/shadow-element.js";
-import { delay, relURL, WaveStateVariable } from "../../Utilities/usefull-funcs.js";
-import { Features } from "../features-interface.js";
+import { relURL, WaveStateVariable } from "../../Utilities/usefull-funcs.js";
+import { Features, SquidlyFeatureWindow } from "../features-interface.js";
 
 let SwitchTime = 1; // ms
 let DwellTime = 1; // ms
@@ -101,7 +100,7 @@ class CircleLoader extends SvgPlus {
     }
 }
 
-class ControlOverlay extends ShadowElement {
+class ControlOverlay extends SquidlyFeatureWindow {
     loaders = new Map();
     switchLoaders = [];
     constructor(){
@@ -224,6 +223,10 @@ class ControlOverlay extends ShadowElement {
         this.styles = {
             "pointer-events": bool ? "all" : null,
         }
+    }
+
+    static get capturedWindowEvents() {
+        return ["mousedown"]
     }
 
     static get usedStyleSheets() {return [relURL("/access-control.css", import.meta)]}

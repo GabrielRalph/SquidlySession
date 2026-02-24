@@ -1,10 +1,10 @@
-import { relURL } from '../../../Utilities/usefull-funcs.js';
+import { relURL } from "../../../Utilities/usefull-funcs.js";
 
 export async function setupVoiceDetection(stream, cb) {
     const audioContext = new AudioContext();
   
     // Load the worklet
-    await audioContext.audioWorklet.addModule(relURL("./voice-detector-worklet.js", import.meta));
+    await audioContext.audioWorklet.addModule(relURL('voice-detector-worklet.js', import.meta));
   
     // Create a MediaStreamSource from input stream
     const source = audioContext.createMediaStreamSource(stream);

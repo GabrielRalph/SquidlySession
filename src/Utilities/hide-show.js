@@ -134,6 +134,29 @@ export class HideShowTransition extends SvgPlus {
     }
 
 
+    set hiddenStyle(value) {
+        this._hiddenStyle = value;
+        if (!this.shown) {
+            this.styles = value;
+        }
+    }
+
+    get hiddenStyle() {
+        return this._hiddenStyle;
+    }
+
+    set shownStyle(value) {
+        this._shownStyle = value;
+        if (this.shown) {
+            this.styles = value;
+        }
+    }
+
+    get shownStyle() {
+        return this._shownStyle;
+    }
+
+
     set animationSequence(value) {
       if (typeof value === "string") {
          // Determine animation sequence based on mode
@@ -197,6 +220,7 @@ export class HideShowTransition extends SvgPlus {
             animation.oncancel = () => resolve(true)
           });
         }
+        this._animation = null;
 
         // Apply final styles if not canceled
         if (!isCanceled) {
