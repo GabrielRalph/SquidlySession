@@ -188,6 +188,8 @@ export class HideShowTransition extends SvgPlus {
 
         // Ensure element is visible before animating
         this.styles = this.intermediateStyle;
+        
+        void this.offsetWidth;// /x/ Force reflow to apply styles
 
         // If time is 0 set styles immediately otherwise animate
         let isCanceled = false;
