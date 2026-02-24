@@ -2,16 +2,15 @@ import { AccessTextArea } from "../../Utilities/access-textarea.js";
 import {  GridIcon } from "../../Utilities/Buttons/grid-icon.js";
 import { HideShowTransition } from "../../Utilities/hide-show.js";
 import { Rotater, Slider } from "../../Utilities/rotater.js";
-import { ShadowElement } from "../../Utilities/shadow-element.js";
 import { PromiseChain, relURL } from "../../Utilities/usefull-funcs.js";
-import { Features } from "../features-interface.js";
+import { Features, SquidlyFeatureWindow } from "../features-interface.js";
 import { FolderKeyboard } from "./folder-keyboard.js";
 import { QwertyKeyboard } from "./qwerty-keyboard.js";
 
 /**
- * @extends {ShadowElement<HideShowTransition>}
+ * @extends {SquidlyFeatureWindow<HideShowTransition>}
  */
-class Keyboard extends ShadowElement {
+class Keyboard extends SquidlyFeatureWindow {
 
     /**
      * @param {import("../features-interface.js").SquidlySession} session
@@ -21,7 +20,6 @@ class Keyboard extends ShadowElement {
         super("keyboard-window", root);
         this.session = session;
         this.promiseQueue = new PromiseChain();
-
         this.slider = this.createChild(Slider, {}, "horizontal");
 
         this.keyboards = [
@@ -84,7 +82,7 @@ class Keyboard extends ShadowElement {
         })
     }
 
-    get captureKeyboardEvents() {
+    static get captureKeyboardEvents() {
         return true;
     }
 

@@ -1,12 +1,11 @@
-import { SvgPlus } from "../../SvgPlus/4.js";
 import { Vector } from "../../SvgPlus/vector.js";
 import { HideShowTransition } from "../../Utilities/hide-show.js";
-import { ShadowElement } from "../../Utilities/shadow-element.js";
 import { POINTERS, SvgResize } from "../../Utilities/svg-resize.js";
-import { delay, relURL } from "../../Utilities/usefull-funcs.js";
-import { Features } from "../features-interface.js";
+import { Features, SquidlyFeatureWindow } from "../features-interface.js";
 
 const MAXTIME = 5000;
+const USE_FIREBASE_FOR_POSITIONS = false;
+console.log("Cursor position updates using " + (USE_FIREBASE_FOR_POSITIONS ? "Firebase" : "VideoCall data channel"))
 
 const size2num = {
     "small": 1,
@@ -20,7 +19,6 @@ const col2num = {
     "colour-4":3,
     "colour-5": 4,
 }
-
 const style2Key = {
     "arrow": "a",
     "guide": "r",
@@ -88,12 +86,12 @@ export default class Cursors extends Features {
 
     constructor(session, sDataFrame){
         super(session, sDataFrame);
-        this.cursorsPanel = new ShadowElement("cursors-panel");
+        this.cursorsPanel = new SquidlyFeatureWindow("cursors-panel");
         this.svg = this.cursorsPanel.createChild(SvgResize);
         this.svg.shown = true;
         this.svg.start();
-        this.fixedAspectArea = new ShadowElement("fixed-aspect-reference");
-        this.fullAspectArea = new ShadowElement("full-aspect-reference");
+        this.fixedAspectArea = new SquidlyFeatureWindow("fixed-aspect-reference");
+        this.fullAspectArea = new SquidlyFeatureWindow("full-aspect-reference");
         this.entireScreen = this.cursorsPanel;
     }   
 
@@ -125,11 +123,12 @@ export default class Cursors extends Features {
             position = this.rel_bbox2rel_ref(position, bbox);
         }
        if (position == null) {
-           this.sdata.set(`positions/${name}`, null);
+           this._sendCursorPosition(name, null);
            this._updatePosition(null, name)
         } else {
             position.timeStamp = new Date().getTime()
-            this.sdata.set(`positions/${name}`, {x: position.x, y: position.y, timeStamp: position.timeStamp});
+            this._sendCursorPosition(name, position);
+            
             this._updatePosition(position, name)
         }
     }
@@ -265,9 +264,9 @@ export default class Cursors extends Features {
     }
 
     _updatePosition(pos, name) {
-        if (pos !== null && new Date().getTime() - pos.timeStamp > MAXTIME) {
+        if (USE_FIREBASE_FOR_POSITIONS && pos !== null && new Date().getTime() - pos.timeStamp > MAXTIME) {
             pos = null;
-        }
+        } 
 
         if (pos !== null) {
             clearTimeout(this.cursorTimeouts[name]);
@@ -290,22 +289,47 @@ export default class Cursors extends Features {
         }
     }
 
+
+    _sendCursorPosition(name, pos) {
+        if (USE_FIREBASE_FOR_POSITIONS) {
+            let value = pos == null ? null : {x: position.x, y: position.y, timeStamp: position.timeStamp};
+            this.sdata.set(`positions/${name}`, value);
+        } else {
+            let cmd = pos ? `${name},${pos.x},${pos.y}` : `${name},0`;
+            this.session.videoCall.sendData("CSR", cmd);
+        }
+    }
+
     async initialise(){
         this.sdata.onValue("reference", (val) => {
             this.referenceArea = val;
         })
+
         this.sdata.onChildAdded("properties", this._updateProperties.bind(this))
         this.sdata.onChildChanged("properties", this._updateProperties.bind(this))
         this.sdata.onChildRemoved("properties", (_, name) => {
             this._removeCursor(name)
         })
 
-       
-        this.sdata.onChildAdded("positions", this._updatePosition.bind(this))
-        this.sdata.onChildChanged("positions", this._updatePosition.bind(this))
-        this.sdata.onChildRemoved("positions", (_, name) => {
-            this._updatePosition(null, name)
-        })
+        if (USE_FIREBASE_FOR_POSITIONS) {
+            this.sdata.onChildAdded("positions", this._updatePosition.bind(this))
+            this.sdata.onChildChanged("positions", this._updatePosition.bind(this))
+            this.sdata.onChildRemoved("positions", (_, name) => {
+                this._updatePosition(null, name)
+            })
+        } else {
+            this.session.videoCall.addEventListener("CSR", ({data}) => {
+                let split = data.split(",");
+                if (split.length == 2) {
+                    this._updatePosition(null, split[0]);
+                } else if (split.length == 3) {
+                    let pos = new Vector(parseFloat(split[1]), parseFloat(split[2]));
+                    pos.timeStamp = new Date().getTime();
+                    this._updatePosition(pos, split[0]);
+                }
+               
+            })
+        }
         this._watchMouseCursorPosition();
     }
 

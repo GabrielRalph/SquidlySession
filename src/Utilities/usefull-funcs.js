@@ -1,17 +1,3 @@
-let mx = 0;
-let my = 0;
-let x = 0;
-let y = 0;
-let w = window.innerWidth;
-let h = window.innerHeight;
-window.XPos = 0;
-window.YPos = 0;
-window.change_flag = false;
-window.onmousemove = (e) => {
-  window.XPos = e.x;
-  window.YPos = e.y;
-  window.change_flag = true;
-}
 
 export function isIOS() {
   if (/iPad|iPhone|iPod/.test(navigator.platform)) {

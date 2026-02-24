@@ -2,6 +2,7 @@ import {
   createFeatureProxy,
   FeatureInitialiserError,
   OccupiableWindow,
+  SquidlyFeatureWindow,
 } from "./Features/features-interface.js";
 import { FirebaseFrame } from "./Firebase/firebase-frame.js";
 import * as FB from "./Firebase/firebase.js";
@@ -41,6 +42,15 @@ let SessionView;
  *                             This can be used to store any extra information that might be relevant 
  *                             for understanding the change being logged.
 */
+
+function copyEvent(event, prefix = "sv-", override = {bubbles: false}) {
+    let json = {}
+    for (let key in event) json[key] = event[key];
+    for (let key in override) json[key] = override[key];
+    let copyevent = new event.__proto__.constructor(prefix+ json.type, json);
+    copyevent.sessionView = true;
+    return copyevent
+}
 
 const $$ = new WeakMap();
 
@@ -300,6 +310,9 @@ export class SquidlySessionElement extends ShadowElement {
   /** @type {ShadowElement[]} */
   keyboardCaptureElements = [];
 
+  /** @type {Object<string, SquidlyFeatureWindow>} */
+  eventCaptureElements = {};
+
   /**  */
   toggleStates = {}
 
@@ -342,6 +355,7 @@ export class SquidlySessionElement extends ShadowElement {
         ]);
         await this.initialiseWindowManager();
         await this.initialiseKeyboardShortcuts();
+        this.initialiseEventForwarding();
         this.squidlyLoader.hide(0.5);
 
         this.toolBar.addSelectionListener("end", (e) => {
@@ -465,12 +479,13 @@ export class SquidlySessionElement extends ShadowElement {
           let func =
             layer.type == "panel" ? "setPanelContent" : "addScreenArea";
 
+          /** @type {?SquidlyFeatureWindow} */
           let element = feature[key];
           if (!element) {
             console.warn(`The feature element "${key}" is missing`, feature);
-          } else if (!SvgPlus.is(element, ShadowElement)) {
+          } else if (!SvgPlus.is(element, SquidlyFeatureWindow)) {
             console.warn(
-              `The feature element "${key}" is not a shadow element.`,
+              `The feature element "${key}" is not a squidly feature window element.`,
             );
           } else {
             let res = this.sessionView[func](layer.area, element);
@@ -484,8 +499,17 @@ export class SquidlySessionElement extends ShadowElement {
 
             if (SvgPlus.is(element, OccupiableWindow)) {
               occupiables.push([element, key]);
-            } else if (element.captureKeyboardEvents === true) {
+            }  
+              
+            if (element.captureKeyboardEvents === true) {
               this.keyboardCaptureElements.push(element);
+            }
+
+            for (let eventName of element.capturedWindowEvents) {
+              if (!(eventName in this.eventCaptureElements)) {
+                this.eventCaptureElements[eventName] = [];
+              }
+              this.eventCaptureElements[eventName].push(element);
             }
           }
         }
@@ -514,12 +538,7 @@ export class SquidlySessionElement extends ShadowElement {
     // Initialise all features.
     await Promise.all(
       features.map(async ([feature, refName]) => {
-        try {
-
-          await feature.initialise();
-        } catch (e) {
-          console.error(`Error initialising feature ${refName}:`, e);
-        }
+        await feature.initialise();
         setLoadState(refName, 1);
       }),
     );
@@ -721,15 +740,6 @@ export class SquidlySessionElement extends ShadowElement {
   };
 
   async initialiseKeyboardShortcuts() {
-    let copyEvent = (e) => {
-        let json = {}
-        for (let key in e) json[key] = e[key];
-        json.cancelable = true;
-        json.bubbles = false;
-        const eventCopy = new KeyboardEvent("keydown", json);
-        return eventCopy;
-    }
-
     window.addEventListener("keydown", (e) => {
       let active = getDeepActiveElement();
 
@@ -741,7 +751,7 @@ export class SquidlySessionElement extends ShadowElement {
         console.log("Dispatching key event to", keyboardElements);
         let isPrevented = false;
         for (let element of keyboardElements) {
-          const event = copyEvent(e);
+          const event = copyEvent(e, "", {bubbles: false, cancelable: true});
           element.dispatchEvent(event);
           if (event.defaultPrevented) {
             isPrevented = true;
@@ -766,6 +776,22 @@ export class SquidlySessionElement extends ShadowElement {
       }
     });
   }
+
+
+  initialiseEventForwarding() {
+    console.log("Initialising event forwarding for", this.eventCaptureElements);
+    for (let eventName in this.eventCaptureElements) {
+      window.addEventListener(eventName, (e) => {
+        let elements = this.eventCaptureElements[eventName];
+        for (let element of elements) {
+          let event = copyEvent(e, "sv-", {bubbles: false});
+          element.dispatchEvent(event);
+        }
+      });
+    }
+  }
+
+
 
   set endlinkHost(link) {
     this["endlink-host"] = link;

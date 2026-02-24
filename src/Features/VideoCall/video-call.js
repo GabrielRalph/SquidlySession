@@ -111,7 +111,7 @@ export default class VideoCall extends Features {
          // For each video, set up a loop to capture frames and send them to the widgets
         for (let user in this.videos) {
             const video = this.videos[user];
-            
+
             this.mainAreaWidget.appendChild(video); // needed to get frames from some browsers
            
             if (!video.requestVideoFrameCallback instanceof Function) {
@@ -485,7 +485,7 @@ export default class VideoCall extends Features {
                     break;
             }
             
-            if (dataString !== null) {
+            if (dataString !== null && this._mainConnection != null) {
                 let fullString = path + ":::" + dataString;
                 this._mainConnection.send(fullString);
             }

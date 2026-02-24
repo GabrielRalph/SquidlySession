@@ -2,18 +2,17 @@ import { Vector } from "../../SvgPlus/4.js";
 import { AccessButton, AccessEvent } from "../../Utilities/Buttons/access-buttons.js";
 import { GridIcon } from "../../Utilities/Buttons/grid-icon.js";
 import { HideShowTransition } from "../../Utilities/hide-show.js";
-import { ShadowElement } from "../../Utilities/shadow-element.js";
 import { SvgResize } from "../../Utilities/svg-resize.js";
-import { relURL, isExactSame, dotGrid, argmin, TransitionVariable } from "../../Utilities/usefull-funcs.js";
-import { addProcessListener, getStream, isOn, isProcessing, startProcessing, startWebcam, stopProcessing } from "../../Utilities/webcam.js";
-import { Features } from "../features-interface.js";
+import { relURL, dotGrid, argmin } from "../../Utilities/usefull-funcs.js";
+import { addProcessListener, startProcessing, startWebcam, stopProcessing } from "../../Utilities/webcam.js";
+import { Features, SquidlyFeatureWindow } from "../features-interface.js";
 import { load } from "./Algorithm/index.js";
 import { CalibrationFrame } from "./calibration-frame.js";
 import { FeedbackWindow } from "./feedback-frame.js";
 import { addPointToHeatmaps, Heatmap } from "./heatmap.js";
 
 
-class CalibrationScreenArea extends ShadowElement {
+class CalibrationScreenArea extends SquidlyFeatureWindow {
    constructor(){
         super("calibration-window");
         this.calibrationFrame = this.createChild(CalibrationFrame)
@@ -31,7 +30,7 @@ function clampV0_1(v) {
     return clampV(v, new Vector(0, 0), new Vector(1, 1));
 }
 
-class TestScreen extends ShadowElement {
+class TestScreen extends SquidlyFeatureWindow {
     dotSize = 0.08;
     constructor(){
         super("test-screen", new HideShowTransition("test-screen"));
@@ -148,7 +147,7 @@ class RestAccessButton extends AccessButton {
     get disableSwitch() {return true}
 }
 
-class RestButton extends ShadowElement {
+class RestButton extends SquidlyFeatureWindow {
     constructor() {
         super("rest-button");
         this.button = this.createChild(RestAccessButton, {class: "rest", content: "rest"})
@@ -176,7 +175,7 @@ export default class EyeGazeFeature extends Features {
         this.testScreen = new TestScreen();
         this.feedbackWindow = new FeedbackWindow(session, sdata);
         this.calibrationWindow = new CalibrationScreenArea();
-        this.dummyFrame = new ShadowElement("div"); // Used to measure calibration frame bbox
+        this.dummyFrame = new SquidlyFeatureWindow("div"); // Used to measure calibration frame bbox
         this.restButton = new RestButton();
 
         this.calibrationFrame = this.calibrationWindow.calibrationFrame;

@@ -1,10 +1,7 @@
-import { set } from "../../Firebase/firebase.js";
-import { Vector } from "../../SvgPlus/vector.js";
-import { addDeviceChangeCallback } from "../../Utilities/device-manager.js";
 import { HideShowTransition } from "../../Utilities/hide-show.js";
 import { Icon } from "../../Utilities/Icons/icons.js";
-import { ShadowElement } from "../../Utilities/shadow-element.js";
-import { delay, relURL } from "../../Utilities/usefull-funcs.js";
+import { relURL } from "../../Utilities/usefull-funcs.js";
+import { SquidlyFeatureWindow } from "../features-interface.js";
 
 class MuteEvent extends Event {
     constructor(type, user) {
@@ -216,7 +213,7 @@ const stackModes = {
     "horizontal-height": (a1, a2, w, h, space) => [ h * a1 + h * a2 + space, h ],
 }
     
-export class VideoPanelWidget extends ShadowElement {
+export class VideoPanelWidget extends SquidlyFeatureWindow {
     /** @type {VideoDisplay} */
     host = null;
 

@@ -1,10 +1,10 @@
 import {SvgPlus, Vector} from "../../SvgPlus/4.js"
-import {ShadowElement} from "../../Utilities/shadow-element.js"
 import { Icon } from "../../Utilities/Icons/icons.js";
 import { relURL } from "../../Utilities/usefull-funcs.js";
 import { AccessButton, AccessEvent } from "../../Utilities/Buttons/access-buttons.js";
 import { HideShowTransition } from "../../Utilities/hide-show.js";
 import { Menu, MenuItem } from "./menu.js";
+import { SquidlyFeatureWindow } from "../features-interface.js";
 
 
 class MenuItemSelectionEvent extends AccessEvent {
@@ -70,7 +70,7 @@ class ToolBarRingIcon extends ToolBarIcon {
 
 
 const {PI} = Math;
-export class ToolBarRing extends ShadowElement {
+export class ToolBarRing extends SquidlyFeatureWindow {
     /** @type {[IconsDescription]} */
     _icons = []
 
@@ -321,10 +321,14 @@ export class ToolBarRing extends ShadowElement {
     static get usedStyleSheets(){
         return [relURL("./tool-bar-styles.css", import.meta)]
     }
+
+    static get capturedWindowEvents() {
+        return ["mousemove", "mouseleve", "touchmove"];
+    }
 }
 
 
-export class ToolBar extends ShadowElement {
+export class ToolBar extends SquidlyFeatureWindow {
     constructor(){
         super("tool-bar");
     }

@@ -120,7 +120,41 @@ export class Features {
     static get privatePropertyNames() { return []}
 }
 
-export class OccupiableWindow extends ShadowElement {
+
+/**
+ * @template {SvgPlus} T
+ * @extends {ShadowElement<T>}
+ */
+export class SquidlyFeatureWindow extends ShadowElement {
+
+    /** @returns {boolean} */
+    get captureKeyboardEvents() {
+        return this["__+"].captureKeyboardEvents;
+    }
+
+
+    /** @returns {string[]} */
+    get capturedWindowEvents() {
+        return this["__+"].capturedWindowEvents || [];
+    }
+
+
+    /** @return {string[]} */
+    static get captureKeyboardEvents() {
+        return false;
+    }
+    
+    /**  @returns {string[]} */
+    static get capturedWindowEvents() {
+        return [];
+    }
+}
+
+
+/**
+ * @extends {SquidlyFeatureWindow<HideShowTransition>}
+ */
+export class OccupiableWindow extends SquidlyFeatureWindow {
     constructor(elementName, transitionMode="fade") {
         let root = new HideShowTransition(elementName, transitionMode);
         super(elementName, root);
@@ -155,6 +189,7 @@ export class OccupiableWindow extends ShadowElement {
         return false;
     }
 }
+
 
 export class FeatureInitialiserError extends Error {
     constructor(feature, message) {
