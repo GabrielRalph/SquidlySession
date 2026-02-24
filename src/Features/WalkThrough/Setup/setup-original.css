@@ -1,4 +1,3 @@
-
 setup-window {
     display: flex;
     align-items: center;
@@ -41,7 +40,6 @@ setup-window {
     font-family: inherit;
 }
 
-
 .existing-profiles-section {
     margin-bottom: 60px;
 }
@@ -63,7 +61,7 @@ setup-window {
     margin-bottom: 20px;
 }
 
-
+/* When there's only one profile, constrain it similar to GridLayout */
 .profiles-grid:has(.profile-card:only-child) {
     grid-template-columns: 1fr;
     max-width: 250px;
@@ -71,10 +69,7 @@ setup-window {
     margin-right: auto;
 }
 
-
-
-.profile-card,
-profile-card {
+.profile-card {
     --profile-color: #9b59b6;
     --profile-color-hover: #8e44ad;
     --profile-shadow: rgba(155, 89, 182, 0.4);
@@ -95,15 +90,12 @@ profile-card {
 }
 
 .profile-card:hover,
-.profile-card[hover],
-profile-card:hover,
-profile-card[hover] {
+.profile-card[hover] {
     transform: translateY(-5px);
     box-shadow: 0 10px 30px var(--profile-shadow);
 }
 
-.profile-card:active,
-profile-card:active {
+.profile-card:active {
     transform: translateY(-2px);
 }
 
@@ -131,7 +123,6 @@ profile-card:active {
     text-shadow: 0px 1px 2px rgba(0, 0, 0, 0.3);
     line-height: 1.2;
 }
-
 
 .new-profile-section {
     text-align: left;
@@ -179,10 +170,7 @@ profile-card:active {
     outline-offset: 2px;
 }
 
-
-
-.continue-btn,
-grid-icon.continue-btn {
+.continue-btn {
     display: block;
     margin: 0 auto;
     padding: 15px 60px;
@@ -197,55 +185,19 @@ grid-icon.continue-btn {
     font-family: inherit;
 }
 
-.continue-btn:hover,
-grid-icon.continue-btn:hover {
+.continue-btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 5px 20px rgba(155, 89, 182, 0.4);
 }
 
-.continue-btn:active,
-grid-icon.continue-btn:active {
+.continue-btn:active {
     transform: translateY(0);
 }
 
-.continue-btn[disabled],
-grid-icon.continue-btn[disabled] {
-    opacity: 0.5;
-    cursor: not-allowed;
-    pointer-events: none;
+.content-section {
+    text-align: center;
+    margin: 40px 0;
 }
-
-.continue-btn-white,
-grid-icon.continue-btn-white {
-    display: block;
-    margin: 50px auto 0;
-    padding: 18px 80px;
-    font-size: 24px;
-    font-weight: 700;
-    background: white;
-    color: #000;
-    border: none;
-    border-radius: 12px;
-    cursor: pointer;
-    transition: all 0.3s;
-    font-family: inherit;
-}
-
-.continue-btn-white:hover,
-grid-icon.continue-btn-white:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 20px rgba(255, 255, 255, 0.3);
-}
-
-.continue-btn-white[disabled],
-grid-icon.continue-btn-white[disabled] {
-    background: #666;
-    color: #333;
-    cursor: not-allowed;
-    pointer-events: none;
-    opacity: 0.5;
-}
-
 
 .back-btn {
     display: inline-block;
@@ -267,8 +219,6 @@ grid-icon.continue-btn-white[disabled] {
     border-color: rgba(255, 255, 255, 0.5);
 }
 
-
-
 .access-methods-grid {
     display: flex;
     gap: 50px;
@@ -279,19 +229,17 @@ grid-icon.continue-btn-white[disabled] {
     flex-wrap: nowrap;
 }
 
+/* When there's only one card, constrain its width */
 .access-methods-grid:has(.access-method-card:only-child) {
     max-width: 380px;
 }
 
+/* When there are only two cards, constrain the grid width */
 .access-methods-grid:has(.access-method-card:nth-child(2):last-child) {
     max-width: 810px;
 }
 
-
-
-.access-method-card,
-access-method-card,
-grid-icon.access-method-card {
+.access-method-card {
     --card-color: #F4E07A;
     --card-color-hover: #f5e89d;
     --card-shadow: rgba(255, 255, 255, 0.2);
@@ -315,51 +263,39 @@ grid-icon.access-method-card {
 }
 
 .access-method-card:hover,
-.access-method-card[hover],
-access-method-card:hover,
-access-method-card[hover],
-grid-icon.access-method-card:hover {
+.access-method-card[hover] {
     transform: translateY(-5px);
     box-shadow: 0 10px 30px var(--card-shadow);
 }
 
-
-.access-method-card[data-method="eye-gaze"],
-access-method-card[data-method="eye-gaze"] {
+/* Different color themes for access methods */
+.access-method-card[data-method="eye-gaze"] {
     --card-color: #F4E07A;
     --card-shadow: rgba(244, 224, 122, 0.4);
 }
 
 .access-method-card[data-method="eye-gaze"] .access-icon,
-.access-method-card[data-method="eye-gaze"] .access-name,
-access-method-card[data-method="eye-gaze"] .access-icon,
-access-method-card[data-method="eye-gaze"] .access-name {
+.access-method-card[data-method="eye-gaze"] .access-name {
     color: white;
 }
 
-.access-method-card[data-method="switch"],
-access-method-card[data-method="switch"] {
+.access-method-card[data-method="switch"] {
     --card-color: #C62828;
     --card-shadow: rgba(198, 40, 40, 0.4);
 }
 
 .access-method-card[data-method="switch"] .access-icon,
-.access-method-card[data-method="switch"] .access-name,
-access-method-card[data-method="switch"] .access-icon,
-access-method-card[data-method="switch"] .access-name {
+.access-method-card[data-method="switch"] .access-name {
     color: white;
 }
 
-.access-method-card[data-method="cursor"],
-access-method-card[data-method="cursor"] {
+.access-method-card[data-method="cursor"] {
     --card-color: #81D4FA;
     --card-shadow: rgba(129, 212, 250, 0.4);
 }
 
 .access-method-card[data-method="cursor"] .access-icon,
-.access-method-card[data-method="cursor"] .access-name,
-access-method-card[data-method="cursor"] .access-icon,
-access-method-card[data-method="cursor"] .access-name {
+.access-method-card[data-method="cursor"] .access-name {
     color: white;
 }
 
@@ -386,12 +322,6 @@ access-method-card[data-method="cursor"] .access-name {
     line-height: 1.2;
 }
 
-
-.content-section {
-    text-align: center;
-    margin: 40px 0;
-}
-
-.mask-overlay.setup-mode path {
-    fill: #0064b4cc;
+.continue-btn-white {
+    font-family: inherit;
 }

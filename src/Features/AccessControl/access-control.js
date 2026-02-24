@@ -291,6 +291,13 @@ export default class AccessControl extends Features {
         return groups[key] || [];
     }
 
+    async loopOnButton(button, getActive) {
+        while (getActive()) {
+            this.overlay._switching = false;
+            await this.overlay.addSwichLoader(button);
+            if (!getActive()) break;
+        }
+    }
     /**
      * Adds a loader to a button. The loader will fill up and then 
      * initiate a click on the button. If the button is disconnected 
@@ -307,8 +314,8 @@ export default class AccessControl extends Features {
             let options = {mode: "dwell"};
             if (loaderTime == "dwell" || loaderTime == "switch") options.mode = loaderTime;
             else if (typeof loaderTime == "number") {
-                options.dwellTime = dwellTime;
-                options.dwellRelease = dwellTime;
+                options.dwellTime = loaderTime;
+                options.dwellRelease = loaderTime;
             }
            
             await this.overlay.addDwellLoader(button, this, options);

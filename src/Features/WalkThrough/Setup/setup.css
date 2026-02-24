@@ -1,3 +1,6 @@
+/* ============================================ */
+/* SETUP WINDOW STYLES */
+/* ============================================ */
 
 setup-window {
     display: flex;
@@ -14,17 +17,25 @@ setup-window {
 
 .setup-container {
     max-width: 900px;
-    width: 90%;
+    width: 100%;
     padding: 60px 80px;
     color: white;
     text-align: center;
     font-family: inherit;
+    margin: 0;
 }
 
 .setup-header {
     margin-bottom: 50px;
 }
+h1 {
+    text-align: center;
+    font-size: xxx-large;
+}
 
+.mask-overlay.setup-mode path {
+    fill: #0064b4cc;
+}
 .setup-header h1 {
     font-size: 48px;
     font-weight: 400;
@@ -41,6 +52,9 @@ setup-window {
     font-family: inherit;
 }
 
+/* ============================================ */
+/* EXISTING PROFILES SECTION */
+/* ============================================ */
 
 .existing-profiles-section {
     margin-bottom: 60px;
@@ -63,7 +77,7 @@ setup-window {
     margin-bottom: 20px;
 }
 
-
+/* When there's only one profile, constrain it similar to GridLayout */
 .profiles-grid:has(.profile-card:only-child) {
     grid-template-columns: 1fr;
     max-width: 250px;
@@ -71,7 +85,9 @@ setup-window {
     margin-right: auto;
 }
 
-
+/* ============================================ */
+/* PROFILE CARDS */
+/* ============================================ */
 
 .profile-card,
 profile-card {
@@ -132,6 +148,9 @@ profile-card:active {
     line-height: 1.2;
 }
 
+/* ============================================ */
+/* NEW PROFILE SECTION */
+/* ============================================ */
 
 .new-profile-section {
     text-align: left;
@@ -179,7 +198,9 @@ profile-card:active {
     outline-offset: 2px;
 }
 
-
+/* ============================================ */
+/* CONTINUE BUTTONS */
+/* ============================================ */
 
 .continue-btn,
 grid-icon.continue-btn {
@@ -246,6 +267,9 @@ grid-icon.continue-btn-white[disabled] {
     opacity: 0.5;
 }
 
+/* ============================================ */
+/* BACK BUTTON */
+/* ============================================ */
 
 .back-btn {
     display: inline-block;
@@ -267,7 +291,9 @@ grid-icon.continue-btn-white[disabled] {
     border-color: rgba(255, 255, 255, 0.5);
 }
 
-
+/* ============================================ */
+/* ACCESS METHODS SECTION */
+/* ============================================ */
 
 .access-methods-grid {
     display: flex;
@@ -279,15 +305,19 @@ grid-icon.continue-btn-white[disabled] {
     flex-wrap: nowrap;
 }
 
+/* When there's only one card, constrain its width */
 .access-methods-grid:has(.access-method-card:only-child) {
     max-width: 380px;
 }
 
+/* When there are only two cards, constrain the grid width */
 .access-methods-grid:has(.access-method-card:nth-child(2):last-child) {
     max-width: 810px;
 }
 
-
+/* ============================================ */
+/* ACCESS METHOD CARDS */
+/* ============================================ */
 
 .access-method-card,
 access-method-card,
@@ -323,7 +353,7 @@ grid-icon.access-method-card:hover {
     box-shadow: 0 10px 30px var(--card-shadow);
 }
 
-
+/* Different color themes for access methods */
 .access-method-card[data-method="eye-gaze"],
 access-method-card[data-method="eye-gaze"] {
     --card-color: #F4E07A;
@@ -386,12 +416,11 @@ access-method-card[data-method="cursor"] .access-name {
     line-height: 1.2;
 }
 
+/* ============================================ */
+/* CONTENT SECTION */
+/* ============================================ */
 
 .content-section {
     text-align: center;
     margin: 40px 0;
-}
-
-.mask-overlay.setup-mode path {
-    fill: #0064b4cc;
 }
