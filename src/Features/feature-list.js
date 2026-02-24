@@ -2,10 +2,10 @@ import { relURL } from '../Utilities/usefull-funcs.js';
 
 /** @typedef {import('./ToolBar/tool-bar.js').default} ToolBarFeature */
 /** @typedef {import('./Settings/settings.js').default} SettingsFeature */
+/** @typedef {import('./VideoCall/video-call.js').default} VideoCall */
 /** @typedef {import('./Cursors/cursors.js').default} Cursors */
 /** @typedef {import('./EyeGaze/eye-gaze.js').default} EyeGazeFeature */
 /** @typedef {import('./Text2Speech/text2speech.js').default} Text2Speech */
-/** @typedef {import('./VideoCall/video-call.js').default} VideoCall */
 /** @typedef {import('./Keyboard/keyboard.js').default} KeyboardFeature */
 /** @typedef {import('./Notifications/notifications.js').default} Notifications */
 /** @typedef {import('./AccessControl/access-control.js').default} AccessControl */
@@ -23,6 +23,9 @@ export class SquildyFeatureProxy {
 	/** @return {SettingsFeature} */
 	get settings() { return this.getFeature("settings"); }
 
+	/** @return {VideoCall} */
+	get videoCall() { return this.getFeature("videoCall"); }
+
 	/** @return {Cursors} */
 	get cursors() { return this.getFeature("cursors"); }
 
@@ -31,9 +34,6 @@ export class SquildyFeatureProxy {
 
 	/** @return {Text2Speech} */
 	get text2speech() { return this.getFeature("text2speech"); }
-
-	/** @return {VideoCall} */
-	get videoCall() { return this.getFeature("videoCall"); }
 
 	/** @return {KeyboardFeature} */
 	get keyboard() { return this.getFeature("keyboard"); }
@@ -67,10 +67,10 @@ export class SquildyFeatureProxy {
 export const FeaturesList = [
 	[() => import("./ToolBar/tool-bar.js"), "toolBar"],
 	[() => import("./Settings/settings.js"), "settings"],
+	[() => import("./VideoCall/video-call.js"), "videoCall"],
 	[() => import("./Cursors/cursors.js"), "cursors"],
 	[() => import("./EyeGaze/eye-gaze.js"), "eyeGaze"],
 	[() => import("./Text2Speech/text2speech.js"), "text2speech"],
-	[() => import("./VideoCall/video-call.js"), "videoCall"],
 	[() => import("./Keyboard/keyboard.js"), "keyboard"],
 	[() => import("./Notifications/notifications.js"), "notifications"],
 	[() => import("./AccessControl/access-control.js"), "accessControl"],

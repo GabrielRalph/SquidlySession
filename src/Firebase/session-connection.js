@@ -1,7 +1,6 @@
 import { delay } from "../Utilities/usefull-funcs.js";
-import { callFunction, getUID } from "./firebase.js";
+import * as FB from "./firebase.js"
 import { FirebaseFrame } from "./firebase-frame.js";
-import { SvgPlus } from "../SvgPlus/4.js";
 
 const UPDATE_CYCLE_TIME_MS = 3 * 1000;
 const MAX_TIME_SINCE_PING = 5 * 1000;
@@ -62,7 +61,7 @@ export class SessionConnection extends FirebaseFrame {
 
     async waitForApproval(){
         await new Promise((resolve) => {
-            let refs = "participants/"+getUID()
+            let refs = "participants/"+FB.getUID()
             let end = this.onValue(refs, (value) => {
                 if (value != null) {
                     end();
@@ -133,7 +132,7 @@ export class SessionConnection extends FirebaseFrame {
         
         // Start the ping loop
         while (this.hasJoined) {
-            let key = this.isHost ? "host" : getUID();
+            let key = this.isHost ? "host" : FB.getUID();
             this.set(`updates/${key}`, (new Date().getTime()));
             await delay(UPDATE_CYCLE_TIME_MS);
         }
@@ -166,7 +165,7 @@ export class SessionConnection extends FirebaseFrame {
     }
 
     get isHost(){
-        return this.hostUID === getUID();
+        return this.hostUID === FB.getUID();
     }
 
     get iceServers(){
@@ -189,7 +188,7 @@ export class SessionConnection extends FirebaseFrame {
         let error = [false, ""]
         let isActive = await this.get("active");
         let host = await this.get("hostUID");
-        let isHost = host === getUID();
+        let isHost = host === FB.getUID();
 
         this.hostUID = host;
         
@@ -203,7 +202,7 @@ export class SessionConnection extends FirebaseFrame {
             // Otherwise if the user is the host of the session
             } else if (isHost) {
                 // start session if host 
-                let {data} = await callFunction("sessions-start", {sid: this.sid});
+                let {data} = await FB.callFunction("sessions-start", {sid: this.sid});
                 
                 let errors = data.errors || [];
                 if (errors.length === 0) {
@@ -226,12 +225,12 @@ export class SessionConnection extends FirebaseFrame {
             // If the user is not the host, check if they are already in the session
             if (!isHost) {
                 // Check the 
-                let participant = await this.get("participants/"+getUID());
+                let participant = await this.get("participants/"+FB.getUID());
 
                 // If user is not approved make a request to join
                 if (participant == null) {
                     try {
-                        await this.set("requests/"+getUID(), "anon");
+                        await this.set("requests/"+FB.getUID(), "anon");
                     } catch (e) {}
                     error = [ERROR_CODES.WAITING_APPROVAL, "The host has not yet approved you."];
 
@@ -264,7 +263,7 @@ export class SessionConnection extends FirebaseFrame {
                     if (value != null) {
                         console.log("approving requests");
                         let res = await Promise.all(Object.keys(value).map(async uid => {
-                            return await callFunction("sessions-approveRequest", {uid, sid: this.sid})
+                            return await FB.callFunction("sessions-approveRequest", {uid, sid: this.sid})
                         }));
                         console.log(res);
                     }
@@ -289,7 +288,7 @@ export class SessionConnection extends FirebaseFrame {
 
     async leave(){
         if (this.isHost) {
-            await callFunction("sessions-end", {sid: this.sid});
+            await FB.callFunction("sessions-end", {sid: this.sid});
         } else {
             this._onLeave();
         }

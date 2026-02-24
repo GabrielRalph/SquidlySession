@@ -1,6 +1,6 @@
 import { FirebaseFrame } from "../../Firebase/firebase-frame.js";
 import { SettingOptions as _settingOptions, SettingsFrame } from "./settings-base.js";
-import { get, ref } from "../../Firebase/firebase.js";
+import * as FB from "../../Firebase/firebase.js";
 
 const keys = [
     ["hostAudio", "host-audio"],
@@ -14,7 +14,7 @@ const keys = [
 export async function getHostPresets(hostUID) {
     let presets = {};
     await Promise.all(keys.map(async ([k1, k2]) => {
-        let val = (await get(ref(`users/${hostUID}/info/${k1}`))).val();
+        let val = (await FB.get(FB.ref(`users/${hostUID}/info/${k1}`))).val();
         presets[k2] = val;
     }));
     return presets;

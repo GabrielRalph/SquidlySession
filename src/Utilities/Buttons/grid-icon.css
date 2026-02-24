@@ -181,6 +181,10 @@ grid-layout {
     gap: var(--gap);
 }
 
+.grid-icon[type = "image"] .card-icon {
+    display: none;
+}
+
 .grid-icon[type="lightRed"], .grid-icon[type="topic-lightRed"] {
     --main: hsl(0, 100%, 89%);
     --tab: hsl(0, 56%, 64%);

@@ -1,5 +1,4 @@
-import {set, get, ref,update, push, child, getUID, onChildAdded, onChildRemoved, onChildChanged, onValue, storageRef, uploadFileToCloud} from "./firebase.js"
-
+import * as FB from "./firebase.js"
 /** 
  * @typedef {Object} UploadTaskSnapshot
  * @property {number} bytesTransferred	The number of bytes that have been successfully uploaded so far.
@@ -19,8 +18,8 @@ let FirebaseFrames = [];
 export class FirebaseFrame {
     constructor(reference) {
         this.appRef = (path) => {
-          let r = ref(reference);
-          if (typeof path === "string") r = child(r, path);
+          let r = FB.ref(reference);
+          if (typeof path === "string") r = FB.child(r, path);
           return r;
         }
         this.getStoragePath = (path) => {
@@ -50,7 +49,7 @@ export class FirebaseFrame {
       if (hasJoined) {
           let ref =  this.appRef(path);
         try {
-            return (await get(ref)).val()
+            return (await FB.get(ref)).val()
         } catch (e) {
             e.message += " getting: " + ref._path.pieces_.join("/")
             throw e
@@ -66,7 +65,7 @@ export class FirebaseFrame {
      * 
      */
     async set(path, value) {
-      if (hasJoined) await set(this.appRef(path), value)
+      if (hasJoined) await FB.set(this.appRef(path), value)
       else throw "Session has not connected"
     }
 
@@ -76,7 +75,7 @@ export class FirebaseFrame {
      * 
      */
     async update(path, value) {
-      if (hasJoined) await update(this.appRef(path), value)
+      if (hasJoined) await FB.update(this.appRef(path), value)
       else throw "Session has not connected"
     }
   
@@ -88,7 +87,7 @@ export class FirebaseFrame {
      */
     push(path, value) {
       if (hasJoined) {
-        let pr = push(this.appRef(path));
+        let pr = FB.push(this.appRef(path));
         return pr.key;
         
       } else {
@@ -107,8 +106,8 @@ export class FirebaseFrame {
      */
     async pushSet(path, value) {
       if (hasJoined) {
-        let pr = push(this.appRef(path));
-        await set(pr, value);
+        let pr = FB.push(this.appRef(path));
+        await FB.set(pr, value);
       } else {
         throw "Session has not connected"
       }
@@ -128,7 +127,7 @@ export class FirebaseFrame {
       if (hasJoined) {
           let close = null;
           if (cb instanceof Function) {
-              close = onValue(this.appRef(path), (sc) => cb(sc.val()));
+              close = FB.onValue(this.appRef(path), (sc) => cb(sc.val()));
               this.listeners.add(close)
           } else {
               throw "The callback must be a function"
@@ -156,7 +155,7 @@ export class FirebaseFrame {
         if (hasJoined) {
           let close = null;
           if (cb instanceof Function) {
-              close = onChildAdded(this.appRef(path), (sc, key) => cb(sc.val(), sc.key, key));
+              close = FB.onChildAdded(this.appRef(path), (sc, key) => cb(sc.val(), sc.key, key));
               this.listeners.add(close)
           } else {
               throw "The callback must be a function"
@@ -183,7 +182,7 @@ export class FirebaseFrame {
       if (hasJoined) {
         let close = null;
         if (cb instanceof Function) {
-            close = onChildRemoved(this.appRef(path), (sc) => cb(sc.val(), sc.key));
+            close = FB.onChildRemoved(this.appRef(path), (sc) => cb(sc.val(), sc.key));
             this.listeners.add()
         } else {
             throw "The callback must be a function"
@@ -210,7 +209,7 @@ export class FirebaseFrame {
       if (hasJoined) {
         let close = null;
         if (cb instanceof Function) {
-          close = onChildChanged(this.appRef(path), (sc, key) => cb(sc.val(), sc.key, key));
+          close = FB.onChildChanged(this.appRef(path), (sc, key) => cb(sc.val(), sc.key, key));
           this.listeners.add(close)
         } else {
           throw "The callback must be a function"
@@ -235,7 +234,7 @@ export class FirebaseFrame {
      * @return {Promise<string?>} returns download url or null if not specified.
     */
     async uploadFile(file, path, statusCallback, metadata, getURL = true) {
-      return await uploadFileToCloud(file, this.getStoragePath(path), statusCallback, metadata, getURL);
+      return await FB.uploadFileToCloud(file, this.getStoragePath(path), statusCallback, metadata, getURL);
     }
   
     /** Ends all listeners and removes the app database */
@@ -245,10 +244,10 @@ export class FirebaseFrame {
             listener();
           }
         }
-        if (remove) set(this.appRef(), null);
+        if (remove) FB.set(this.appRef(), null);
     }
   
     get uid(){
-      return getUID();
+      return FB.getUID();
     }
 }

@@ -28,9 +28,7 @@
  * @property {string} [qid]
  */
 
-
-import { query, get, set, onChildAdded, onChildChanged, onChildRemoved, callFunction, child, ref, orderByChild, equalTo, getUID, onValue } from "../../Firebase/firebase.js"
-
+import * as FB from "../../Firebase/firebase.js";
 
 const MAX_TITLE_LENGTH = 1024;
 const MAX_MULTI_LENGTH = 4 * 1024;
@@ -70,9 +68,9 @@ const isValidString = (s, key, max, emptyAllowed = false) => {
 }
 
 function quizesRef(...args){
-    let r1 = ref("quizes");
+    let r1 = FB.ref("quizes");
     if (args.length > 0) {
-        r1 = child(r1, args.join("/"));
+        r1 = FB.child(r1, args.join("/"));
     }
     return r1;
 }
@@ -166,7 +164,7 @@ const QUIZ_VALIDATER = {
         }
     },
     owner: () => {
-        return getUID();
+        return FB.getUID();
     }
 }
 function validate(data, validater, key = "Data") {
@@ -194,10 +192,10 @@ async function callUpdates(){
 async function getUserNames(){
     let users = new Set(Object.values(QUIZES).map(topic => topic.owner));
     let proms = [...users].filter(uid => !(uid in DISPLAYNAMES)).map(async uid => {
-        let name = (await get(ref(`users/${uid}/info/displayName`))).val();
+        let name = (await FB.get(FB.ref(`users/${uid}/info/displayName`))).val();
         if (name == null) {
-            let first = (await get(ref(`users/${uid}/info/firstName`))).val();
-            let last = (await get(ref(`users/${uid}/info/lastName`))).val();
+            let first = (await FB.get(FB.ref(`users/${uid}/info/firstName`))).val();
+            let last = (await FB.get(FB.ref(`users/${uid}/info/lastName`))).val();
             name = (first || "") + " " + (last || "");
         }
         DISPLAYNAMES[uid] = name;
@@ -267,12 +265,12 @@ export async function getSummary(sid, progressCallback = null, onlySummary = fal
     let result = await new Promise(async (resolve, reject) => {
         let summary = null;
         watchers = [
-            onValue(ref("session-data/" + sid + "/quiz/proccessing"), (snapshot) => {
+            FB.onValue(FB.ref("session-data/" + sid + "/quiz/proccessing"), (snapshot) => {
                 if (snapshot.val()) {
                     callProgress("Summarising Quiz Results") 
                 }
             }),
-            onValue(ref("session-data/" + sid + "/quiz/summary"), (snapshot) => {
+            FB.onValue(FB.ref("session-data/" + sid + "/quiz/summary"), (snapshot) => {
                 summary = snapshot.val();
                 if (summary) {
                     if (onlySummary) {
@@ -289,7 +287,7 @@ export async function getSummary(sid, progressCallback = null, onlySummary = fal
             })
         ]
         if (!onlySummary) {
-            watchers.push(onValue(ref("session-data/" + sid + "/quiz/pdf"), (snapshot) => {
+            watchers.push(FB.onValue(FB.ref("session-data/" + sid + "/quiz/pdf"), (snapshot) => {
                 let pdfBase64 = snapshot.val();
                 if (pdfBase64) {
                     callProgress("PDF Report Ready");
@@ -302,7 +300,7 @@ export async function getSummary(sid, progressCallback = null, onlySummary = fal
             }))
         }
 
-        let res = await callFunction("quizzes-summarise", {sid: sid, onlySummary}, "australia-southeast1");
+        let res = await FB.callFunction("quizzes-summarise", {sid: sid, onlySummary}, "australia-southeast1");
         if (res.data.errors.length > 0) {
             resolve({errors: res.data.errors, pdf: null, summary});
         }
@@ -322,7 +320,7 @@ export async function saveQuiz(qid, quiz) {
     let quizID = qid;
     try {
         quiz = validateQuiz(quiz);
-        let {data} = await callFunction("quizzes-add", {qid, quiz}, "australia-southeast1")
+        let {data} = await FB.callFunction("quizzes-add", {qid, quiz}, "australia-southeast1")
         if (data.errors.length > 0) {
             console.log("An error occured whilst saving quiz.", data.errors);
         }
@@ -337,7 +335,7 @@ export async function saveQuiz(qid, quiz) {
  * @param {string} qid 
  */
 export async function deleteQuiz(qid) {
-    await set(quizesRef(qid), null);
+    await FB.set(quizesRef(qid), null);
 }
 
 export function getQuiz(qid){
@@ -349,7 +347,7 @@ export function getQuiz(qid){
         quiz.questions.forEach(q => {
             q.n_answers = q.answers.length;
         })
-        quiz.owned = getUID() == quiz.owner;
+        quiz.owned = FB.getUID() == quiz.owner;
         quiz.ownerName = quiz_master.ownerName;
         quiz.qid = qid;
     }
@@ -388,14 +386,14 @@ let init = false;
 export async function watchQuizes(callback) {
     while (DATABASE_WATCHERS.length > 0) DATABASE_WATCHERS.pop()();
     QUIZES = {};
-    let publicQuery = query(quizesRef(), orderByChild('public'), equalTo(true));
-    let ownedQuery = query(quizesRef(), orderByChild('owner'), equalTo(getUID()));
+    let publicQuery = FB.query(quizesRef(), FB.orderByChild('public'), FB.equalTo(true));
+    let ownedQuery = FB.query(quizesRef(), FB.orderByChild('owner'), FB.equalTo(FB.getUID()));
 
     let proms = [["public", publicQuery], ["owned", ownedQuery]].map(async ([type, query]) => {
-        let allQuizes = (await get(query)).val();
+        let allQuizes = (await FB.get(query)).val();
         for (let QID in allQuizes) QUIZES[QID] = allQuizes[QID];
 
-        DATABASE_WATCHERS.push(onChildAdded(query, (snapshot) => {
+        DATABASE_WATCHERS.push(FB.onChildAdded(query, (snapshot) => {
             let QID = snapshot.key;
             let alreadyAdded = QID in QUIZES
             QUIZES[QID] = snapshot.val();
@@ -404,13 +402,13 @@ export async function watchQuizes(callback) {
             }
         }));
 
-        DATABASE_WATCHERS.push(onChildChanged(query, (snapshot) => {
+        DATABASE_WATCHERS.push(FB.onChildChanged(query, (snapshot) => {
             let QID = snapshot.key;
             QUIZES[QID] = snapshot.val();
             callUpdates();
         }));
 
-        DATABASE_WATCHERS.push(onChildRemoved(query, (snapshot) => {
+        DATABASE_WATCHERS.push(FB.onChildRemoved(query, (snapshot) => {
             let QID = snapshot.key;
             if (QID in QUIZES) {
                 delete QUIZES[QID]

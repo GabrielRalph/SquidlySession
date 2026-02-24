@@ -180,3 +180,7 @@ grid-layout {
     display: grid;
     gap: var(--gap);
 }
+
+.grid-icon[type = "image"] .card-icon {
+    display: none;
+}

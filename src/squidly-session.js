@@ -13,12 +13,10 @@ import {
 import { SvgPlus, Vector } from "./SvgPlus/4.js";
 import { ShadowElement } from "./Utilities/shadow-element.js";
 import {
-  delay,
   getQueryKey,
   series,
   uncamelCase,
 } from "./Utilities/usefull-funcs.js";
-import { get, ref } from "./Firebase/firebase.js";
 import { FeaturesList, SquildyFeatureProxy } from "./Features/feature-list.js";
 
 /** @typedef {import('./SessionView/session-view.js').SessionView} SessionView*/
@@ -805,7 +803,7 @@ export class SquidlySessionElement extends ShadowElement {
         let params = new URLSearchParams({
           sid: sessionConnection.sid,
           host: hostUID,
-          hostName: (await get(ref(`users/${hostUID}/info/displayName`))).val(),
+          hostName: (await FB.get(FB.ref(`users/${hostUID}/info/displayName`))).val(),
         });
         window.location.href = link + "?" + params.toString();
       };
@@ -828,7 +826,7 @@ export class SquidlySessionElement extends ShadowElement {
         let params = new URLSearchParams({
           sid: sessionConnection.sid,
           host: hostUID,
-          hostName: (await get(ref(`users/${hostUID}/info/displayName`))).val(),
+          hostName: (await FB.get(FB.ref(`users/${hostUID}/info/displayName`))).val(),
         });
         window.location.href = link + "?" + params.toString();
       };
