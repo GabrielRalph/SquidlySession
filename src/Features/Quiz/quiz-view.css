@@ -28,115 +28,9 @@ quiz-view[locked] .answers .grid-icon:not([access-group="download"]) {
     pointer-events: none;
 }
 
-
-/* 
-.grid-icon.normal[color="light-red"] {
-    --hue: 0;
-    --light-0: 89%;
-}
-.grid-icon.normal[color="dark-red"] {
-    --hue: 0;
-    --light-0: 38%;
-    --sat: 70%;
-}
-.grid-icon.normal[color="light-orange"] {
-    --hue: 30;
-    --light-0: 85%;
-}
-.grid-icon.normal[color="dark-orange"] {
-    --light-0: 45%;
-    --sat: 80%;
-    --hue: 25;
-}
-.grid-icon.normal[color="light-gold"] {
-    --hue: 42;
-    --light-0: 81%;
-}
-.grid-icon.normal[color="dark-gold"] {
-    --hue: 42;
-    --light-0: 48%;
-    --sat: 75%;
-}
-.grid-icon.normal[color="light-green"] {
-    --light-0: 83%;
-    --hue: 108;
-}
-.grid-icon.normal[color="dark-green"] {
-    --sat: 50%;
-    --light-0: 40%;
-    --hue: 95;
-}
-.grid-icon.normal[color="light-teal"] {
-    --hue: 150;
-    --light-0: 81%;
-}
-.grid-icon.normal[color="dark-teal"] {
-    --hue: 150;
-    --sat: 90%;
-    --light-0: 33%;
-}
-.grid-icon.normal[color="light-blue"] {
-    --hue: 190;
-    --light-0: 85%;
-}
-.grid-icon.normal[color="dark-blue"] {
-    --hue: 190;
-    --light-0: 33%;
-    --sat: 85%;
-}
-.grid-icon.normal[color="light-indigo"] {
-    --hue: 220;
-    --light-0: 89%;
-}
-.grid-icon.normal[color="dark-indigo"] {
-    --hue: 220;
-    --light-0: 45%;
-    --sat: 50%;
-}
-
-.grid-icon.normal[color="light-purple"] {
-    --hue: 270;
-    --light-0: 91%;
-}
-.grid-icon.normal[color="dark-purple"]{
-    --hue: 270;
-    --light-0: 45%;
-    --sat: 35%;
-
-} */
-
-/* .grid-icon.normal[color] {
-    --adj: 1;
-    --light: calc(var(--light-0) * var(--adj));
-    --sat: 100%;
-    --card-color: hsl(var(--hue), var(--sat), var(--light));
-    --card-color-select: hsl(var(--hue), var(--sat), calc(var(--light) * 0.85));
-    --tab-color: hsl(var(--hue), var(--sat), calc(var(--light) * 0.5));
-}
-.grid-icon.normal[color="dark-red"],
-.grid-icon.normal[color="dark-orange"],
-.grid-icon.normal[color="dark-gold"],
-.grid-icon.normal[color="dark-green"],
-.grid-icon.normal[color="dark-teal"],
-.grid-icon.normal[color="dark-blue"],
-.grid-icon.normal[color="dark-indigo"],
-.grid-icon.normal[color="dark-purple"] {
-    --button-text-color: white;
-    --card-color: hsl(var(--hue), var(--sat), calc(var(--light) * 0.7));
-    --tab-color: hsl(var(--hue), var(--sat), calc(var(--light) * 1.5));
-} */
 *[aria-hidden="true"] {
     display: none;
 }
-/* .grid-icon.normal[color="empty"] {
-    pointer-events: none;
-    opacity: 0;
-} */
-/* .grid-icon.normal[color="white"] {
-    --card-color: rgb(251, 251, 251);
-    --card-color-select: rgb(217, 217, 217);
-    --tab-color: rgb(91, 85, 85);
-} */
 
 .grid-icon[quiz-icon][selected] {
     --main-color: var(--main-hover);
@@ -253,11 +147,6 @@ quiz-view .aswers .grid-icon {
     transform: translateX(calc((100% + 1em) * var(--offset)));
 }
 
-/* 
-quiz-view[locked] .answers access-button[action] {
-    pointer-events: all;
-} */
-
 quiz-view[locked] .answers .grid-icon[emphasize]::after {
 
     --w: max(8px, calc(3vmin - 12px));
@@ -278,6 +167,9 @@ quiz-view > access-button[quiz-icon] {
     grid-row: 1;
 }
 
+
+/* Promt popup styles */
+
 .popup-prompt {
     position: absolute;
     top: 0;
@@ -291,7 +183,7 @@ quiz-view > access-button[quiz-icon] {
     justify-content: center;
     gap: 2em;
 }
-.popup-prompt div:first-child {
+.popup-prompt .message {
     padding: 1em;
     background: white;
     border-radius: 1em;
@@ -299,12 +191,7 @@ quiz-view > access-button[quiz-icon] {
     font-weight: bold;
 }
 
-.popup-prompt .row {
-    display: flex;
-    gap: 1em;
-}
-
-.popup-prompt access-button {
-    width: 40vmin;
-    height: 40vmin;
+.popup-prompt grid-layout {
+    width: calc(0.8 * var(--width));
+    height: calc(0.39 * var(--width));
 }

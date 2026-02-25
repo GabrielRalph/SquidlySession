@@ -184,9 +184,11 @@ class SQuizView extends QuizView {
     }
 
     async promtClose(aEvent) {
-        if (await this.promt("Are you sure you want to close?", "Close", "Cancel")) {
+        let [result, pEvent] = await this.promt("Are you sure you want to close?", "Close", "Cancel");
+           
+        if (result) {
             this.state = null;
-            this.dispatchEvent(new AccessEvent("close", aEvent, {bubbles: true}));
+            this.dispatchEvent(new AccessEvent("close", pEvent, {bubbles: true}));
         }
     }
 
@@ -475,9 +477,9 @@ class QuizWindow extends OccupiableWindow {
                     sdata.set("state/actions/"+key, action.toString());
                 },
                 "close": (e) => {
-                    sdata.set("state", null);
                     this.search.reset(true);
-                    this.search.show(500);
+                    e.waitFor(this.search.show(500));
+                    sdata.set("state", null);
                 },
             }
         }, sdata);

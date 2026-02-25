@@ -1,7 +1,8 @@
 import { AccessButton, AccessEvent } from "../../Utilities/Buttons/access-buttons.js";
 import { SvgPlus } from "../../SvgPlus/4.js";
-import { GridIcon } from "../../Utilities/Buttons/grid-icon.js";
+import { GridIcon, GridLayout } from "../../Utilities/Buttons/grid-icon.js";
 import { MarkdownElement } from "../../Utilities/markdown.js";
+import { delay } from "../../Utilities/usefull-funcs.js";
 
 /**
  * @typedef {import("./quizzes.js").Answer} Answer
@@ -277,24 +278,36 @@ export class QuizView extends SvgPlus {
     }
 
     async promt(text, true_text = "exit", false_text = "cancel") {
-        let p = this.createChild("div", {class: "popup-prompt"});
-        let d = p.createChild("div", {content: text});
-        let r = p.createChild("div", {class: "row"})
-        let result = await new Promise((resolve, reject) => {
-            r.createChild(QuizIcon, {events: {
-                "access-click": () => {
-                    resolve(true)
-                }
-            }}, {title: true_text, color:"white"}, "prompt", false);
-            r.createChild(QuizIcon, {events: {
-                "access-click": () => {
-                    resolve(false)
-                }
-            }}, {title: false_text, color:"white"}, "prompt", false);
-        })
+        let popup = this.createChild("div", {class: "popup-prompt"});
+        
+        // create message element
+        popup.createChild("div", {class: "message", content: text}); 
 
-        p.remove();
-        return result;
+        // create buttons and wait for user interaction
+        const [result, event] = await new Promise((r) => {
+            popup.createChild(GridLayout, {}, 1, 2).addGridIcons([
+                {
+                    displayValue: true_text, 
+                    type: "action",
+                    events: { "access-click": (e) => {
+                        e.waitFor(delay(10))
+                        r([true, e])
+                    }}
+                },
+                {
+                    displayValue: false_text, 
+                    type: "action", 
+                    events: { "access-click": (e) => {
+                        e.waitFor(delay(10))
+                        r([false, e])
+                    }}
+                },
+            ], 0,0)
+        });
+
+        // remove popup after user selects an option
+        popup.remove();
+        return [result, event];
     }
 
     /** @param {boolean} bool */
