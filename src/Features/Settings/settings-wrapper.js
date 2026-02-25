@@ -91,7 +91,6 @@ export function watchProfiles(hostUID, callback) {
 
    
     let removed = profilesFrame.onChildRemoved(null, (oldData, profileID) => {
-        console.log("Profile removed", profileID);
         if (profileID in profileListeners) {
             profileListeners[profileID]();
             delete profileListeners[profileID];
@@ -132,7 +131,8 @@ export async function createProfile(hostUID, name) {
 
  
 /** Initialises the settings for the session
- * @param {SessionDataFrame} sdata
+ * @param {string} hostUID
+ * @param {string|null} profileID - The profile ID to use for the participant settings, or null to use the default settings
  */
 export async function initialise(hostUID, profileID = null) {
     let hostSettingsPath = `users/${hostUID}/settings/host`
@@ -193,11 +193,7 @@ export function getStringValue(name) {
     let setting = getSetting(name);
     let value = null;
     if (setting) {
-        if (setting.options.toString) {
-            value = setting.options.toString(setting.value);
-        } else {
-            value = setting.value;
-        }
+        value = setting.toString();
     }
    return value;
 }

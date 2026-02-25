@@ -290,6 +290,7 @@ export default class EyeGazeFeature extends Features {
     }
 
     _updateProcessingState() {
+        // console.log(`updating processing state\n\t_eyeGazeDisabled: ${!!this._eyeGazeDisabled}\n\t_eyeGazeOn: ${!!this._eyeGazeOn}\n\t_feedbackIsOpen: ${!!this._feedbackIsOpen}\n\t_calibrating: ${!!this._calibrating}`);
         this._isProcessing = (!this._eyeGazeDisabled) && (this._eyeGazeOn || this._feedbackIsOpen || this._calibrating) ;
     } 
 
@@ -436,7 +437,6 @@ export default class EyeGazeFeature extends Features {
         this.calibrationFrame.size = this.session.settings.get(`${this.sdata.me}/calibration/size`);
         this.calibrationFrame.speed = this.session.settings.get(`${this.sdata.me}/calibration/speed`);
         this._eyeGazeDisabled = !this.session.settings.get(`${this.sdata.me}/eye-gaze-enabled`);
-        this.sdata.logChange("eye-gaze.disabled", {value: this._eyeGazeDisabled})
 
         addProcessListener(this._onEyeData.bind(this));
 

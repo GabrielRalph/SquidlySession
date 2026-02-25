@@ -152,22 +152,22 @@ export class FeedbackFrame extends SvgPlus {
             </defs>`
         })
 
-        this.svgStyle = this.svg.createChild("style", {content: `
-            .border-norm {
-                stop-color: #156082;
-                stop-opacity: 1;
-            }
-            .border-norm.end {
-                stop-opacity: 0;
-            }
-            .border-hit {
-                stop-color: rgb(188, 13, 13);
-                stop-opacity: 1;
-            }
-            .border-hit.end {
-                stop-opacity: 0;
-            }`
-        })
+        // this.svgStyle = this.svg.createChild("style", {content: `
+        //     .border-norm {
+        //         stop-color: #827215;
+        //         stop-opacity: 1;
+        //     }
+        //     .border-norm.end {
+        //         stop-opacity: 0;
+        //     }
+        //     .border-hit {
+        //         stop-color: rgb(188, 13, 13);
+        //         stop-opacity: 1;
+        //     }
+        //     .border-hit.end {
+        //         stop-opacity: 0;
+        //     }`
+        // })
         this.svgRenders = this.svg.createChild("g", {class: "renders"});
         
         this.aspect = 1;
@@ -437,6 +437,8 @@ export class FeedbackFrame extends SvgPlus {
     set onion(facePoints) {
         if (facePoints instanceof FaceLandmarks) {
             this._onion = facePoints;
+        } else {
+            this._onion = null;
         }
     }
 
@@ -649,12 +651,15 @@ export class FeedbackWindow extends OccupiableWindow {
         
         session.videoCall.addEventListener("facepoints", ({data}) => this._setUsersFacePoints(sdata.them, data));
  
+        // Get user names
         this.hostName = session.settings.get("host/profileSettings/name") || "Host";
         this.participantName = session.settings.get("participant/profileSettings/name") || "Participant";
 
+        // Watch settings for changes in eye gaze enabled status and user names
         session.settings.addEventListener("change", (e) => {
             if (e.path.endsWith("eye-gaze-enabled")) {
                 this._updateUsersStatus(e.path.split("/")[0]);
+
             } else if (e.path.endsWith("profileSettings/name")) {
                 let user = e.path.split("/")[0];
                 this._updateUsersName(user, e.value || (user === "host" ? "Host" : "Participant"));
@@ -688,7 +693,7 @@ export class FeedbackWindow extends OccupiableWindow {
     set shownUser(user) {
         let shownUser = user === "host" ? "host" : "participant";
         this._shownUser = shownUser;
-        
+        this.feedback.setAttribute("user", shownUser);
         this._updateUsersName();
         this._updateUsersOnion();
         this._updateUsersStatus();
@@ -800,6 +805,7 @@ export class FeedbackWindow extends OccupiableWindow {
                 const str = points.serialise(used_points);
                 this.session.videoCall.sendData("facepoints", str);
             }
+
 
             // Set face points for current user
             this._setUsersFacePoints(sdata.me, points);

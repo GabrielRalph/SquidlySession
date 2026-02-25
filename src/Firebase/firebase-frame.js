@@ -17,6 +17,7 @@ const hasJoined = true;
 let FirebaseFrames = [];
 export class FirebaseFrame {
     constructor(reference) {
+        this.getReferencePath = () => reference;
         this.appRef = (path) => {
           let r = FB.ref(reference);
           if (typeof path === "string") r = FB.child(r, path);

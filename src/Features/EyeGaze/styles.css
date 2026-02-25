@@ -109,6 +109,10 @@ feedback-frame {
     display: flex;
 }
 
+feedback-frame[user = "participant"] {
+    border: 3px solid #f1ca09;
+}
+
 .f-header {
     width: 100%;
     font-size: 1.3em;
@@ -123,7 +127,10 @@ feedback-frame svg {
 
 }
 
-.border-norm {
+[user = "participant"] .border-norm {
+    stop-color: #ac910c;
+}
+[user = "host"] .border-norm{
     stop-color: #156082;
 }
 .border-norm.end {

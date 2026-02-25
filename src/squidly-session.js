@@ -638,8 +638,11 @@ export class SquidlySessionElement extends ShadowElement {
     };
 
     // Watch for resize changes in the full aspect area
-    let observer = new ResizeObserver(() => {
-      let size = blank.bbox[1];
+    let observer = new ResizeObserver((e) => {
+      let size = new Vector(
+        e[0].contentRect.width,
+        e[0].contentRect.height
+      )
       aspects[me] = size;
       this.sdata.set(`aspect/${me}`, { x: size.x, y: size.y });
       chooseAspect();

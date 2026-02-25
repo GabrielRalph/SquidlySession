@@ -150,9 +150,9 @@ class VideoDisplay extends HideShowTransition {
         }
     }
 
-    onResize() {
-        this.W = this.clientWidth;
-        this.H = this.clientHeight;
+    onResize(w, h) {
+        this.W = w;
+        this.H = h;
     }
 
     captureFrame(video) {
@@ -240,7 +240,9 @@ export class VideoPanelWidget extends SquidlyFeatureWindow {
         this.host.userName = "host";
 
 
-        let robs = new ResizeObserver(() => {
+        let robs = new ResizeObserver((e) => {
+            this.W = e[0].contentRect.width;
+            this.H = e[0].contentRect.height;
             this._update_layout()
         })
         robs.observe(this.root);
@@ -248,7 +250,6 @@ export class VideoPanelWidget extends SquidlyFeatureWindow {
 
 
     toggleUserVideoDisplay(user, show) {
-        let change = false;
         let element = user === "host" ? this.host : this.participant;
         if (element.shown !== show) {
             element.shown = show;
@@ -260,8 +261,8 @@ export class VideoPanelWidget extends SquidlyFeatureWindow {
         let aspectA = this.host.shown ? this.host.aspect : 0;
         let aspectB = this.participant.shown ? this.participant.aspect : 0;
 
-        let fullHeight = this.clientHeight - 2 * this.border;
-        let fullWidth = this.clientWidth - 2 * this.border;
+        let fullHeight = this.H - 2 * this.border;
+        let fullWidth = this.W - 2 * this.border;
 
         let layouts = Object.keys(stackModes).map(mode => {
             let [w, h] = stackModes[mode](aspectA, aspectB, fullWidth, fullHeight, this.border);
@@ -274,14 +275,22 @@ export class VideoPanelWidget extends SquidlyFeatureWindow {
         layouts = layouts.filter(l => l.valid);
         
         let choice = layouts[0];
-        this.stack.styles = {
-            "--s-width": choice.w + "px",
-            "--s-height": choice.h + "px",
+        if (choice) {
+            this.stack.styles = {
+                "--s-width": choice.w + "px",
+                "--s-height": choice.h + "px",
+            }
+            this.stack.setAttribute("stack-mode", choice.mode);
+    
+            this.host.onResize(
+                choice.mode.startsWith("horizontal") ? choice.h * aspectA : choice.w,
+                choice.mode.startsWith("vertical") ? choice.w / (aspectA) : choice.h
+            );
+            this.participant.onResize(
+                choice.mode.startsWith("horizontal") ? choice.h * aspectB : choice.w,
+                choice.mode.startsWith("vertical") ? choice.w / (aspectB) : choice.h
+            );
         }
-        this.stack.setAttribute("stack-mode", choice.mode);
-
-        this.host.onResize();
-        this.participant.onResize();
     }
 
 
