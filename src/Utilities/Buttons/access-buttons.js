@@ -48,15 +48,24 @@ export class AccessEvent extends Event {
         return await promise;
     }
 
+    async _waitForAll() {
+        let i = 0;
+        while (i < this.initialEvent.eventPromises.length) {
+            let promise = this.initialEvent.eventPromises[i];
+            await promise;
+            i++;
+        }
+    }
+
     async waitAll(timeout){
         let res = null;
         if (typeof timeout === "number") {
             res = await Promise.race([
-                Promise.all(this.initialEvent.eventPromises),
+                this._waitForAll(),
                 new Promise(r => setTimeout(r, timeout))
             ]);
         } else {
-            res = await Promise.all(this.initialEvent.eventPromises);
+            res = await this._waitForAll();
         }
         return res;
     }
@@ -116,6 +125,24 @@ class AccessButtonsLookupTable {
             }
         }
         return newGroups;
+    }
+
+    getVisibleButtonsInGroup(group) {
+        let {lookup} = this;
+        if (group in lookup) {
+            let buttons = lookup[group].filter(button => button.isConnected && button.isVisible);
+             buttons.sort((a, b) => {
+                    if (a.order != null && b.order == null) return -1;
+                    if (a.order == null && b.order != null) return 1;
+                    if (a.order == null && b.order == null) return 0;
+                    if (a.order != null && b.order != null) {
+                        return a.order - b.order;
+                    }
+            });
+            return buttons;
+        } else {
+            return [];
+        }
     }
 
 }
@@ -353,10 +380,6 @@ export class AccessButton extends SvgPlus {
 
 }
 
-export function getButtonGroups(){
-   return ButtonsLookup.getVisibleGroups();
-}
-
 function isAccessButton(element) {
     if (typeof element !== "object" || element === null) return null;
     if (element instanceof AccessButtonRoot || (element?.tagName || "").toLowerCase() === "access-button") {
@@ -366,6 +389,16 @@ function isAccessButton(element) {
     }
     return null;
 }
+
+
+export function getButtonGroups(){
+   return ButtonsLookup.getVisibleGroups();
+}
+
+export function getButtonsInGroup(group) {
+    return ButtonsLookup.getVisibleButtonsInGroup(group);
+}
+
 export function getButtonAtPoint(x, y) {
     let element = getElementFromPoint(x, y);
     while (element) {
@@ -380,6 +413,7 @@ export function getButtonAtPoint(x, y) {
     element = isAccessButton(element);
     return element
 }
+
 
 
 if (!customElements.get("access-button")) {

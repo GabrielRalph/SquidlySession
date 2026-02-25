@@ -181,6 +181,7 @@ export class HideShowTransition extends SvgPlus {
      * @return {Promise<void>}
      */
     async toggle(isShow, time) {
+      isShow = !!isShow;
       // Only run if state is changing
       if (isShow !== this._shown) {
         // Update shown state immediately
