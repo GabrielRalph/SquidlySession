@@ -32,8 +32,15 @@ const BORDER_SIZE = 4;
 function plainCard(size, border = BORDER_SIZE) {
     let inSize = size.sub(border);
     let g = Math.min(window.innerWidth, window.innerHeight) * BORDER_RADIUS_PERCENTAGE;
-    return `<rect class = "card" x = "${border/2}" y = "${border/2}" width = "${inSize.x}"  height = "${inSize.y}" rx = "${g}" ry = "${g}" />
-            <rect stroke-width = "${border}" class = "outline" x = "${border/2}" y = "${border/2}" width = "${inSize.x}"  height = "${inSize.y}" rx = "${g}" ry = "${g}" />`
+    return `
+        <rect class = "card" x = "${border/2}" y = "${border/2}" width = "${inSize.x}"  height = "${inSize.y}" rx = "${g}" ry = "${g}" />
+        
+        <rect class = "card for-hover" x = "${border/2}" y = "${border/2}" width = "${inSize.x}"  height = "${inSize.y}" rx = "${g}" ry = "${g}" />
+        <rect class = "outline for-hover" stroke-width = "${border}"  x = "${border/2}" y = "${border/2}" width = "${inSize.x}"  height = "${inSize.y}" rx = "${g}" ry = "${g}" />
+        
+        <rect class = "card for-active" x = "${border/2}" y = "${border/2}" width = "${inSize.x}"  height = "${inSize.y}" rx = "${g}" ry = "${g}" />
+        <rect class = "outline for-active" stroke-width = "${border}"  x = "${border/2}" y = "${border/2}" width = "${inSize.x}"  height = "${inSize.y}" rx = "${g}" ry = "${g}" />
+        `
 }
 
 function folderCard(size, border = BORDER_SIZE) {
@@ -79,9 +86,19 @@ function folderCard(size, border = BORDER_SIZE) {
 
     let card = `M${p8.addV(-0.1)}L${p9}A${rg},0,0,1,${p10}L${p11}A${rg},0,0,1,${p12}L${p0.addV(-0.1)}Z`
     let outline = `M${p0}L${p1}A${rg},0,0,1,${p2}L${p3}A${rt},0,0,1,${p4}L${p5}A${rt},0,0,0,${p6}L${p7}A${rg},0,0,1,${p8}L${p9}A${rg},0,0,1,${p10}L${p11}A${rg},0,0,1,${p12}Z`;
-    return  `<path class = "card" d = "${card}" />
-             <path class = "tab" d = "${tabPath}" />
-             <path stroke-width = "${border}" class = "outline" d = "${outline}" />`
+    return  `
+
+            <path class = "card" d = "${card}" />
+            <path class = "tab" d = "${tabPath}" />
+            
+            <path class = "card for-hover" d = "${card}" />
+            <path class = "tab for-hover" d = "${tabPath}" />
+            <path class = "outline for-hover" stroke-width = "${border}"  d = "${outline}" />
+            
+            <path class = "card for-active" d = "${card}" />
+            <path class = "tab for-active" d = "${tabPath}" />
+            <path class = "outline for-active" stroke-width = "${border}" d = "${outline}" />
+            `
 }
 
 // function parseCardType(type) {

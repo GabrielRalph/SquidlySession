@@ -8,12 +8,23 @@ class RotaterFrame extends HideShowTransition {
         super("div");
 
         // Setup initial state
-        // 0deg angle and not flipped (shown state)
+        // 0deg angle and not flipped
         this.angle = 0;
-        this._shown = true;
+
+        // This class uses HideShowTransition as an animation runner,
+        // but it doesn't actually hide/show via display.
         this.hiddenStyle = {
             "display": null,
         }
+        this.shownStyle = {
+            "display": null,
+        }
+        this.intermediateStyle = {
+            "display": null,
+        }
+
+        // Start in a stable shown state
+        this._shown = true;
         this.styles = {
             ...this.hiddenStyle,
             "transform": `rotateY(${this.angle}deg)`,
@@ -23,8 +34,8 @@ class RotaterFrame extends HideShowTransition {
 
     async flip(duration = 800, direction = 1){
         direction = direction >= 0 ? 1 : -1;
-        let start = this.angle;
-        let end = this.angle + direction * 180;
+        const start = this.angle;
+        const end = this.angle + direction * 180;
         this.angle = end;
 
         // Disable pointer events during animation
@@ -32,15 +43,21 @@ class RotaterFrame extends HideShowTransition {
             "pointer-events": "none"
         }
 
-        // Create animation sequence and reverse if currently shown
+        // Build keyframes for this flip.
+        // We always force toggle() down the "show" path to avoid alternating
+        // the internal reverse() behavior (which is where some browsers emit
+        // "Compositing failed: Invalid animation or effect" warnings).
+        this._shown = false;
         this.animationSequence = [
             {"transform": `rotateY(${start}deg)`},
             {"transform": `rotateY(${end}deg)`},
         ];
-        if (this.shown) this.animationSequence.reverse();
 
-        // Toggle shown state to start the animation
-        await this.toggle(!this.shown, duration);
+        // Ensure starting transform is applied before animating
+        this.styles = {
+            "transform": `rotateY(${start}deg)`
+        }
+        await this.toggle(true, duration);
 
         // Re-enable pointer events after animation
         this.styles = {
@@ -49,8 +66,7 @@ class RotaterFrame extends HideShowTransition {
     }
 
     get flipped(){
-        let isFlipped = Math.floor(this.angle / 180) % 2 ==! 0;
-        return isFlipped;
+        return (Math.floor(this.angle / 180) % 2) !== 0;
     }
 
 }
@@ -58,7 +74,7 @@ class RotaterFrame extends HideShowTransition {
 class SlotTransition extends SvgPlus {
     constructor() {
         super("div");
-        this.contentSets = []
+        this.contentSets = [];
         this.transitionTime = 0.68;
     }
 

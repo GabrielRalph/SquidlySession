@@ -26,6 +26,8 @@
     --main-color: var(--main);
     --outline-color: transparent;
 
+    --transition-time: 0.2s;
+
     width: 100%;
     height: 100%;
     position: relative;
@@ -34,6 +36,8 @@
 
     cursor: pointer;
     color: var(--text);
+
+    transition: transform var(--transition-time) ease;
 }
 .grid-icon[i-hidden] {
     opacity: 0;
@@ -143,22 +147,43 @@
 
 .grid-icon .card-icon .outline {
     fill: none;
-    stroke: var(--outline-color);
+    stroke: var(--outline);
+}
+
+.grid-icon .card-icon .outline.for-active {
+    stroke: var(--outline-active, var(--outline));
 }
 
 .grid-icon .card-icon .card {
     fill: var(--main-color);
 }
+.grid-icon .card-icon .card.for-hover {
+    fill: var(--main-hover);
+}
+.grid-icon .card-icon .card.for-active {
+    fill: var(--main-active);
+}
 
 .grid-icon .card-icon .tab {
     fill: var(--tab-color);
 }
+.grid-icon .card-icon .tab.for-hover {
+    fill: var(--tab-hover);
+}
+.grid-icon .card-icon .tab.for-active {
+    fill: var(--tab-active);
+}
 
-.grid-icon:not([i-disable-hover])[hover],
-.grid-icon:not([i-disable-hover]):hover {
-    --tab-color: var(--tab-hover);
-    --main-color: var(--main-hover);
-    --outline-color: var(--outline);
+.grid-icon .for-hover, .grid-icon .for-active, .grid-icon .outline {
+    opacity: 0;
+    transition: opacity var(--transition-time) ease;
+}
+
+/* Hover state */
+
+.grid-icon:not([i-disable-hover])[hover] .for-hover,
+.grid-icon:not([i-disable-hover]):hover .for-hover{
+    opacity: 1;
 } 
 
 .grid-icon:not([i-disable-hover]):hover .icon,
@@ -166,12 +191,15 @@
     --icon-color: var(--icon-color-hover);
 }
 
+/* Active state */
+
 .grid-icon:not([i-disable-active]):active {
-    --tab-color: var(--tab-active);
-    --main-color: var(--main-active);
-    --outline-color: var(--outline-active, var(--outline));
     transform: scale(0.97);
 }
+.grid-icon:not([i-disable-active]):active .for-active {
+    opacity: 1;
+}
+
 
 grid-layout {
     display: grid;
