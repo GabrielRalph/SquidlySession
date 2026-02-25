@@ -1,4 +1,4 @@
-import vision from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0"
+import * as vision from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/+esm"
 import {Vector, Vector3} from "./vector3.js"
 import { relURL } from "../../../../Utilities/usefull-funcs.js";
 const {FaceLandmarker, FilesetResolver} = vision;
