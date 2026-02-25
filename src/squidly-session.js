@@ -746,7 +746,6 @@ export class SquidlySessionElement extends ShadowElement {
 
         // Create a copy of the event that can be dispatched to the occupier
         let keyboardElements = [this.currentOccupier, ...this.keyboardCaptureElements].filter((el) => el);
-        console.log("Dispatching key event to", keyboardElements);
         let isPrevented = false;
         for (let element of keyboardElements) {
           const event = copyEvent(e, "", {bubbles: false, cancelable: true});
@@ -775,9 +774,7 @@ export class SquidlySessionElement extends ShadowElement {
     });
   }
 
-
   initialiseEventForwarding() {
-    console.log("Initialising event forwarding for", this.eventCaptureElements);
     for (let eventName in this.eventCaptureElements) {
       window.addEventListener(eventName, (e) => {
         let elements = this.eventCaptureElements[eventName];
@@ -788,8 +785,6 @@ export class SquidlySessionElement extends ShadowElement {
       });
     }
   }
-
-
 
   set endlinkHost(link) {
     this["endlink-host"] = link;
