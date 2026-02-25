@@ -11,8 +11,6 @@ function colorText(text, hue) {
 }
 
 
-
-
 function getURLSFromCSS(css) {
     let urls = [];
     let matches = css.matchAll(/url\(/g);
@@ -45,7 +43,7 @@ function relURLAssetPlugin({ srcDir = 'src', outDir = 'build/assets' } = {}) {
             // Only transform JS modules in srcDir
             if (id.startsWith(path.resolve(srcDir))) {
                 newCode = code.replace(
-                    /relURL\(\s*['"](.+?)['"]\s*,\s*import\.meta\s*\)/g,
+                    /relURL\([\s\n]*['"](.+?)['"][\s\n]*,[\s\n]*import\.meta,?[\s\n]*\)/g,
                     (value, origPath) => {
                         // For each matched relURL call
                         const absPath = path.resolve(path.dirname(id), origPath.replace(/^(\.\/|\/)/, ''));
