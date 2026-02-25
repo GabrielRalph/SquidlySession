@@ -10,8 +10,8 @@ const AppsList = [
   "https://starfin-adventure.squidly.com.au",
   "https://v3.squidly.com.au/AppsDev/Lamp",
   // "http://127.0.0.1:37374/AppsDev/Lamp", // Local development URL (served by VSCode Live Server)
-  "http://127.0.0.1:5500",
-  "http://127.0.0.1:5501",
+  // "http://127.0.0.1:5500",
+  // "http://127.0.0.1:5501",
 ];
 
 class QuizSearch extends SearchWindow {
@@ -801,9 +801,10 @@ export default class Apps extends Features {
     let result = false;
     let apiURL = relURL("./app-base-api.js", import.meta);
     let accessButtonsURL = relURL(
-      "../../Utilities/Buttons/access-buttons.js",
+      "../../Utilities/Buttons/access-buttons.js", 
       import.meta,
     );
+    let gridIconStyles = relURL("../../Utilities/Buttons/grid-icon.css", import.meta)
     this.appDescriptors = await Promise.all(
       AppsList.map(async (url) => {
         try {
@@ -836,7 +837,9 @@ export default class Apps extends Features {
             `<script type="module" src="${accessButtonsURL}"></script>`,
             `<script src="${apiURL}"></script>`,
             `<base href="${url}/">`,
-            `<script>window.session_info = ${safe_session_info};</script>`,
+            `<script>window.session_info = ${safe_session_info};</script>
+            <link rel="stylesheet" href="${gridIconStyles}">
+            `,
           ].join("\n\t");
 
           info.html = html.replace(/<head\b[^>]*>/, `$& \n\t${injection}`);
