@@ -146,11 +146,9 @@ async function getUtteranceURL(utterance, isName) {
 
 /** @param {string} voiceName */
 async function changeVoice(voiceName) {
-
     log(`Changing voice to '${voiceName}'`, [], "load");
     const old = VOICE_NAME in UTTERANCES ? UTTERANCES[VOICE_NAME] : {};
     const oldPhrases = Object.keys(old);
-    
 
     const newp = voiceName in UTTERANCES ? UTTERANCES[voiceName] : {};
     const newPhrases = new Set(Object.keys(newp));
@@ -239,6 +237,7 @@ export default class Text2Speech extends Features {
         if (!(voiceName in MY_VOICES)) {
             throw "Invalid voice name";
         }
+
         await changeVoice(voiceName);
     }
 

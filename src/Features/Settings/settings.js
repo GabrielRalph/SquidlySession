@@ -372,6 +372,7 @@ class SettingsWindow extends OccupiableWindow {
     }
 
     async close(){
+        this.dispatchEvent(new CustomEvent("exit"))
         await this.hide(400)
     }
 
@@ -413,7 +414,8 @@ export default class SettingsFeature extends Features {
             },
             "path-change": () => {
                 this.sdata.set("path", this.settingsWindow.history);
-            }
+            },
+            "exit": (e) => this.dispatchEvent(e)
         }
 
         // Listen to changes in settings values and update the settings window accordingly
