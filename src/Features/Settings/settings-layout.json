@@ -138,7 +138,7 @@
                 "action": "increment-setting",
                 "settingKey": "language",
                 "direction": 1,
-                "accessGroup": "language-selection"
+                "accessGroup": "abb-language-selection"
             },
             {
                 "displayValue": "Next Voice",
@@ -149,7 +149,7 @@
                 "action": "increment-setting",
                 "settingKey": "voice",
                 "direction": 1,
-                "accessGroup": "voice-selection"
+                "accessGroup": "bbb-voice-selection"
             },
             {
                 "displayValue": "Next speed",
@@ -160,7 +160,7 @@
                 "action": "increment-setting",
                 "settingKey": "speed",
                 "direction": 1,
-                "accessGroup": "voice-speed"
+                "accessGroup": "cbb-voice-speed"
             }
         ],
         [
@@ -193,7 +193,7 @@
                 "action": "increment-setting",
                 "settingKey": "language",
                 "direction": -1,
-                "accessGroup": "language-selection"
+                "accessGroup": "abb-language-selection"
             },
             {
                 "displayValue": "Previous Voice",
@@ -204,7 +204,7 @@
                 "action": "increment-setting",
                 "settingKey": "voice",
                 "direction": -1,
-                "accessGroup": "voice-selection"
+                "accessGroup": "bbb-voice-selection"
             },
             {
                 "displayValue": "Previous speed",
@@ -215,7 +215,7 @@
                 "action": "increment-setting",
                 "settingKey": "speed",
                 "direction": -1,
-                "accessGroup": "voice-speed"
+                "accessGroup": "cbb-voice-speed"
             }
         ]
     ],
@@ -264,7 +264,7 @@
                 "action": "increment-setting",
                 "settingKey": "switchTime",
                 "direction": 1,
-                "accessGroup": "access-switch-time"
+                "accessGroup": "abb-access-switch-time"
             },
             {
                 "displayValue": "Longer dwell",
@@ -275,7 +275,7 @@
                 "action": "increment-setting",
                 "settingKey": "dwellTime",
                 "direction": 1,
-                "accessGroup": "access-dwell-time"
+                "accessGroup": "bbb-access-dwell-time"
             },
             {"hidden": true}
         ],
@@ -304,7 +304,7 @@
                 "action": "increment-setting",
                 "settingKey": "switchTime",
                 "direction": -1,
-                "accessGroup": "access-switch-time"
+                "accessGroup": "abb-access-switch-time"
             },
             {
                 "displayValue": "Faster dwell",
@@ -315,7 +315,7 @@
                 "action": "increment-setting",
                 "settingKey": "dwellTime",
                 "direction": -1,
-                "accessGroup": "access-dwell-time"
+                "accessGroup": "bbb-access-dwell-time"
             },
             {"hidden": true}
         ]
@@ -331,7 +331,7 @@
                 "action": "increment-setting",
                 "settingKey": "size",
                 "direction": 1,
-                "accessGroup": "calibration-size"
+                "accessGroup": "abb-calibration-size"
             },
             {
                 "displayValue": "Next calibration speed",
@@ -342,7 +342,7 @@
                 "action": "increment-setting",
                 "settingKey": "speed",
                 "direction": 1,
-                "accessGroup": "calibration-speed"
+                "accessGroup": "bbb-calibration-speed"
             },
             {
                 "displayValue": "Next guide",
@@ -353,7 +353,7 @@
                 "action": "increment-setting",
                 "settingKey": "guide",
                 "direction": 1,
-                "accessGroup": "calibration-guide"
+                "accessGroup": "cbb-calibration-guide"
             }
         ],
         [
@@ -386,7 +386,7 @@
                 "action": "increment-setting",
                 "settingKey": "size",
                 "direction": -1,
-                "accessGroup": "calibration-size"
+                "accessGroup": "abb-calibration-size"
             },
             {
                 "displayValue": "Previous calibration speed",
@@ -397,7 +397,7 @@
                 "action": "increment-setting",
                 "settingKey": "speed",
                 "direction": -1,
-                "accessGroup": "calibration-speed"
+                "accessGroup": "bbb-calibration-speed"
             },
             {
                 "displayValue": "Previous guide",
@@ -408,7 +408,7 @@
                 "action": "increment-setting",
                 "settingKey": "guide",
                 "direction": -1,
-                "accessGroup": "calibration-guide"
+                "accessGroup": "cbb-calibration-guide"
             }
         ]
     ],
@@ -426,7 +426,7 @@
                 "settingKey": "level",
                 "action": "set-setting",
                 "value": 100,
-                "accessGroup": "volume-quick"
+                "accessGroup": "abb-volume-quick"
             },
             {
                 "displayValue": "Volume up",
@@ -440,7 +440,7 @@
                 "action": "increment-setting",
                 "settingKey": "level",
                 "direction": 1,
-                "accessGroup": "volume-adjust"
+                "accessGroup": "bbb-volume-adjust"
             },
             {
                 "hidden": true
@@ -459,7 +459,7 @@
                 "settingKey": "level",
                 "action": "set-setting",
                 "value": 70,
-                "accessGroup": "volume-quick"
+                "accessGroup": "abb-volume-quick"
             },
             {
                 "hidden": false,
@@ -484,7 +484,7 @@
                 "settingKey": "level",
                 "action": "set-setting",
                 "value": 20,
-                "accessGroup": "volume-quick"
+                "accessGroup": "abb-volume-quick"
             },
             {
                 "displayValue": "Volume down",
@@ -498,7 +498,7 @@
                 "action": "increment-setting",
                 "settingKey": "level",
                 "direction": -1,
-                "accessGroup": "volume-adjust"
+                "accessGroup": "bbb-volume-adjust"
             },
             {
                 "hidden": true
@@ -516,7 +516,7 @@
                 "action": "increment-setting",
                 "settingKey": "cursorStyle",
                 "direction": 1,
-                "accessGroup": "cursor-style"
+                "accessGroup": "abb-cursor-style"
 
             },
             {
@@ -528,7 +528,7 @@
                 "action": "increment-setting",  
                 "settingKey": "cursorSize",
                 "direction": 1,
-                "accessGroup": "cursor-size"
+                "accessGroup": "bbb-cursor-size"
             },
             {
                 "displayValue": "Next cursor colour",
@@ -539,7 +539,7 @@
                 "action": "increment-setting",
                 "settingKey": "cursorColour",
                 "direction": 1,
-                "accessGroup": "cursor-colour"
+                "accessGroup": "cbb-cursor-colour"
             }
         ],
         [
@@ -572,7 +572,7 @@
                 "action": "increment-setting",
                 "settingKey": "cursorStyle",
                 "direction": -1,
-                "accessGroup": "cursor-style"
+                "accessGroup": "abb-cursor-style"
             },
             {
                 "displayValue": "Smaller cursor",
@@ -583,7 +583,7 @@
                 "action": "increment-setting",
                 "settingKey": "cursorSize",
                 "direction": -1,
-                "accessGroup": "cursor-size"
+                "accessGroup": "bbb-cursor-size"
             },
             {
                 "displayValue": "Previous cursor colour",
@@ -594,7 +594,7 @@
                 "action": "increment-setting",
                 "settingKey": "cursorColour",
                 "direction": -1,
-                "accessGroup": "cursor-colour"
+                "accessGroup": "cbb-cursor-colour"
             }
         ]
 
@@ -610,7 +610,7 @@
                 "action": "increment-setting",
                 "settingKey": "layout",
                 "direction": 1,
-                "accessGroup": "display-layout"
+                "accessGroup": "abb-display-layout"
             },
             {
                 "displayValue": "Next Font",
@@ -621,7 +621,7 @@
                 "action": "increment-setting",
                 "settingKey": "font",
                 "direction": 1,
-                "accessGroup": "display-font"
+                "accessGroup": "bbb-display-layout"
 
             },
             {
@@ -633,7 +633,7 @@
                 "action": "increment-setting",
                 "settingKey": "effect",
                 "direction": 1,
-                "accessGroup": "display-effect"
+                "accessGroup": "cbb-display-layout"
 
             }
         ],
@@ -667,7 +667,7 @@
                 "action": "increment-setting",
                 "settingKey": "layout",
                 "direction": -1,
-                "accessGroup": "display-layout"
+                "accessGroup": "abb-display-layout"
             },
             {
                 "displayValue": "Previous font",
@@ -678,7 +678,7 @@
                 "action": "increment-setting",
                 "settingKey": "font",
                 "direction": -1,
-                "accessGroup": "display-font"
+                "accessGroup": "bbb-display-layout"
 
             },
             {
@@ -690,7 +690,7 @@
                 "action": "increment-setting",
                 "settingKey": "effect",
                 "direction": -1,
-                "accessGroup": "display-effect"
+                "accessGroup": "cbb-display-layout"
 
             }
         ]

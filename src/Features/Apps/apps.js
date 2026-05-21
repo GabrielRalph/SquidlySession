@@ -713,7 +713,27 @@ export default class Apps extends Features {
     } catch (e) {
       return null;
     }
+
+
   }
+  _getIFrameElementByPath(path) {
+    let element = null;
+    try {
+      let doc = this.appFrame.iframe.contentDocument;
+      const paths = path.join(">")
+        .split("::shadow>")
+        .map(p => p.replace(/(^>)|(>$)/g, ""))
+
+      let lastPath = paths.pop();
+      for (const p of paths) {
+        doc = doc.querySelector(p)?.shadowRoot;
+      }
+      element = doc?.querySelector(lastPath) || null;
+    } catch (e) { }
+    return element;
+  }
+
+
 
   /**
    * Gets the iframe's bounding rect in parent coordinates.
@@ -771,7 +791,8 @@ export default class Apps extends Features {
    * Creates a proxy AccessButton that delegates directly to the iframe element (same-origin).
    */
   _message_registerAccessButton(e) {
-    const { id, group, order } = e.data;
+    const { id, group, order, path } = e.data;
+
     // Remove existing proxy if it exists (cleanup for reloads)
     if (this._iframeAccessButtons.has(id)) {
       const entry = this._iframeAccessButtons.get(id);
@@ -782,7 +803,7 @@ export default class Apps extends Features {
     // Override the iframe element's coordinate methods so that both the
     // proxy AND direct hits from getButtonAtPoint / dwell detection
     // return parent-viewport coordinates instead of iframe-local ones.
-    const element = this._getIframeElement(id);
+    const element = this._getIFrameElementByPath(path);
     if (element) {
       const origGetCenter = element.getCenter.bind(element);
       const origIsPointInElement = element.isPointInElement.bind(element);
@@ -815,7 +836,7 @@ export default class Apps extends Features {
     // element already returns parent-viewport coordinates after the override.
 
     proxy.getCenter = () => {
-      const el = this._getIframeElement(id);
+      const el = this._getIFrameElementByPath(path);
       if (el && typeof el.getCenter === "function") {
         return el.getCenter();
       }
@@ -823,7 +844,9 @@ export default class Apps extends Features {
     };
 
     proxy.getIsVisible = () => {
-      const el = this._getIframeElement(id);
+      // Always hide if search is open
+      if (this.appFrame.search.shown) return false; 
+      const el = this._getIFrameElementByPath(path);
       if (el && typeof el.getIsVisible === "function") {
         return el.getIsVisible();
       }
@@ -831,14 +854,16 @@ export default class Apps extends Features {
 
     proxy.setHighlight = (isHighlighted) => {
       proxy.toggleAttribute("hover", isHighlighted);
-      const el = this._getIframeElement(id);
+      const el = this._getIFrameElementByPath(path);
       if (el && typeof el.setHighlight === "function") {
         el.setHighlight(isHighlighted);
       }
     };
 
     proxy.isPointInElement = (p) => {
-      const el = this._getIframeElement(id);
+      // Always return false if search is open
+      if (this.appFrame.search.shown) return false;
+      const el = this._getIFrameElementByPath(path);
       if (!el) return false;
       if (typeof el.isPointInElement === "function") {
         return el.isPointInElement(p);
@@ -847,10 +872,12 @@ export default class Apps extends Features {
     };
 
     // Handle access-click by delegating to iframe element
-    proxy.addEventListener("access-click", (event) => {
-      const el = this._getIframeElement(id);
+    proxy.addEventListener("access-click", async (event) => {
+      const el = this._getIFrameElementByPath(path);
       if (el && typeof el.accessClick === "function") {
-        el.accessClick(event.clickMode || "click");
+        console.log("Proxy access-click triggered", Date.now());
+        await event.waitFor(el.accessClick(event.clickMode || "click"));
+        console.log("Proxy access-click completed", Date.now());
       }
     });
 
@@ -901,7 +928,7 @@ export default class Apps extends Features {
             console.warn("Failed to load app descriptor from " + url);
             return null;
           }
-          
+
           info.url = url;
           let participantActive = this.sdata.isUserActive("participant");
           const session_info = {

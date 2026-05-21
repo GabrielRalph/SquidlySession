@@ -16,11 +16,10 @@ import { GRID_ICON_THEMES } from "./grid-icon-themes.js";
  * @typedef {Object} GridIconOptions
  * @property {import
  * ("./grid-icon-themes.js").GridIconType} type - The type of the icon, which determines its appearance. 
- * 
  *                           general type format: [topic-]colorTheme
  *                           see COLOR_THEMES for available color themes.
+ * @property {string} [accessGroup] - The access group for the icon, used for grouping icons together.
  * @property {string} displayValue - The text to display below the icon.
- * 
  * @property {string} [subtitle] - The icon symbol, can be a string or an object with a url.
  * @property {IconSymbol} [symbol] - The icon symbol, see above.
  * @property {boolean} [hidden] - If true, the icon will be hidden.

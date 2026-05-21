@@ -87,9 +87,42 @@
     );
   };
 
+
+  
   // ============================================================================
   // INTERNAL HELPERS (ACCESS BUTTONS)
   // ============================================================================
+
+  function getScopeRoot(element) {
+    let node = element;
+    while (node) {
+      if (node instanceof ShadowRoot) return node;
+      node = node.parentNode;
+    }
+    return null;
+  }
+
+  function getSelectorPath(node) {
+    let path = [];
+    if (node && node !== document) {
+      if (node instanceof ShadowRoot) {
+        path = [...getSelectorPath(node.host), "::shadow"];
+      } else if (node.id) {
+        selector = `#${node.id}`;
+        path = [...getSelectorPath(getScopeRoot(node)), selector]
+      } else {
+        let selector = node.tagName.toLowerCase();
+        const siblings = Array.from(node.parentNode?.children ?? [])
+          .filter(s => s.tagName === node.tagName);
+        if (siblings.length > 1) {
+          selector += `:nth-of-type(${siblings.indexOf(node) + 1})`;
+        }
+        path = [...getSelectorPath(node.parentNode), selector]
+      }
+    }
+    return path;
+  }
+
 
   /**
    * Registers an element as an access button with the parent app.
@@ -123,6 +156,7 @@
         id: id,
         group: group,
         order: order,
+        path: getSelectorPath(element),
       },
       "*",
     );
@@ -138,7 +172,6 @@
     if (id in ACCESS_BUTTONS) {
       delete ACCESS_BUTTONS[id];
     }
-
     window.parent.postMessage(
       {
         mode: "unregisterAccessButton",
@@ -170,6 +203,7 @@
   function autoUnregisterAccessButton(element) {
     if (element.dataset.accessButtonId) {
       unregisterAccessButton(element.dataset.accessButtonId);
+      delete element.dataset.accessButtonId;
     }
   }
 
@@ -327,31 +361,55 @@
   // ============================================================================
   // AUTO-REGISTRATION OBSERVER
   // ============================================================================
-  const accessButtonObserver = new MutationObserver((mutations) => {
-    for (const mutation of mutations) {
-      // Handle added nodes
-      for (const node of mutation.addedNodes) {
-        if (node.nodeType !== Node.ELEMENT_NODE) continue;
 
-        if (node.tagName === "ACCESS-BUTTON") {
-          autoRegisterAccessButton(node);
-        }
-        // Also check descendants
-        node
-          .querySelectorAll?.("access-button")
-          .forEach(autoRegisterAccessButton);
+  // Tracks shadow roots already being observed to avoid duplicates.
+  const observedShadowRoots = new WeakSet();
+
+  // Recursively observe all shadow roots within a node, registering any
+  // existing access-buttons found inside them.
+  function observeShadowRoots(node) {
+    const elements = [node, ...(node.querySelectorAll?.("*") ?? [])];
+    for (const el of elements) {
+      if (el.shadowRoot && !observedShadowRoots.has(el.shadowRoot)) {
+        observedShadowRoots.add(el.shadowRoot);
+        accessButtonObserver.observe(el.shadowRoot, { childList: true, subtree: true });
+        el.shadowRoot.querySelectorAll("access-button").forEach(autoRegisterAccessButton);
+        // Recurse to handle shadow roots nested within this shadow root.
+        observeShadowRoots(el.shadowRoot);
       }
+    }
+  }
 
-      // Handle removed nodes
+  // Unregister all access-buttons in a subtree, including those in shadow roots.
+  function unregisterSubtree(node) {
+    if (node.tagName === "ACCESS-BUTTON") autoUnregisterAccessButton(node);
+    node.querySelectorAll?.("access-button").forEach(autoUnregisterAccessButton);
+    const elements = [node, ...(node.querySelectorAll?.("*") ?? [])];
+    for (const el of elements) {
+      if (el.shadowRoot) {
+        observedShadowRoots.delete(el.shadowRoot);
+        el.shadowRoot.querySelectorAll("access-button").forEach(autoUnregisterAccessButton);
+        unregisterSubtree(el.shadowRoot);
+      }
+    }
+  }
+
+  const accessButtonObserver = new MutationObserver((mutations) => {
+    // Handle removed nodes
+    for (const mutation of mutations) {
       for (const node of mutation.removedNodes) {
         if (node.nodeType !== Node.ELEMENT_NODE) continue;
+        unregisterSubtree(node);
+      }
+    }
 
-        if (node.tagName === "ACCESS-BUTTON") {
-          autoUnregisterAccessButton(node);
-        }
-        node
-          .querySelectorAll?.("access-button")
-          .forEach(autoUnregisterAccessButton);
+    // Handle added nodes
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (node.nodeType !== Node.ELEMENT_NODE) continue;
+        if (node.tagName === "ACCESS-BUTTON") autoRegisterAccessButton(node);
+        node.querySelectorAll?.("access-button").forEach(autoRegisterAccessButton);
+        observeShadowRoots(node);
       }
     }
   });
@@ -361,10 +419,10 @@
       childList: true,
       subtree: true,
     });
-    // Register any existing access-button elements
-    document
-      .querySelectorAll("access-button")
-      .forEach(autoRegisterAccessButton);
+    // Register any existing access-button elements in light DOM.
+    document.querySelectorAll("access-button").forEach(autoRegisterAccessButton);
+    // Register any existing access-button elements inside shadow roots.
+    observeShadowRoots(document.body);
   }
 
   // Start observer when DOM is ready

@@ -75,7 +75,7 @@ class SettingsPanel extends SvgPlus {
                 displayValue: "Exit",
                 symbol: "close",
                 action: "exit",
-                accessGroup: "settings-navigation"
+                accessGroup: "aaa-settings-navigation"
             }],
             [{
                 type: "action",
@@ -83,21 +83,21 @@ class SettingsPanel extends SvgPlus {
                 symbol: "home",
                 hidden: isHome,
                 action: "home",
-                accessGroup: "settings-navigation"
+                accessGroup: "aaa-settings-navigation"
             }],
             isHome && isHost ? [{
                 type: "action",
                 displayValue: "Profiles",
                 symbol: "search",
                 action: "search",  
-                accessGroup: "settings-navigation"
+                accessGroup: "aaa-settings-navigation"
             }] : [{
                 type: "action",
                 displayValue: "Back",
                 symbol: "back",
                 hidden: isHome,
                 action: "back",  
-                accessGroup: "settings-navigation"
+                accessGroup: "aaa-settings-navigation"
             }],
         ]);
         this.path = [...path];

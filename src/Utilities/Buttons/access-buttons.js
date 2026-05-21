@@ -1,6 +1,12 @@
 import { SvgPlus, Vector } from "../../SvgPlus/4.js";
 import { loadUtterances, speak } from "../text2speach-proxy.js";
 
+function isAccessEvent(event) {
+    return event != null 
+            && typeof event === "object" 
+            && Array.isArray(event.eventPromises) 
+            && "initialEvent" in event
+}
 
 export class AccessEvent extends Event {
     /** @type {?("click"|"dwell"|"switch")} */
@@ -25,8 +31,8 @@ export class AccessEvent extends Event {
         }
         super(eventName, Config);
         let oldEvent = this;
-        if (mode instanceof AccessEvent) {
-            if (mode.initialEvent instanceof AccessEvent) {
+        if (isAccessEvent(mode)) {
+            if (mode.initialEvent != null && Array.isArray(mode.initialEvent.eventPromises)) {
                 mode = mode.initialEvent;
             }
             oldEvent = mode;
@@ -124,7 +130,18 @@ class AccessButtonsLookupTable {
                 newGroups[name] = [...group];
             }
         }
-        return newGroups;
+
+        let newGroupsSorted = {};
+        //Sort keys alphabetically, but keep the order of buttons in each group.
+        Object.keys(newGroups).sort((a, b) => {
+            if (a < b) return -1;
+            if (a > b) return 1;
+            return 0;
+        }).forEach(key => {
+            newGroupsSorted[key] = newGroups[key];
+        });
+            
+        return newGroupsSorted;
     }
 
     getVisibleButtonsInGroup(group) {
@@ -168,9 +185,9 @@ function checkClickable(root, element, center){
 function getElementFromPoint(x, y) {
     let root = document.elementFromPoint(x, y);
     while (root) {
-        if (root.shadowRoot instanceof ShadowRoot) {
+        if (root.shadowRoot != null) {
             root = root.shadowRoot.elementFromPoint(x, y);
-        } else if (root instanceof HTMLIFrameElement) {
+        } else if (root.tagName === "IFRAME" && root.contentDocument) {
             let rect = root.getBoundingClientRect();
             let frameX = x - rect.x;
             let frameY = y - rect.y;
@@ -321,7 +338,6 @@ class AccessButtonRoot extends HTMLElement {
         return checkClickable(root, proxy, p)
     }
 
-
     activeAnimation(){
         this.toggleAttribute("active", true);
         setTimeout(() => {
@@ -329,10 +345,8 @@ class AccessButtonRoot extends HTMLElement {
         }, 200);
     }
 
-
     connectedCallback() {
         ButtonsLookup.add(this);
-        
     }
     
     disconnectedCallback() {
