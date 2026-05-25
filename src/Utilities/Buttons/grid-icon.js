@@ -48,7 +48,6 @@ const CARD_RENDERERS = {
     },
     
     folder(size, border = this.BORDER_SIZE) {
-        console.log(this.BORDER_SIZE)
         let inSize = size.sub(border);
         let g = Math.min(window.innerWidth, window.innerHeight) * this.BORDER_RADIUS_PERCENTAGE;
         let w = inSize.x;
