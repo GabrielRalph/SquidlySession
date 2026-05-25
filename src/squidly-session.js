@@ -11,7 +11,7 @@ import {
   SessionConnection,
 } from "./Firebase/session-connection.js";
 import { SvgPlus, Vector } from "./SvgPlus/4.js";
-import { ShadowElement } from "./Utilities/shadow-element.js";
+import { ShadowElement } from "./SvgPlus/shadow-element.js";
 import {
   getQueryKey,
   series,
