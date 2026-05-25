@@ -435,7 +435,7 @@ export default class Apps extends Features {
       if (!usedKeys.has(path)) {
         // Check limit
         if (usedKeys.size >= this.MAX_KEYS) {
-          console.log(
+          console.warn(
             `Firebase set failed: Too many keys in app "${appName}" (${usedKeys.size}/${this.MAX_KEYS})`,
           );
           return;
@@ -449,7 +449,7 @@ export default class Apps extends Features {
       // Block mutable types (Objects and Arrays) to prevent database bloat
       // Only primitives (string, number, boolean, null) are allowed
       if (value !== null && typeof value === "object") {
-        console.log(
+        console.warn(
           `Firebase set failed: Mutable types (Objects and Arrays) are not allowed at path "${path}". Use individual primitive keys instead.`,
         );
         return;
@@ -459,7 +459,7 @@ export default class Apps extends Features {
       const encoder = new TextEncoder();
       // Check if the serialized value exceeds the maximum size
       if (encoder.encode(serialized).length > this.MAX_BYTES) {
-        console.log("Firebase set failed: value is too large");
+        console.warn("Firebase set failed: value is too large");
         return;
       }
 
@@ -603,10 +603,6 @@ export default class Apps extends Features {
 
   _message_getSettings(e) {
     const { path, key } = e.data;
-    console.log(
-      "Received getSettings request for path: " + path + ", key: " + key,
-    );
-
     // Enforce scope
     if (typeof path !== "string" || !path.startsWith(this.sdata.me + "/")) {
       console.warn(
@@ -628,9 +624,6 @@ export default class Apps extends Features {
     }
 
     const value = this.session.settings.get(path);
-    console.log(
-      "Retrieved value: " + JSON.stringify(value) + " for path: " + path,
-    );
     // Send the value back to the iframe
     e.source.postMessage(
       {
@@ -641,7 +634,6 @@ export default class Apps extends Features {
       },
       "*",
     );
-    console.log("Sent response back to iframe with key: " + key);
   }
 
   _message_addSettingsListener(e) {
@@ -875,9 +867,7 @@ export default class Apps extends Features {
     proxy.addEventListener("access-click", async (event) => {
       const el = this._getIFrameElementByPath(path);
       if (el && typeof el.accessClick === "function") {
-        console.log("Proxy access-click triggered", Date.now());
         await event.waitFor(el.accessClick(event.clickMode || "click"));
-        console.log("Proxy access-click completed", Date.now());
       }
     });
 
@@ -973,13 +963,12 @@ export default class Apps extends Features {
         if (e.value == null) {
           e.waitFor(this.session.openWindow("default"));
         } else {
-          // this._setApp(e.value.app.index);
-          // this.appFrame.search.hide();
           this.sdata.set("selected_app", {
             index: e.value.app.index,
             app: e.value.app,
             timestamp: Date.now(),
           });
+
           // We are going to LOG the selected app to the logs which will be saved.
           this.sdata.logChange("app.selected", { value: e.value.app.name });
 
