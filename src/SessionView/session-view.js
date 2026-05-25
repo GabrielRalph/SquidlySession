@@ -1,6 +1,6 @@
 import { SvgPlus, Vector } from "../SvgPlus/4.js";
 import { Icon } from "../Utilities/Icons/icons.js";
-import { ShadowElement } from "../Utilities/shadow-element.js";
+import { ShadowElement } from "../SvgPlus/shadow-element.js";
 import { relURL, WaveStateVariable, getDevice, delay } from "../Utilities/usefull-funcs.js";
 
 /** @typedef {("entireScreen"|"fullAspectArea"|"fixedAspectArea"|"mainScreen"|"popupArea")} ScreenAreaName*/

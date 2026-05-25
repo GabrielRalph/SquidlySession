@@ -1,4 +1,4 @@
-import { ShadowElement } from "../Utilities/shadow-element.js";
+import { ShadowElement } from "../SvgPlus/shadow-element.js";
 import { delay, PublicProxy, transition } from "../Utilities/usefull-funcs.js";
 import { SvgPlus } from "../SvgPlus/4.js";
 import { HideShowTransition } from "../Utilities/hide-show.js";
