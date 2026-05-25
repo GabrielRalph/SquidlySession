@@ -344,7 +344,7 @@ export default class AccessControl extends Features {
         // If switching is already in process return
         if (this._isSwitching) return;
 
-        this.sdata.logChange("access.switch", {value: "start"});
+        this.sdata.logChange("access.switch", {value: true});
 
         // Fix the toolbar, hide the mouse cursor 
         // and bring up the toolbar.
@@ -482,12 +482,15 @@ export default class AccessControl extends Features {
         // Wait for the switching process to end.
         await switchingPromise;
 
+        this.sdata.logChange("access.switch", {value: false});
+
         // Clear endSwitching function unfix the 
         // tool bar and bring back mouse cursor.
         this.endSwitching = () => {}
         this.session.toolBar.fixToolbar(this.session.isOccupied);
         this.overlay.hideMouse = false;
         this._isSwitching = false;
+
     }
 
     async endSwitching(){}
