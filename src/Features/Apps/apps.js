@@ -810,6 +810,10 @@ export default class Apps extends Features {
         const pIframe = this._toIframeCoords(p);
         return origIsPointInElement(pIframe);
       };
+
+      element.addEventListener("access-click", e => {
+        this.sdata.logChange("app.interaction", { value:  e.clickMode || "click" });
+      })
     }
 
     // Create proxy AccessButton element
