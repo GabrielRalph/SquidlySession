@@ -46,26 +46,83 @@ function getDeltaStats(deltas){
   return {mean, std, deltas, mae, mse};
 }
 
-function getRegionStats(yp, yr, gsize = 5){
-  let positions = {};
-  for (let i = 0; i < yp.length; i++) {
-    let gy = yr[i].mul(gsize).floor();
-    let ip = gy.x + gy.y * gsize;
-    if (!(ip in positions)) positions[ip] = [];
-    positions[ip].push(yp[i].sub(yr[i]));
-  }
-
-  for (let i in positions) {
-    positions[i] = getDeltaStats(positions[i]);
-  }
-
-  return positions;
-}
-
-
+/**
+ * Interface for eye gaze models. This class should be extended by any model that
+ * @template {Object} Features 
+ *
+ * @typedef {Object} DataPoint
+ * @property {Features} X - The input features for the model
+ * @property {Vector} y - The true output for the model (e.g. gaze point)
+ */
 class EyeGazeModelInterface {
+  /** ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ **/
+  /** ~~~~~~~~~~~~~~~~~~~~~~~ Methods to Implement ~~~~~~~~~~~~~~~~~~~~~~~~~ **/
+  /** ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ **/
+
+  /** 
+   * This method should be overridden by subclasses to
+   * train the model on the input data.
+   * @override
+   * @param {DataPoint[]} trainData
+   */ 
+  async train(trainData) {
+  }
+
+  /** 
+   * This method should be overridden by subclasses to return a 
+   * prediction based on the input features.
+   * @override
+   * @param {Features} x
+   */ 
+  predict(x){
+    return new Vector(0);
+  }
 
   /**
+   * Return a string representation of the model for saving to local storage
+   * @override
+   * @return {String}
+   */
+  toString(){ }
+
+
+  /**
+   * Return true if the model is ready to make predictions.
+   * @override
+   * @return {boolean}
+   */
+  get isReady() {
+    return this.validationResults != null;
+  }
+
+
+  /**
+   * Create a model from a string representation
+   * @param {String} str
+   * @return {EyeGazeModelInterface}
+   */
+  static fromString(str){
+  }
+
+
+  /**
+   * Load any resources required by the model (e.g. pre-trained weights, etc.)
+   * @override
+   * @return {Promise}
+   */
+  static loadResources(){
+    return new Promise((resolve, reject) => {
+      resolve();
+    });
+  }
+
+  /** ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ **/
+  /** ~~~~~~~~~~~~~~~~~~~~~~~~ Utility Methods ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ **/
+  /** ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ **/
+
+
+  /**
+   * Train the model on the given data and return validation results.
    * @param {DataPoint[]} data
    * @param {Number} sampleRate
    */
@@ -81,6 +138,8 @@ class EyeGazeModelInterface {
   }
 
   /**
+   * Validate the model on the given validation data and return
+   * statistics about the prediction errors.
    * @param {DataPoint[]} validationData
    */
   validate(validationData){
@@ -97,6 +156,8 @@ class EyeGazeModelInterface {
   }
 
   /**
+   * Predict the output for the given input features, 
+   * and apply the filter to the prediction.
    * @param {Features} x
    */
   predictAndFilter(x){
@@ -115,29 +176,18 @@ class EyeGazeModelInterface {
     return y;
   }
 
-  /** 
-   * @override
-   * @param {DataPoint[]} trainData
-   */ 
-  async train(trainData) {
-  }
-
-   /** 
-   * @override
-   * @param {Features} x
-   */ 
-  predict(x){
-    return new Vector(0);
-  }
-
-  toString(){
-
-  }
-
+  
+  /**
+   * Save the model to local storage
+   */
   saveToStorage(){
     localStorage.setItem(this.name, this + "");
   }
 
+  /**
+   * Load a model from local storage
+   * @return {EyeGazeModelInterface}
+   */
   static loadFromStorage(){
       let str =localStorage.getItem(this.name); 
          
@@ -148,10 +198,10 @@ class EyeGazeModelInterface {
       }
   }
 
-  static fromString(str){
 
-  }
-
+  /**
+   * @return {String}
+   */
   get name(){return this.__proto__.constructor.name}
 
   /**
@@ -159,6 +209,9 @@ class EyeGazeModelInterface {
    */
   static get name(){ return "model-name"}
 
+  /**
+   * @return {String}
+   */
   static get color(){return "black"}
 }
 
