@@ -37,6 +37,8 @@ export default class EyeGazeFeature extends Features {
 
     _eyeDataHidden = false;
 
+    _lastEyeGazeState = false;
+
     constructor(session, sdata) {
         super(session, sdata);
 
@@ -122,7 +124,6 @@ export default class EyeGazeFeature extends Features {
         this.feedbackWindow.setShownUser(user);
     }
 
-
     addEyeDataListener(cb) {
         if (cb instanceof Function) {
             this.eyeDataListeners.add(cb);
@@ -147,11 +148,11 @@ export default class EyeGazeFeature extends Features {
         if (bool != this.__isProcessing) {
             if (bool) {
                 startProcessing();
-                this.sdata.logChange("eye-gaze.processing", {value: true});
-                console.log("%cStarting eye gaze processing", "background: rgb(29, 196, 3); font-weight: bold; color: white; padding: 2px 5px; border-radius: 3px;");
             } else {
                 stopProcessing();
-                console.log("%cStopping eye gaze processing", "background: rgb(180, 45, 4); font-weight: bold; color: white; padding: 2px 5px; border-radius: 3px;");
+                console.log("%cEye gaze stopped", "background: rgb(180, 45, 4); font-weight: bold; color: white; padding: 2px 5px; border-radius: 3px;");
+                this._lastEyeGazeState = false;
+                this.sdata.logChange("eye-gaze.processing", {value: false});
                 this._onEyeData(null); // Clear eye data
             }
         }
@@ -194,6 +195,12 @@ export default class EyeGazeFeature extends Features {
 
             // Update rest watcher
             // this.restWatcher.set(eyeP.y > 1 ? 1 : 0);
+
+            if (!this.eyeDataHidden && !this._lastEyeGazeState) {
+                this._lastEyeGazeState = true;
+                console.log("%cEye gaze started", "background: rgb(29, 196, 3); font-weight: bold; color: white; padding: 2px 5px; border-radius: 3px;");
+                this.sdata.logChange("eye-gaze.processing", {value: true});
+            }
 
             // If the eye data is disabled and the y-coordinate is less than or equal to 1, set eyeP to null
             if (this.eyeDataHidden && eyeP.y <= 1) {
@@ -378,6 +385,7 @@ export default class EyeGazeFeature extends Features {
             FeedbackWindow.loadStyleSheets()
         ]);
     }
+
     static get layers() {
         return {
             feedbackWindow: {   // EyeGaze feedback window

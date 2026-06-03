@@ -65,8 +65,7 @@ class EyeGazeModelInterface {
    * @override
    * @param {DataPoint[]} trainData
    */ 
-  async train(trainData) {
-  }
+  async train(trainData) { }
 
   /** 
    * This method should be overridden by subclasses to return a 
@@ -74,9 +73,7 @@ class EyeGazeModelInterface {
    * @override
    * @param {Features} x
    */ 
-  predict(x){
-    return new Vector(0);
-  }
+  predict(x){ return new Vector(0); }
 
   /**
    * Return a string representation of the model for saving to local storage
@@ -91,9 +88,7 @@ class EyeGazeModelInterface {
    * @override
    * @return {boolean}
    */
-  get isReady() {
-    return this.validationResults != null;
-  }
+  get isReady() { return this.validationResults != null; }
 
 
   /**
@@ -101,8 +96,7 @@ class EyeGazeModelInterface {
    * @param {String} str
    * @return {EyeGazeModelInterface}
    */
-  static fromString(str){
-  }
+  static fromString(str) { }
 
 
   /**
@@ -110,11 +104,7 @@ class EyeGazeModelInterface {
    * @override
    * @return {Promise}
    */
-  static loadResources(){
-    return new Promise((resolve, reject) => {
-      resolve();
-    });
-  }
+  static loadResources(){ return new Promise(r => r()); }
 
   /** ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ **/
   /** ~~~~~~~~~~~~~~~~~~~~~~~~ Utility Methods ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ **/
