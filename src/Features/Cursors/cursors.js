@@ -79,6 +79,15 @@ function getDefaultCursorProperties() {
     }
 }
 
+class CursorChangeEvent extends Event {
+    #cursors = null;
+    constructor(name, position, cursors) {
+        super(name);
+        this.screenPos = position;
+        this.relativeTo = (area) => cursors.relativeTo(position, area);
+    }
+}
+
 export default class Cursors extends Features {
     cursorLibrary = {};
     referenceArea = "entireScreen";
@@ -99,12 +108,22 @@ export default class Cursors extends Features {
     /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
     /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ PUBLIC ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
     /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+    relativeTo(point, area) {
+        if (point instanceof Vector && (area == "fullAspectArea" || area == "fixedAspectArea")) {
+            const sbbox = this.entireScreen.bbox;
+            let sabs = point.mul(sbbox[1]).add(sbbox[0]);
+            let refbbox = this[area].bbox;
+            point = sabs.sub(refbbox[0]).div(refbbox[1]);
+        } 
+        return point
+    }
     
     /**
      * @param {string} name the name of the cursor who's properties are to be updated
      * @param {Object} properties the properties of the cursor
     */
-   updateCursorProperties(name, properties) {
+    updateCursorProperties(name, properties) {
 
        if (typeof properties !== "object") properties = null;
        this.sdata.set(`properties/${name}`, properties);
@@ -282,9 +301,7 @@ export default class Cursors extends Features {
                 this._updatePosition(null,name);
             }, MAXTIME)
 
-            const event = new Event(name);
-            event.screenPos = pos;
-            this.dispatchEvent(event)
+            this.dispatchEvent(new CursorChangeEvent(name, pos, this));
         } else if (name in this.cursorLibrary && this.cursorLibrary[name].icon) {
             this.cursorLibrary[name].icon.hide();
         }

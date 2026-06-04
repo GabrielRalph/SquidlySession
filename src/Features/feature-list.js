@@ -2,8 +2,8 @@ import { relURL } from '../Utilities/usefull-funcs.js';
 
 /** @typedef {import('./ToolBar/tool-bar.js').default} ToolBarFeature */
 /** @typedef {import('./Settings/settings.js').default} SettingsFeature */
-/** @typedef {import('./VideoCall/video-call.js').default} VideoCall */
 /** @typedef {import('./Cursors/cursors.js').default} Cursors */
+/** @typedef {import('./VideoCall/video-call.js').default} VideoCall */
 /** @typedef {import('./EyeGaze/eye-gaze.js').default} EyeGazeFeature */
 /** @typedef {import('./Keyboard/keyboard.js').default} KeyboardFeature */
 /** @typedef {import('./AccessControl/access-control.js').default} AccessControl */
@@ -13,6 +13,7 @@ import { relURL } from '../Utilities/usefull-funcs.js';
 /** @typedef {import('./AccessSetup/access-setup.js').default} AccessSetup */
 /** @typedef {import('./Apps/apps.js').default} Apps */
 /** @typedef {import('./Chat/chat.js').default} ChatFeature */
+/** @typedef {import('./Heatmap/heatmap-feature.js').default} HeatmapFeature */
 /** @typedef {import('./Quiz/quiz.js').default} QuizFeature */
 /** @typedef {import('./ShareContent/share-content.js').default} ShareContent */
 
@@ -24,11 +25,11 @@ export class SquildyFeatureProxy {
 	/** @return {SettingsFeature} */
 	get settings() { return this.getFeature("settings"); }
 
-	/** @return {VideoCall} */
-	get videoCall() { return this.getFeature("videoCall"); }
-
 	/** @return {Cursors} */
 	get cursors() { return this.getFeature("cursors"); }
+
+	/** @return {VideoCall} */
+	get videoCall() { return this.getFeature("videoCall"); }
 
 	/** @return {EyeGazeFeature} */
 	get eyeGaze() { return this.getFeature("eyeGaze"); }
@@ -57,6 +58,9 @@ export class SquildyFeatureProxy {
 	/** @return {ChatFeature} */
 	get chat() { return this.getFeature("chat"); }
 
+	/** @return {HeatmapFeature} */
+	get heatmaps() { return this.getFeature("heatmaps"); }
+
 	/** @return {QuizFeature} */
 	get quiz() { return this.getFeature("quiz"); }
 
@@ -71,8 +75,8 @@ export class SquildyFeatureProxy {
 export const FeaturesList = [
 	[() => import("./ToolBar/tool-bar.js"), "toolBar"],
 	[() => import("./Settings/settings.js"), "settings"],
-	[() => import("./VideoCall/video-call.js"), "videoCall"],
 	[() => import("./Cursors/cursors.js"), "cursors"],
+	[() => import("./VideoCall/video-call.js"), "videoCall"],
 	[() => import("./EyeGaze/eye-gaze.js"), "eyeGaze"],
 	[() => import("./Keyboard/keyboard.js"), "keyboard"],
 	[() => import("./AccessControl/access-control.js"), "accessControl"],
@@ -82,6 +86,7 @@ export const FeaturesList = [
 	[() => import("./AccessSetup/access-setup.js"), "accessSetup"],
 	[() => import("./Apps/apps.js"), "apps"],
 	[() => import("./Chat/chat.js"), "chat"],
+	[() => import("./Heatmap/heatmap-feature.js"), "heatmaps"],
 	[() => import("./Quiz/quiz.js"), "quiz"],
 	[() => import("./ShareContent/share-content.js"), "shareContent"]
 ];

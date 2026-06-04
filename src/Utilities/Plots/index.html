@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session Logs</title>
+</head>
+<body>
+    <div id = "contanier"></div>
+</body>
+<style>
+
+    body {
+        --dark: #232221;
+        --darker: #121211;
+        --lighter: #ebe7e462;
+        --light: #ebe7e4;
+        --text: white;
+    }
+
+    svg {
+        padding: 1em;
+        background: var(--dark);
+        border-radius: 1em;
+    }
+    .axis text {
+        fill: var(--text);
+    }
+    .axis polyline {
+        stroke: var(--light);
+    }
+
+    .background-rect {
+        fill: var(--darker);
+    }
+
+    .grid polyline {
+        stroke: var(--lighter);
+    }
+
+    .axis-label {
+        fill: var(--text);
+    }
+    .v-legend > rect {
+        fill: var(--dark);
+    }
+    .v-legend text {
+        fill: var(--text);
+    }
+    
+</style>
+<script type="module" src = "index.js"></script>
+</html>

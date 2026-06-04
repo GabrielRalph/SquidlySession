@@ -129,4 +129,5 @@ async function load() {
   ]);
   Model = ModelLibrary.getModel(SelectedModel).loadFromStorage();
 }
+
 export {Webcam, load}
