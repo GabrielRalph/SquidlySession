@@ -1,0 +1,84 @@
+
+.app-info-popup {
+    --dark: #171515;
+    --lighter: #e2dcdc;
+    --light: #beb7b7;
+    
+    border-radius: 1em;
+    border: 2px solid var(--dark);
+    overflow: hidden;
+    background: white;
+
+}
+.app-info-popup .list {
+    display: flex;
+}
+.app-info-popup .list .list-item {
+    padding: 0.5em;
+    /* background: var(--lighter); */
+    border: 2px solid var(--dark);
+    border-top: none;
+    border-left: none;
+    cursor: pointer;
+}
+.app-info-popup .list .list-item:last-of-type {
+    border-radius: 0 0 1em 0;
+}
+.app-info-popup .list .list-item[selected] {
+    background: var(--darker);
+    color: white;
+}
+.app-info-popup .info-area .app-view {
+    display: flex;
+    flex-direction: column;
+    gap: 1em;
+}
+.app-info-popup .info-area .app-view .app-title {
+    display: flex;
+    gap: 1em;
+    justify-content: center;
+    margin: 1em 0 0.5em 0;
+}
+.app-info-popup .info-area .app-view .app-title .app-name {
+    font-size: 1.5em;
+    font-weight: bold;
+}
+.app-info-popup .info-area .app-view .app-title .app-duration {
+    padding: 0.2em 0.4em;
+    background: #0367e2;
+    color: white;
+    border-radius: 1em;
+}
+.app-info-popup .info-area .app-view .user-data-view {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5em;
+}
+.app-info-popup .info-area .app-view .user-data-view .user-type {
+    text-align: center;
+    font-weight: bold;
+}
+.app-info-popup .info-area .app-view .user-data-view main {
+    display: flex;
+    border-top: 1px solid var(--light);
+}
+.app-info-popup .info-area .app-view .user-data-view main .data {
+    display: flex;
+    flex-direction: column;
+    width: 20%;
+    padding: 1em;
+}
+.app-info-popup .info-area .app-view .user-data-view main .data .key-value {
+    display: flex;
+    gap: 0.5em;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--light);
+}
+.app-info-popup .info-area .app-view .user-data-view main .heatmap-container {
+    width: 40%;
+    padding: 0.5em;
+}
+.app-info-popup .info-area .app-view .user-data-view main .heatmap-container svg{
+    width: 100%;
+}
+

@@ -18,6 +18,7 @@ import {
   uncamelCase,
 } from "./Utilities/usefull-funcs.js";
 import { FeaturesList, SquildyFeatureProxy } from "./Features/feature-list.js";
+import { parseSessionLogs } from "./Utilities/SessionLogs/parse-session-logs.js";
 
 /** @typedef {import('./SessionView/session-view.js').SessionView} SessionView*/
 /** @typedef {import('./Features/features-interface.js').Features} Feature*/
@@ -196,10 +197,10 @@ export class SessionDataFrame extends FirebaseFrame {
     if (typeof options !== "object" || options === null) options = {};
     let {value, oldValue, note} = options;
     [key, value, oldValue, note] = [key, value, oldValue, note].map(item => {
-      if (typeof item === "string" && item.length > 255) {
-        throw "Log values must be less than 255 characters";
+      if (typeof item === "string" && item.length > 1024) {
+        throw new Error(`Log values must be less than 1024 characters long, received ${item.length} characters.`);
       } else if (typeof item === "object") {
-        throw "Log values must be strings or primitive values";
+        throw new Error("Log values must be strings or primitive values");
       } else if (typeof item === "string" && item.length === 0) {
         return null;
       } else if (item === undefined) {
@@ -964,16 +965,17 @@ export class SquidlySession extends SquildyFeatureProxy {
 
   async saveLogs() {
     let logs = await $$.get(this).sdata.getLogs();
+    let parsedLogs = parseSessionLogs(logs);
+    let data = {parsedLogs, logs}
     let dataStr =
       "data:text/json;charset=utf-8," +
-      encodeURIComponent(JSON.stringify(logs, null, 2));
+      encodeURIComponent(JSON.stringify(data, null, 2));
     let dlAnchor = document.createElement("a");
     dlAnchor.setAttribute("href", dataStr);
     dlAnchor.setAttribute("download", `session-${sessionConnection.sid}-logs.json`);
     document.body.appendChild(dlAnchor);
     dlAnchor.click();
     dlAnchor.remove();
-
   }
 
   getFeature(name) {
