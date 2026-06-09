@@ -2,9 +2,21 @@
 - iPad control touch gesture not working
 
 
+## Minor changes
+- Sync share screen hide show buttons
+- AAC grid search
+
 ## Minor Reworks
 - Eyegaze module needs reworking
 - Webcam module seperates algorithm from the process which is not great
+
+
+## Ideas 
+**Global Gridsize**
+- A global gridsize for the squidly session (currently its 5x4) but
+  what if you could change that to a different size.
+- Globally shared between users. 
+
 
 
 ## Features
@@ -32,9 +44,11 @@
 - * Editor in session
 
 
-**Share screen annotate**
+**Share screen rework**
 - Annotate on screen
 - Stop participant from annotating
+- Reduce the amount of space that the buttons take up
+
 
 **Split screen**
 

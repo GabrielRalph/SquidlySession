@@ -141,9 +141,9 @@ export class DiscreteHeatmap {
         return this.fromBytes(bytes);
     }
     getSVG(aspectRatio, options = {
-        spacing: 0,
+        spacing: 5,
         width: 300,
-        borderRadius: 0,
+        borderRadius: 3,
         paddingX: 10,
         paddingY: 10,
         heatScaleWidth: 20,
@@ -155,8 +155,8 @@ export class DiscreteHeatmap {
     }) {
         const W = options.width ?? 300;
         const H = W / aspectRatio;
-        const spacing = options.spacing ?? 0;
-        const borderRadius = options.borderRadius ?? 0;
+        const spacing = options.spacing ?? 3;
+        const borderRadius = options.borderRadius ?? 5;
         const paddingX = options.paddingX ?? 10;
         const paddingY = options.paddingY ?? paddingX;
         const scaleWidth = options.heatScaleWidth ?? 20;

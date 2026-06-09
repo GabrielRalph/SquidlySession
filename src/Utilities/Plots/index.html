@@ -9,13 +9,19 @@
     <div id = "contanier"></div>
 </body>
 <style>
-
-    body {
-        --dark: #232221;
+/* 
+--dark: #232221;
         --darker: #121211;
         --lighter: #ebe7e462;
         --light: #ebe7e4;
-        --text: white;
+        --text: white; */
+    body {
+        --dark: #ffffff;
+        --darker: #ffffff;
+        --lighter: #bfbfbfae;
+        --light: #ebe7e4;
+        --text: black;
+
     }
 
     svg {
@@ -24,14 +30,20 @@
         border-radius: 1em;
     }
     .axis text {
-        fill: var(--text);
+        fill: rgba(0, 0, 0, 0.505);
     }
     .axis polyline {
         stroke: var(--light);
     }
 
+    .zero-line {
+        stroke-dasharray: 4 2;
+        stroke: var(--lighter);
+    }
+
     .background-rect {
         fill: var(--darker);
+        stroke: var(--lighter);
     }
 
     .grid polyline {

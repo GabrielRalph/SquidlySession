@@ -710,7 +710,7 @@ export class InteractivePlot extends SvgPlus {
 
 
         // Zero lines
-        const zeroLineStyles = { strokeWidth: 1, stroke: "#0006", clipPath: this.#regionClipPath };
+        const zeroLineStyles = { class: "zero-line", strokeWidth: 1, stroke: "#0006", clipPath: this.#regionClipPath };
         const zeroChildren = [];
 
         const xZero = (0 - this.#iPosX) * effectiveScaleX - this.#viewOffset.x;
