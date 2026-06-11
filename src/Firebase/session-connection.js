@@ -196,12 +196,29 @@ export class SessionConnection extends FirebaseFrame {
 
         let start = false;
         let error = [false, ""]
-        let isActive = await this.get("active");
-        let host = await this.get("hostUID");
+        let [isActive, isAnonymous] = await Promise.all([
+            this.get("active"),
+            this.get("anonymous"),
+        ]);
+
+        let host = await this.get(isAnonymous ? "anonymousHostUID" : "hostUID");
         let isHost = host === FB.getUID();
 
+        // If the session is anonymous and there is 
+        // no host, set the host to the current user
+        if (isAnonymous && host === null) {
+            try {
+                await this.set("anonymousHostUID", FB.getUID());
+                host = FB.getUID();
+            } catch (e) {
+                console.log("Error setting anonymous host UID, likely someone else set it at the same time. Fetching host UID again.");
+                host = await this.get("anonymousHostUID");
+            }
+            isHost = host === FB.getUID();
+        }
+
         this.hostUID = host;
-        
+
         // If the session is not active
         if (!isActive) {
             
