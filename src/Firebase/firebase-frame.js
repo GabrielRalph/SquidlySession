@@ -9,6 +9,9 @@ import * as FB from "./firebase.js"
  * @property {number} totalBytes The total number of bytes to be uploaded.
  */
 
+const warn = () => {}
+// (message) => console.warn("FirebaseFrame Warning: " + message);
+
 const hasJoined = true;
 /**
  * @param {String} appName
@@ -52,8 +55,10 @@ export class FirebaseFrame {
         try {
             return (await FB.get(ref)).val()
         } catch (e) {
+
             e.message += " getting: " + ref._path.pieces_.join("/")
-            throw e
+            warn("Error getting value at path: " + ref._path.pieces_.join("/"));
+            throw e;
         }
       }
       else throw "Session has not connected"
@@ -66,7 +71,15 @@ export class FirebaseFrame {
      * 
      */
     async set(path, value) {
-      if (hasJoined) await FB.set(this.appRef(path), value)
+      if (hasJoined) {
+        try {
+          await FB.set(this.appRef(path), value)
+        } catch (e) {
+          e.message += " setting: " + this.appRef(path)._path.pieces_.join("/")
+          warn("Error setting value at path: " + this.appRef(path)._path.pieces_.join("/"));
+          throw e;
+        }
+      }
       else throw "Session has not connected"
     }
 
@@ -76,7 +89,15 @@ export class FirebaseFrame {
      * 
      */
     async update(path, value) {
-      if (hasJoined) await FB.update(this.appRef(path), value)
+      if (hasJoined) {
+        try {
+          await FB.update(this.appRef(path), value)
+        } catch (e) {
+          e.message += " updating: " + this.appRef(path)._path.pieces_.join("/")
+          warn("Error updating value at path: " + this.appRef(path)._path.pieces_.join("/"));
+          throw e;
+        }
+      }
       else throw "Session has not connected"
     }
   
