@@ -217,13 +217,19 @@ class AccessButtonRoot extends HTMLElement {
     get group(){ return $.get(this).group; }
 
     /** @param {string} group */
-    set group(group){ this.setAttribute("access-group", group); }
+    set group(group){ 
+        this.setAttribute("access-group", group); 
+        $.get(this).group = group;
+    }
 
     /** @return {?number} */
     get order(){ return $.get(this).order; }
 
     /** @param {number|string} order */
-    set order(order){ this.setAttribute("access-order", order); }
+    set order(order){ 
+        this.setAttribute("access-order", order); 
+        $.get(this).order = order;
+    }
 
     /** @return {boolean} */
     get isVisible() {return this.getIsVisible()}
@@ -245,16 +251,23 @@ class AccessButtonRoot extends HTMLElement {
         return root;
     }
 
+    /** @return {?number} */
+    get size() {
+        return this.getSize();
+    }
+
+    /** @returns {boolean} */
+    get highlight(){ return $.get(this).highlighted; }
+
     /** @param {boolean}  */
     set highlight(isHighlighted) {
         $.get(this).highlighted = isHighlighted;
         this.setHighlight(isHighlighted);
     }
+    
 
-    /** @returns {boolean} */
-    get highlight(){
-        return $.get(this).highlighted;
-    }
+    /** @return {Element} */
+    get clickBoxElement(){ return ($.get(this).clickBoxElement || this); }
 
     /** @param {Element} element */
     set clickBoxElement(element) {
@@ -263,11 +276,9 @@ class AccessButtonRoot extends HTMLElement {
             $.get(this).clickBoxElement = element;
         }
     }
-
-    /** @return {Element} */
-    get clickBoxElement(){
-        return ($.get(this).clickBoxElement || this);
-    }
+    
+    /** @return {string} */
+    get utteranceText() { return $.get(this).utteranceText; }
 
     /** @param {string} text */
     set utteranceText(text) {
@@ -275,10 +286,6 @@ class AccessButtonRoot extends HTMLElement {
         loadUtterances([text]);
     }
 
-    /** @return {string} */
-    get utteranceText() {
-        return $.get(this).utteranceText;
-    }
 
     /**
      * Speak the button's utterance text.
@@ -336,6 +343,10 @@ class AccessButtonRoot extends HTMLElement {
         let root = this.hostedRoot;
         let proxy = this.clickBoxElement;
         return checkClickable(root, proxy, p)
+    }
+
+    getSize() {
+        return null;
     }
 
     activeAnimation(){

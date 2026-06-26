@@ -599,6 +599,13 @@ const APPS_API = {
     // Proxy methods delegate to the (now-overridden) iframe element methods.
     // No additional coordinate conversion is needed here since the iframe
     // element already returns parent-viewport coordinates after the override.
+    proxy.getSize = () => {
+      const el = appFrame.getIFrameElementByPath(path);
+      if (el && typeof el.getSize === "function") {
+        return el.getSize();
+      }
+      return null;
+    }
 
     proxy.getCenter = () => {
       const el = appFrame.getIFrameElementByPath(path);

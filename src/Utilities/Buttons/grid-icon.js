@@ -303,7 +303,7 @@ export class GridIcon extends GridCard {
             console.error("Error creating GridIcon with type:", item);
             throw e;
         }
-        this.group = accessGroup || item.accessGroup || "default";
+        this.group = item.accessGroup || accessGroup || "default";
         this.item = item;
     
         // Toggle attribute 'i-hidden' if icon is hidden.

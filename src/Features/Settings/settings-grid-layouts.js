@@ -45,9 +45,6 @@ class SettingsIcon extends GridIcon {
      * @param {SettingsIconOptions} icon - The options for the settings icon to create
      */
     constructor(icon, type) {
-        if (typeof icon.accessGroup === "string") {
-            type = icon.accessGroup;
-        }
         super(icon, type);
         this.settingsKey = icon.settingKey || icon.setting;
         this.sideDotsElement = this.createChild("div", {class: "side-dots"})

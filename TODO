@@ -1,5 +1,7 @@
 ## Bug Fixes
 - iPad control touch gesture not working
+- In top view apps get wrong cursor transform
+- App volume keeps playing after app is left 
 
 
 ## Minor changes
@@ -18,6 +20,8 @@
 - Globally shared between users. 
 
 
+**Split screen**
+
 
 ## Features
 **Dwell animation**, change the dwell loader?
@@ -25,15 +29,7 @@
 - Expanding dot
 - Pie
 - Ring
-
-**Squidly Session History**
-- Record interactions
-- Record heatmap
-- Graphs
-    - Time spent in apps
-    - Clicks by user type 
-    - AAC grid size
-    - What AAC grid
+- broadcast dwell
 
 **AAC Rework**
 - Combine all grid sets 
@@ -43,14 +39,10 @@
 - AAC viewer that can be used outside of squidly
 - * Editor in session
 
-
 **Share screen rework**
 - Annotate on screen
 - Stop participant from annotating
 - Reduce the amount of space that the buttons take up
-
-
-**Split screen**
 
 **Fast switching** between apps and acc
 - More hotkeys

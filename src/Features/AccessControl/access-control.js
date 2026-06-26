@@ -28,11 +28,13 @@ class CircleLoader extends SvgPlus {
             </filter>`
         })
         let position = button.getCenter();
+        let size = button.getSize();
         this.props = {
             viewBox: "-50 -50 100 100",
             styles: {
                 top: position.y + "px",
                 left: position.x + "px",
+                width: size ? size + "px" : null,
             }
         },
         this.pathGroup = this.createChild("g");
@@ -109,8 +111,6 @@ class ControlOverlay extends SquidlyFeatureWindow {
         this.props = {
             "access-transparent": true,
         }
-
-        this.createChild(CircleLoader, {}, {getCenter: () => new Vector(200,200)})
     }
 
     /** 
