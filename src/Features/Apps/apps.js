@@ -211,27 +211,14 @@ class AppsFrame extends OccupiableWindow {
 
 
   /**
-   * Gets the iframe's bounding rect in parent coordinates.
-   * @returns {DOMRect}
-   */
-  getIframeRect() {
-    return this.iframe.getBoundingClientRect();
-  }
-
-  /**
    * Converts a point from parent coordinates to iframe coordinates.
    * @param {Object} p - Point with x, y properties
    * @returns {Object} Point in iframe coordinates
    */
   toIframeCoords(p) {
-    const rect = this.getIframeRect();
-    const scaleX = this.iframe.offsetWidth / rect.width;
-    const scaleY = this.iframe.offsetHeight / rect.height;
-
-    return {
-      x: (p.x - rect.left) * scaleX,
-      y: (p.y - rect.top) * scaleY,
-    };
+    const {iframeDoc, iframe: {bbox: [pos, size]}} = this;
+    const docEl = iframeDoc.documentElement;
+    return  (new Vector(p)).sub(pos).add(docEl.scrollLeft, docEl.scrollTop);
   }
 
   /**
@@ -240,10 +227,9 @@ class AppsFrame extends OccupiableWindow {
    * @returns {Vector} Point in parent coordinates
    */
   toParentCoords(p) {
-    const rect = this.getIframeRect();
-    const scaleX = rect.width / this.iframe.offsetWidth;
-    const scaleY = rect.height / this.iframe.offsetHeight;
-    return new Vector(p.x * scaleX + rect.left, p.y * scaleY + rect.top);
+    const {iframeDoc, iframe: {bbox: [pos, size]}} = this;
+    const docEl = iframeDoc.documentElement;
+    return (new Vector(p)).add(pos).sub(docEl.scrollLeft, docEl.scrollTop);
   }
 
   /**
@@ -252,13 +238,12 @@ class AppsFrame extends OccupiableWindow {
    * @returns {boolean}
    */
   isPointInIframe(p) {
-    const rect = this.getIframeRect();
-    return (
-      p.x >= rect.left &&
-      p.x <= rect.right &&
-      p.y >= rect.top &&
-      p.y <= rect.bottom
-    );
+    const bbox = this.iframe.bbox;
+    return bbox.contains(p);
+  }
+
+  get iframeDoc() {
+    return this.iframe.contentDocument || this.iframe.contentWindow.document;
   }
  
   static get usedStyleSheets() {

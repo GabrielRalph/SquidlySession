@@ -189,9 +189,9 @@ function getElementFromPoint(x, y) {
             root = root.shadowRoot.elementFromPoint(x, y);
         } else if (root.tagName === "IFRAME" && root.contentDocument) {
             let rect = root.getBoundingClientRect();
-            let frameX = x - rect.x;
-            let frameY = y - rect.y;
-            root = root.contentDocument.elementFromPoint(frameX, frameY);
+            x = x - rect.x;
+            y = y - rect.y;
+            root = root.contentDocument.elementFromPoint(x, y);
         } else {
             break;
         }
