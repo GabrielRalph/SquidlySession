@@ -5,6 +5,7 @@ import { Vector } from "../../SvgPlus/4.js";
 import { GridIcon, GridLayout } from "../../Utilities/Buttons/grid-icon.js";
 import { AccessButton } from "../../Utilities/Buttons/access-buttons.js";
 import * as F from "../../Firebase/firebase.js";
+import { addDeviceChangeCallback, getDevices } from "../../Utilities/device-manager.js";
 
 /**
  * @typedef {Object} AppInfo
@@ -28,6 +29,13 @@ import * as F from "../../Firebase/firebase.js";
  * @param {string} url - The base URL where the app is hosted (e.g., "https://example.com/myapp").
  * @returns {Promise<AppDescriptor>} An object containing the app's metadata and HTML content.
  */
+
+const DEBUG = (...args) => {
+  console.log("%c[Apps Debug]", "background: orange; padding: 3px;", ...args);
+}
+
+const VOLUME_PATH = "/volume/level"
+
 async function getAppDescriptor(url) {
     // Load index and info
     try {
@@ -112,10 +120,7 @@ class AppsFrame extends OccupiableWindow {
     });
   }
 
-  async enterSearchMode() {
-    this.search.reset(true);
-    await this.search.show();
-  }
+ 
 
   setGridSize(rows, cols) {
     rows = Math.max(1, Math.min(20, rows || 1));
@@ -140,7 +145,7 @@ class AppsFrame extends OccupiableWindow {
           type: "action",
           events: {
             "access-click": async (e) => {
-              e.waitFor(this.enterSearchMode());
+              e.waitFor(this.feature.enterSearchMode());
             },
           },
         },
@@ -207,6 +212,17 @@ class AppsFrame extends OccupiableWindow {
       element = doc?.querySelector(lastPath) || null;
     } catch (e) { }
     return element;
+  }
+
+  /**
+   * Sets the volume for all audio and video elements within the iframe.
+   */
+  setIFrameVolume(volume) {
+    this.sendMessage({ mode: "setGlobalVolume", value: volume });
+  }
+
+  setIFrameSinkId(sinkId) {
+    this.sendMessage({ mode: "setSinkId", value: sinkId });
   }
 
 
@@ -695,6 +711,7 @@ export default class Apps extends Features {
       this.appFrame.search.reset(true);
     } else {
       this.appFrame.search.shown = false;
+      this._unmuteIFrame();
       this._onAppSessionStart(this.currentAppID);
     }
     await this.appFrame.show();
@@ -704,37 +721,85 @@ export default class Apps extends Features {
     if (this.currentAppID) {
       this._onAppSessionFinish(this.currentAppID);
     }
+    this._muteIFrame();
     await this.appFrame.hide();
   }
 
-  async _setApp(appID) {
-    let lastApp = this.currentAppID;
-    this.currentAppID = appID in this.appDescriptors ? appID : null;
+  async enterSearchMode() {
+    this.appFrame.search.reset(true);
+    DEBUG("Entering search mode, muting iframe");
+    this._muteIFrame();
+    await this.appFrame.search.show();
+  }
 
-    if (lastApp) {
-      this._onAppSessionFinish(lastApp);
-    } 
-    if (this.currentAppID) {
-      this._onAppSessionStart(this.currentAppID);
+  _onStateUpdate() {
+
+  }
+
+
+  async _setApp(appID) {
+    DEBUG("Setting app to:", appID);
+    appID = appID in this.appDescriptors ? appID : null;
+    let isChanged = this.currentAppID !== appID;
+
+    // If the app is changing, handle session finish and cleanup
+    if (isChanged) {
+      if (this.currentAppID) {
+        this._onAppSessionFinish(this.currentAppID);
+      } 
+
+      this.currentAppID = appID;
+      // Ensure clean state before loading
+      this._appCleanup();
+      this.appFrame.setGridSize(4, 5);
+      await this.appFrame.setSrc("about:blank");
+      if (appID) {
+        const app = this.appDescriptors[appID];
+        await this.appFrame.setSrc(app.html, true);
+        this._sendSessionInfoUpdate();
+      }
     }
 
-    // Ensure clean state before loading
-    this._appCleanup();
-    this.appFrame.setGridSize(4, 5);
-    await this.appFrame.setSrc("about:blank");
-    if (appID in this.appDescriptors) {
-      const app = this.appDescriptors[appID];
-      await this.appFrame.setSrc(app.html, true);
-      this._sendSessionInfoUpdate();
+    DEBUG("App set to:", appID, "Frame shown:", this.appFrame.root.shown);
+    if (appID && this.appFrame.root.shown) {
+      this._unmuteIFrame();
+      if (isChanged) this._onAppSessionStart(appID);
+    } else {
+      DEBUG("No app loaded or frame hidden, muting iframe");
+      this._muteIFrame();
     }
   }
 
+
+  async _updateIFrameSink() {
+    const devices = await getDevices();
+    const activeDevice = Object.values(devices.audiooutput).find(d => d.active);
+    if (activeDevice) {
+      this.appFrame.setIFrameSinkId(activeDevice.deviceId);
+    }
+  }
+
+  _muteIFrame() {
+    DEBUG("Muting iframe audio");
+    this.appFrame.setIFrameVolume(0);
+  }
+
+  _unmuteIFrame() {
+    const myVolume = (this.session.settings.get(this.sdata.me+VOLUME_PATH) || 0) / 100;
+    DEBUG("Unmuting iframe audio, volume:", myVolume);
+    this.appFrame.setIFrameVolume(myVolume);
+    this._updateIFrameSink();
+  }
+
+
   _onAppSessionStart() {
+    DEBUG("SESSION START");
     this.session.heatmaps.createHeatmap("app-mouse", "mouse", 10);
     this.session.heatmaps.createHeatmap("app-eyes", "eyes", 10);
   }
 
   _onAppSessionFinish(appID) {
+    DEBUG("SESSION END");
     const heatmapMouse = this.session.heatmaps.popHeatmap("app-mouse");
     if (heatmapMouse && heatmapMouse.sum > 0) {
       this.sdata.logChange("app.heatmap", {
@@ -931,6 +996,7 @@ export default class Apps extends Features {
     return Object.keys(this.appDescriptors).length > 0;
   }
 
+
   async initialise() {
     // Bind API functions to this instance
     this._API = Object.fromEntries(
@@ -946,6 +1012,17 @@ export default class Apps extends Features {
         index: 180,
         onSelect: (e) => e.waitFor(this.session.openWindow("apps")),
       });
+      
+      addDeviceChangeCallback((e) => {
+        this._updateIFrameSink();
+      })
+
+      this.session.settings.addEventListener("change", (e) => {
+        if (e.path === (this.sdata.me + VOLUME_PATH)) { 
+          DEBUG("Settings Volume changed:", e.value);
+          if (this.appFrame.root.shown) this._unmuteIFrame();
+        }
+      })
 
       // Listen for app selection from search window
       this.appFrame.search.addEventListener("value", (e) => {

@@ -123,6 +123,95 @@
     return path;
   }
 
+// ============================================================================
+// MEDIA REGISTRATION
+// ============================================================================
+  const AudioContext = (window.AudioContext || window.webkitAudioContext)
+  const audioContext = new AudioContext();
+  const MediaState = {
+    ctx: audioContext,
+    gainNode: audioContext.createGain(),
+    otherManagedGainNodes: new Set(),
+    otherContexts: new Set(),
+    sinkId: null,
+  }
+
+  // Connect the gain node to the audio context destination
+  MediaState.gainNode.connect(MediaState.ctx.destination);
+
+  function setSinkId(sinkId) {
+    MediaState.sinkId = sinkId;
+    if (MediaState.ctx.setSinkId) {
+      [MediaState.ctx, ...MediaState.otherContexts].map( ctx => 
+        ctx.setSinkId(sinkId)
+      );
+    } else {
+      console.warn("setSinkId is not supported in this browser.");
+    }
+  }
+
+  function setGlobalVolume(volume) {
+    MediaState.gainNode.gain.value = volume;
+    for (const gainNode of MediaState.otherManagedGainNodes) {
+      gainNode.gain.value = volume;
+    }
+  }
+
+  function getGlobalVolume() {
+    return MediaState.gainNode.gain.value;
+  }
+
+  function registerMediaElement(el) {
+      if (el instanceof Audio || el.tagName === 'VIDEO' || el.tagName === 'AUDIO') {
+          const track = MediaState.ctx.createMediaElementSource(el);
+          track.connect(MediaState.gainNode);
+          // MediaState.elements.add(el);
+      }
+  }
+
+
+  window.AudioContext = class extends AudioContext {
+    #managedGainNode = null;
+    constructor() {
+      super();
+      MediaState.otherContexts.add(this);
+      this.#managedGainNode = this.createGain();
+      this.#managedGainNode.connect(super.destination);
+      MediaState.otherManagedGainNodes.add(this.#managedGainNode);
+      this.#managedGainNode.gain.value = getGlobalVolume();
+      if (MediaState.sinkId) this.setSinkId(MediaState.sinkId);
+    }
+
+    get destination() {
+      return this.#managedGainNode;
+    }
+  }
+
+  // Override the Audio constructor to automatically register new audio elements
+  window.Audio = class extends window.Audio {
+      constructor(src) {
+          super();
+          this.crossOrigin = "anonymous";
+
+          if (src) {
+              this.src = src;
+          }
+          registerMediaElement(this);
+      }
+  }
+
+  function unregisterMediaElement(el) {
+      // if (MediaState.elements.has(el)) {
+      //     // Disconnect the media element from the gain node
+      //     const track = MediaState.ctx.createMediaElementSource(el);
+      //     track.disconnect(MediaState.gainNode);
+      //     MediaState.elements.delete(el);
+      // }
+  }
+
+// ============================================================================
+// ACCESS BUTTON REGISTRATION
+// ============================================================================
 
   /**
    * Registers an element as an access button with the parent app.
@@ -374,6 +463,7 @@
         observedShadowRoots.add(el.shadowRoot);
         accessButtonObserver.observe(el.shadowRoot, { childList: true, subtree: true });
         el.shadowRoot.querySelectorAll("access-button").forEach(autoRegisterAccessButton);
+        el.shadowRoot.querySelectorAll("audio, video").forEach(registerMediaElement);
         // Recurse to handle shadow roots nested within this shadow root.
         observeShadowRoots(el.shadowRoot);
       }
@@ -383,12 +473,15 @@
   // Unregister all access-buttons in a subtree, including those in shadow roots.
   function unregisterSubtree(node) {
     if (node.tagName === "ACCESS-BUTTON") autoUnregisterAccessButton(node);
+    if (node.tagName === "AUDIO" || node.tagName === "VIDEO") unregisterMediaElement(node);
     node.querySelectorAll?.("access-button").forEach(autoUnregisterAccessButton);
+    node.querySelectorAll?.("audio, video").forEach(unregisterMediaElement);
     const elements = [node, ...(node.querySelectorAll?.("*") ?? [])];
     for (const el of elements) {
       if (el.shadowRoot) {
         observedShadowRoots.delete(el.shadowRoot);
         el.shadowRoot.querySelectorAll("access-button").forEach(autoUnregisterAccessButton);
+        el.shadowRoot.querySelectorAll("audio, video").forEach(unregisterMediaElement);
         unregisterSubtree(el.shadowRoot);
       }
     }
@@ -408,7 +501,9 @@
       for (const node of mutation.addedNodes) {
         if (node.nodeType !== Node.ELEMENT_NODE) continue;
         if (node.tagName === "ACCESS-BUTTON") autoRegisterAccessButton(node);
+        if (node.tagName === "AUDIO" || node.tagName === "VIDEO") registerMediaElement(node);
         node.querySelectorAll?.("access-button").forEach(autoRegisterAccessButton);
+        node.querySelectorAll?.("audio, video").forEach(registerMediaElement);
         observeShadowRoots(node);
       }
     }
@@ -421,6 +516,7 @@
     });
     // Register any existing access-button elements in light DOM.
     document.querySelectorAll("access-button").forEach(autoRegisterAccessButton);
+    document.querySelectorAll("audio, video").forEach(registerMediaElement);
     // Register any existing access-button elements inside shadow roots.
     observeShadowRoots(document.body);
   }
@@ -436,6 +532,13 @@
   // MESSAGE RESPONSE HANDLERS
   // ============================================================================
   const RESPONSE_FUNCTIONS = {
+    setGlobalVolume(data) {
+      setGlobalVolume(data.value);
+    },
+    setSinkId(data) {
+      setSinkId(data.value);
+    },
+   
     firebaseOnValueCallback(data) {
       if (data.path in FIREBASE_ON_VALUE_CALLBACKS) {
         FIREBASE_ON_VALUE_CALLBACKS[data.path](data.value);

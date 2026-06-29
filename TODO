@@ -1,8 +1,7 @@
 ## Bug Fixes
 - iPad control touch gesture not working
-- In top view apps get wrong cursor transform
-- App volume keeps playing after app is left 
 - Settings page changes cause switch to stop
+- If page is refreshed on settigs/user/devices then no devices show
 
 
 ## Minor changes
