@@ -6,6 +6,11 @@ import { Features, SquidlyFeatureWindow } from "../features-interface.js";
 let SwitchTime = 1; // ms
 let DwellTime = 1; // ms
 
+const DEBUG = () => void(0);
+// (...args) => {
+//     console.log("%c[Access Control]", "background: purple; padding: 3px; color: white;", ...args);
+// }
+
 class CircleLoader extends SvgPlus {
     constructor(button, mode) {
         super("svg")
@@ -343,6 +348,7 @@ export default class AccessControl extends Features {
     async startSwitching() {
         // If switching is already in process return
         if (this._isSwitching) return;
+        DEBUG("Starting switching process");
 
         this.sdata.logChange("access.switch", {value: true});
 
@@ -418,6 +424,7 @@ export default class AccessControl extends Features {
                     selectedGroupName = keys[0];
                     selectedGroup = groups[keys[0]];
                 } else {
+                    DEBUG("No switchable buttons found");
                     quit = true;
                 }
                 
@@ -456,14 +463,16 @@ export default class AccessControl extends Features {
                     // toolbar if that button was on the toolbar, otherwise show
                     // the toolbar.
                     if (selectedButton instanceof Element) {
+                        let tNow = performance.now();
                         await selectedButton.accessClick("switch", 10000);
+                        let duration = performance.now() - tNow;
+                        DEBUG(`Clicked button in ${duration}ms`);
                         if (!this.session.isOccupied && !this.session.toolBar.isRingShown) {
                             await this.session.togglePanel("toolBarArea", true);
                         }
                     }
                     selectedButton = null;
                 }
-
                 
             // If the switching has not ended repeat the entire process.
             } while (!quit);
@@ -474,6 +483,7 @@ export default class AccessControl extends Features {
 
         // Create the end switching function
         this.endSwitching = async () => {
+            DEBUG("Cancelling switching process");
             quit = true;
             await this.overlay.endSwitch();
             await switchingPromise;
@@ -490,6 +500,8 @@ export default class AccessControl extends Features {
         this.session.toolBar.fixToolbar(this.session.isOccupied);
         this.overlay.hideMouse = false;
         this._isSwitching = false;
+        DEBUG("Switch endded");
+
 
     }
 

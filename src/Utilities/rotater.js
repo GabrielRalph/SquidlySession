@@ -113,7 +113,7 @@ export class Rotater extends SlotTransition {
      * @returns {Promise<void>}
      */
     async setContent(content, immediate = false) {
-        super.setContent(content, immediate);
+        await super.setContent(content, immediate);
     }
 
     /** Set the content of the rotater
@@ -195,7 +195,7 @@ export class Slider extends SlotTransition {
      * @returns {Promise<void>}
      */
     async setContent(content, direction) {
-        super.setContent(content, direction);
+        await super.setContent(content, direction);
     }
 
 

@@ -1,6 +1,20 @@
 import { SvgPlus, Vector } from "../../SvgPlus/4.js";
 import { loadUtterances, speak } from "../text2speach-proxy.js";
 
+const DEBUG = () => void(0);
+// (...args) => {
+//     console.log("%c[Access Buttons]", "background: #cc3300 ; padding: 3px; color: white;", ...args);
+// }
+
+async function getPromiseState(promise) {
+    const token = {};
+    // Race your promise against a pending token. 
+    // If the token wins, the targeted promise is definitely still pending.
+    let value = await Promise.race([promise, Promise.resolve(token)])
+    return value === token ? "pending" : "fulfilled";
+}
+
+
 function isAccessEvent(event) {
     return event != null 
             && typeof event === "object" 
@@ -43,6 +57,7 @@ export class AccessEvent extends Event {
     }
 
     async waitFor(promise, stopImmediatePropagation = false) {
+        DEBUG("add promise");
         if (stopImmediatePropagation) {
             this.stopImmediatePropagation()
         }
@@ -55,15 +70,18 @@ export class AccessEvent extends Event {
     }
 
     async _waitForAll() {
+        DEBUG("start waiting");
         let i = 0;
         while (i < this.initialEvent.eventPromises.length) {
             let promise = this.initialEvent.eventPromises[i];
             await promise;
             i++;
         }
+        DEBUG("end waiting");
     }
 
     async waitAll(timeout){
+        
         let res = null;
         if (typeof timeout === "number") {
             res = await Promise.race([

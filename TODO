@@ -1,6 +1,5 @@
 ## Bug Fixes
 - iPad control touch gesture not working
-- Settings page changes cause switch to stop
 - If page is refreshed on settigs/user/devices then no devices show
 
 
