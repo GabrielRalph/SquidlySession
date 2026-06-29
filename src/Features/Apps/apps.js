@@ -30,9 +30,10 @@ import { addDeviceChangeCallback, getDevices } from "../../Utilities/device-mana
  * @returns {Promise<AppDescriptor>} An object containing the app's metadata and HTML content.
  */
 
-const DEBUG = (...args) => {
-  console.log("%c[Apps Debug]", "background: orange; padding: 3px;", ...args);
-}
+const DEBUG = () => void 0
+// (...args) => {
+//   console.log("%c[Apps Debug]", "background: orange; padding: 3px;", ...args);
+// }
 
 const VOLUME_PATH = "/volume/level"
 
