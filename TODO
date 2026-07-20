@@ -1,5 +1,4 @@
 ## Bug Fixes
-- iPad control touch gesture not working
 - If page is refreshed on settigs/user/devices then no devices show
 
 
