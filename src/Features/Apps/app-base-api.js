@@ -428,16 +428,19 @@
         {
           mode: "loadUtterances",
           utterances: utterances,
+
         },
         "*",
       );
     },
 
-    speak: function (utterance) {
+    speak: function (utterance, broadcast = true, override = false) {
       window.parent.postMessage(
         {
           mode: "speak",
-          utterance: utterance,
+          override: override,
+          utterance,
+          broadcast,
         },
         "*",
       );

@@ -540,7 +540,7 @@ const APPS_API = {
 
   speak(e) {
     const utterance = e.data.utterance;
-    this.session.text2speech.speak(utterance);
+    this.session.text2speech.speak(utterance, e.data.broadcast, e.data.override);
   },
 
   loadUtterances(e) {

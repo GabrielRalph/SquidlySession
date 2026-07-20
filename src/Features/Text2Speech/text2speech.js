@@ -3,7 +3,7 @@ import * as FB from "../../Firebase/firebase.js";
 import { Features } from "../features-interface.js";
 import { getSelectedDevice } from "../../Utilities/device-manager.js";
 import { setText2SpeechManager } from "../../Utilities/text2speach-proxy.js";
-const DEBUG = false;
+const DEBUG = true;
 const cmodes = {
     "normal": ["rgb(214, 109, 22)", "rgb(183, 61, 17)"],
     "load": ["rgb(64, 195, 21)", "rgb(14, 127, 31)"]
@@ -259,7 +259,7 @@ export default class Text2Speech extends Features {
      * true the speach will be broadcast to the other 
      * user in the session and spoken on their end as well.
      */
-    async speak(utterance, broadcast = true) {
+    async speak(utterance, broadcast = true, isOverride = false) {
         utterance = parseUtterance(utterance);
 
         const {videoCall} = this.session;
@@ -267,10 +267,10 @@ export default class Text2Speech extends Features {
             videoCall.sendData("t2s", utterance)
         }
 
-        await speak(utterance);
+        await speak(utterance, false, isOverride);
     }
 
-    async speakName(utterance, broadcast = true) {
+    async speakName(utterance, broadcast = true, isOverride = true) {
         utterance = parseUtterance(utterance);
 
         if (utterance in MY_VOICES) {
@@ -279,7 +279,7 @@ export default class Text2Speech extends Features {
                 videoCall.sendData("t2s-name", utterance)
             }
     
-            await speak(utterance, true, true);
+            await speak(utterance, true, isOverride);
         }
     }
 
