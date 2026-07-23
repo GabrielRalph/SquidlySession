@@ -3,6 +3,7 @@ import { RTCSignaler } from "../../Utilities/WebRTC/rtc-signaler.js";
 import * as WebRTC from "../../Utilities/WebRTC/webrtc-base.js";
 import { getStream, startWebcam } from "../../Utilities/webcam.js";
 import { Features } from "../features-interface.js";
+import { createNoiseSuppressionAdapter } from "./AudioUtils/NoiseSuppress/noise-suppression.js";
 import { setupVoiceDetection } from "./AudioUtils/voice-detector.js";
 import { getHostPresets } from "./presets.js";
 import { VideoPanelWidget } from "./widgets.js";
@@ -420,7 +421,12 @@ export default class VideoCall extends Features {
 			}
 
 			// get new stream from webcam
-			const stream = getStream(2);
+			const rawStream = getStream(2);
+
+			// denoise here
+			this._noiseSuppressionAdapter =
+				await createNoiseSuppressionAdapter(rawStream);
+			const stream = this._noiseSuppressionAdapter.stream;
 
 			// set up voice detection
 			setupVoiceDetection(stream, (d) => {
