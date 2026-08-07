@@ -4,6 +4,7 @@ import * as WebRTC from "../../Utilities/WebRTC/webrtc-base.js";
 import { getStream, startWebcam } from "../../Utilities/webcam.js";
 import { Features } from "../features-interface.js";
 import { createDeepFilterNetAdapter } from "./AudioUtils/DeepFilterNet/deepfilternet.js";
+import { recoverDeepFilterNetAudio } from "./AudioUtils/DeepFilterNet/deepfilternet-recovery.js";
 // import { createNoiseSuppressionAdapter } from "./AudioUtils/NoiseSuppress/noise-suppression.js";
 import { setupVoiceDetection } from "./AudioUtils/voice-detector.js";
 import { getHostPresets } from "./presets.js";
@@ -425,11 +426,26 @@ export default class VideoCall extends Features {
 			const rawStream = getStream(2);
 
 			// denoise here
+			let stream = null;
 			this._noiseSuppressionAdapter =
-				await createDeepFilterNetAdapter(rawStream);
+				await createDeepFilterNetAdapter(rawStream, {
+					onError: (error) => {
+						console.warn(
+							"DeepFilterNet failed; falling back to the microphone.",
+							error,
+						);
+						if (stream) {
+							recoverDeepFilterNetAudio({
+								rawStream,
+								publishedStream: stream,
+								connection,
+							});
+						}
+					},
+				});
 			// this._noiseSuppressionAdapter =
 			// 	await createNoiseSuppressionAdapter(rawStream);
-			const stream = this._noiseSuppressionAdapter.stream;
+			stream = this._noiseSuppressionAdapter.stream;
 
 			// set up voice detection
 			setupVoiceDetection(stream, (d) => {

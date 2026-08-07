@@ -1,0 +1,70 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+import { recoverDeepFilterNetAudio } from "../src/Features/VideoCall/AudioUtils/DeepFilterNet/deepfilternet-recovery.js";
+
+class FakeTrack {
+	constructor(kind, id, enabled = true) {
+		this.kind = kind;
+		this.id = id;
+		this.enabled = enabled;
+	}
+}
+
+class FakeMediaStream {
+	constructor(tracks) {
+		this.tracks = [...tracks];
+	}
+
+	getTracks() {
+		return [...this.tracks];
+	}
+
+	getAudioTracks() {
+		return this.tracks.filter(({ kind }) => kind === "audio");
+	}
+
+	addTrack(track) {
+		this.tracks.push(track);
+	}
+
+	removeTrack(track) {
+		this.tracks = this.tracks.filter((candidate) => candidate !== track);
+	}
+}
+
+test("video call falls back to the live microphone after a published denoiser failure", () => {
+	const microphone = new FakeTrack("audio", "microphone");
+	const denoised = new FakeTrack("audio", "deepfilternet", false);
+	const camera = new FakeTrack("video", "camera");
+	const rawStream = new FakeMediaStream([microphone, camera]);
+	const publishedStream = new FakeMediaStream([denoised, camera]);
+	const replacements = [];
+	const connection = {
+		replaceTrack: (oldTrack, newTrack) =>
+			replacements.push([oldTrack, newTrack]),
+	};
+
+	const recovered = recoverDeepFilterNetAudio({
+		rawStream,
+		publishedStream,
+		connection,
+	});
+
+	assert.equal(recovered, true);
+	assert.deepEqual(replacements, [[denoised, microphone]]);
+	assert.deepEqual(publishedStream.getAudioTracks(), [microphone]);
+	assert.equal(microphone.enabled, false);
+});
+
+test("video-call wires DeepFilterNet runtime errors into microphone recovery", async () => {
+	const source = await readFile(
+		"src/Features/VideoCall/video-call.js",
+		"utf8",
+	);
+
+	assert.match(source, /createDeepFilterNetAdapter\(rawStream,\s*\{/);
+	assert.match(source, /onError:\s*\(error\)\s*=>/);
+	assert.match(source, /recoverDeepFilterNetAudio\(/);
+});

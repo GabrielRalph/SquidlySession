@@ -158,6 +158,11 @@ export async function createDeepFilterNetAdapter(
 				handleRuntimeError(new Error(data.message));
 			}
 		};
+		workletNode.onprocessorerror = () => {
+			handleRuntimeError(
+				new Error("DeepFilterNet AudioWorklet processor failed."),
+			);
+		};
 		destinationNode = audioContext.createMediaStreamDestination();
 		destinationNode.channelCount = 1;
 		destinationNode.channelCountMode = "explicit";
