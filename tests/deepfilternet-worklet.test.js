@@ -122,10 +122,14 @@ test("worklet transfers frames over its MessagePort and forwards errors", () => 
 	let workerMessage = null;
 	const port = {
 		onmessage: null,
+		closed: false,
 		postMessage(message, transfer) {
 			messages.push({ message, transfer });
 		},
 		start() {},
+		close() {
+			this.closed = true;
+		},
 	};
 	const errors = [];
 	const bridge = new DeepFilterNetWorkletBridge(null, (message) =>
@@ -142,4 +146,6 @@ test("worklet transfers frames over its MessagePort and forwards errors", () => 
 	assert.deepEqual(messages[0].transfer, [workerMessage.samples]);
 	port.onmessage({ data: { type: "error", message: "inference failed" } });
 	assert.deepEqual(errors, ["inference failed"]);
+	bridge.close();
+	assert.equal(port.closed, true);
 });

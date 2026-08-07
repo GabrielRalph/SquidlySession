@@ -9,6 +9,8 @@ class DeepFilterNetWorkletProcessor extends AudioWorkletProcessor {
 		this.port.onmessage = ({ data }) => {
 			if (data?.type === "connect" && data.port) {
 				this.bridge.connect(data.port);
+			} else if (data?.type === "close") {
+				this.bridge.close();
 			}
 		};
 	}

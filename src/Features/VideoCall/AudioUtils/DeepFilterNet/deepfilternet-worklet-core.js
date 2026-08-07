@@ -17,6 +17,7 @@ export class DeepFilterNetWorkletBridge {
 	}
 
 	connect(port) {
+		this.workerPort = port;
 		this.sendFrame = (frame) => {
 			const samples = frame.buffer;
 			port.postMessage({ type: "process", samples }, [samples]);
@@ -32,6 +33,15 @@ export class DeepFilterNetWorkletBridge {
 			}
 		};
 		port.start?.();
+	}
+
+	close() {
+		this.failed = true;
+		this.inFlight = false;
+		this.pendingFrames.length = 0;
+		this.outputFrames.length = 0;
+		this.workerPort?.close?.();
+		this.workerPort = null;
 	}
 
 	process(inputChannels, outputChannel) {
