@@ -12,8 +12,9 @@ class FakeTrack {
 	}
 }
 
-class FakeMediaStream {
+class FakeMediaStream extends EventTarget {
 	constructor(tracks) {
+		super();
 		this.tracks = [...tracks];
 	}
 
@@ -32,6 +33,13 @@ class FakeMediaStream {
 	removeTrack(track) {
 		this.tracks = this.tracks.filter((candidate) => candidate !== track);
 	}
+}
+
+function dispatchTrackChange(stream, oldTrack, newTrack) {
+	const event = new Event("trackchanged");
+	event.oldTrack = oldTrack;
+	event.newTrack = newTrack;
+	stream.dispatchEvent(event);
 }
 
 test("video call falls back to the live microphone after a published denoiser failure", () => {
@@ -56,6 +64,37 @@ test("video call falls back to the live microphone after a published denoiser fa
 	assert.deepEqual(replacements, [[denoised, microphone]]);
 	assert.deepEqual(publishedStream.getAudioTracks(), [microphone]);
 	assert.equal(microphone.enabled, false);
+});
+
+test("fallback keeps publishing later microphone and camera changes", () => {
+	const microphone = new FakeTrack("audio", "microphone");
+	const denoised = new FakeTrack("audio", "deepfilternet", false);
+	const camera = new FakeTrack("video", "camera", false);
+	const rawStream = new FakeMediaStream([microphone, camera]);
+	const publishedStream = new FakeMediaStream([denoised, camera]);
+	const replacements = [];
+	const connection = {
+		replaceTrack: (oldTrack, newTrack) =>
+			replacements.push([oldTrack, newTrack]),
+	};
+
+	recoverDeepFilterNetAudio({ rawStream, publishedStream, connection });
+	const replacementMicrophone = new FakeTrack(
+		"audio",
+		"replacement-microphone",
+	);
+	const replacementCamera = new FakeTrack("video", "replacement-camera");
+	dispatchTrackChange(rawStream, microphone, replacementMicrophone);
+	dispatchTrackChange(rawStream, camera, replacementCamera);
+
+	assert.deepEqual(replacements, [
+		[denoised, microphone],
+		[microphone, replacementMicrophone],
+		[camera, replacementCamera],
+	]);
+	assert.deepEqual(publishedStream.getAudioTracks(), [replacementMicrophone]);
+	assert.equal(replacementMicrophone.enabled, false);
+	assert.equal(replacementCamera.enabled, false);
 });
 
 test("video-call wires DeepFilterNet runtime errors into microphone recovery", async () => {
