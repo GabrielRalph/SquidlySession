@@ -47,6 +47,7 @@ class FakeWorker {
 	constructor() {
 		this.onmessage = null;
 		this.onerror = null;
+		this.onmessageerror = null;
 		this.requests = [];
 		this.terminated = false;
 	}
@@ -172,4 +173,22 @@ test("Worker client propagates protocol and Worker errors", async () => {
 	const workerFailure = client.initialize("/model.onnx", "/ort.wasm");
 	worker.onerror({ message: "worker crashed" });
 	await assert.rejects(() => workerFailure, /worker crashed/);
+});
+
+test("Worker client reports a fatal crash after startup exactly once", async () => {
+	const worker = new FakeWorker();
+	const client = new DeepFilterNetWorkerClient(worker);
+	const fatalErrors = [];
+	client.setFatalErrorHandler((error) => fatalErrors.push(error));
+	const initialization = client.initialize("/model.onnx", "/ort.wasm");
+	worker.onmessage({
+		data: { id: worker.requests[0].message.id, type: "ready" },
+	});
+	await initialization;
+
+	worker.onerror({ message: "worker crashed" });
+	worker.onmessageerror({ data: null });
+
+	assert.equal(fatalErrors.length, 1);
+	assert.match(fatalErrors[0].message, /worker crashed/);
 });

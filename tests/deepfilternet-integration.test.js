@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { nodeResolve } from "@rollup/plugin-node-resolve";
@@ -31,6 +32,13 @@ test("DeepFilterNet Worker bundles ONNX Runtime without a browser bare import", 
 
 	assert.doesNotMatch(code, /from\s*["']onnxruntime-web/);
 	assert.match(code, /DeepFilterNet worker is not initialized/);
+	assert.equal(
+		await readFile(
+			"src/Features/VideoCall/AudioUtils/DeepFilterNet/deepfilternet-worker.js",
+			"utf8",
+		),
+		code,
+	);
 });
 
 test("DeepFilterNet worklet bundles its processor registration", async () => {
@@ -39,4 +47,11 @@ test("DeepFilterNet worklet bundles its processor registration", async () => {
 	);
 
 	assert.match(code, /registerProcessor\(\s*["']DeepFilterNetWorkletProcessor/);
+	assert.equal(
+		await readFile(
+			"src/Features/VideoCall/AudioUtils/DeepFilterNet/deepfilternet-worklet.js",
+			"utf8",
+		),
+		code,
+	);
 });

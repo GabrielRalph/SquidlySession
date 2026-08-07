@@ -98,6 +98,35 @@ test("a returned frame releases exactly one queued input frame", () => {
 	assert.equal(sent[1][0], 2);
 });
 
+test("connecting after audio starts sends queued frames in original order", () => {
+	const messages = [];
+	const port = {
+		onmessage: null,
+		postMessage(message) {
+			messages.push(message);
+		},
+		start() {},
+	};
+	const bridge = new DeepFilterNetWorkletBridge();
+	bridge.process(
+		[new Float32Array(480).fill(1)],
+		new Float32Array(0),
+	);
+	bridge.process(
+		[new Float32Array(480).fill(2)],
+		new Float32Array(0),
+	);
+
+	bridge.connect(port);
+	bridge.process(
+		[new Float32Array(480).fill(3)],
+		new Float32Array(0),
+	);
+
+	assert.equal(messages.length, 1);
+	assert.equal(new Float32Array(messages[0].samples)[0], 1);
+});
+
 test("a ninth pending frame discards the oldest queued frame", () => {
 	const sent = [];
 	const bridge = new DeepFilterNetWorkletBridge((frame) =>

@@ -42,6 +42,7 @@ export async function createDeepFilterNetAdapter(
 		wasmUrl = DEFAULT_WASM_URL,
 		createClient = null,
 		createMessageChannel = null,
+		onError = null,
 	} = {},
 ) {
 	if (!(inputStream instanceof MediaStream)) {
@@ -75,7 +76,8 @@ export async function createDeepFilterNetAdapter(
 	let sourceNode = null;
 	let processedAudioTrack = null;
 	let listeningForTrackChanges = false;
-	let closed = false;
+	let cleanupPromise = null;
+	let runtimeErrorReported = false;
 
 	const onTrackChanged = (event) => {
 		const { oldTrack, newTrack } = event;
@@ -99,23 +101,37 @@ export async function createDeepFilterNetAdapter(
 		sourceNode.connect(workletNode);
 	};
 
-	const cleanup = async () => {
-		if (closed) return;
-		closed = true;
-		if (listeningForTrackChanges) {
-			inputStream.removeEventListener("trackchanged", onTrackChanged);
+	const cleanup = () => {
+		if (!cleanupPromise) {
+			cleanupPromise = (async () => {
+				if (listeningForTrackChanges) {
+					inputStream.removeEventListener("trackchanged", onTrackChanged);
+				}
+				sourceNode?.disconnect();
+				if (workletNode) {
+					workletNode.port.postMessage({ type: "close" });
+					workletNode.disconnect();
+				}
+				destinationNode?.disconnect();
+				processedAudioTrack?.stop();
+				channel?.port1?.close?.();
+				channel?.port2?.close?.();
+				client?.close();
+				if (audioContext.state !== "closed") await audioContext.close();
+			})();
 		}
-		sourceNode?.disconnect();
-		if (workletNode) {
-			workletNode.port.postMessage({ type: "close" });
-			workletNode.disconnect();
-		}
-		destinationNode?.disconnect();
-		processedAudioTrack?.stop();
-		channel?.port1?.close?.();
-		channel?.port2?.close?.();
-		client?.close();
-		if (audioContext.state !== "closed") await audioContext.close();
+		return cleanupPromise;
+	};
+
+	const handleRuntimeError = (error) => {
+		if (runtimeErrorReported) return;
+		runtimeErrorReported = true;
+		const runtimeError =
+			error instanceof Error
+				? error
+				: new Error("DeepFilterNet runtime failed.");
+		void cleanup();
+		if (onError) onError(runtimeError);
 	};
 
 	try {
@@ -128,6 +144,7 @@ export async function createDeepFilterNetAdapter(
 			: createDeepFilterNetWorkerClient(
 					new Worker(workerUrl, { type: "module" }),
 				);
+		client.setFatalErrorHandler(handleRuntimeError);
 		await client.initialize(modelUrl, wasmUrl);
 		await audioContext.audioWorklet.addModule(workletUrl);
 
@@ -136,6 +153,11 @@ export async function createDeepFilterNetAdapter(
 			numberOfOutputs: 1,
 			outputChannelCount: [1],
 		});
+		workletNode.port.onmessage = ({ data }) => {
+			if (data?.type === "error") {
+				handleRuntimeError(new Error(data.message));
+			}
+		};
 		destinationNode = audioContext.createMediaStreamDestination();
 		destinationNode.channelCount = 1;
 		destinationNode.channelCountMode = "explicit";

@@ -139,6 +139,7 @@ class FakeClient {
 		this.initializedWith = null;
 		this.connectedPort = null;
 		this.closedCount = 0;
+		this.fatalErrorHandler = null;
 	}
 
 	async initialize(modelUrl, wasmUrl) {
@@ -148,6 +149,14 @@ class FakeClient {
 
 	async connect(port) {
 		this.connectedPort = port;
+	}
+
+	setFatalErrorHandler(handler) {
+		this.fatalErrorHandler = handler;
+	}
+
+	fail(error) {
+		this.fatalErrorHandler(error);
 	}
 
 	close() {
@@ -284,6 +293,82 @@ test("DeepFilterNet adapter cleans up when Worker initialization fails", async (
 		assert.equal(client.closedCount, 1);
 		assert.equal(context.closedCount, 1);
 		assert.equal(microphone.stopped, false);
+	} finally {
+		globalThis.MediaStream = originalMediaStream;
+		globalThis.AudioWorkletNode = originalAudioWorkletNode;
+	}
+});
+
+test("DeepFilterNet adapter stops its output and reports inference failures", async () => {
+	const originalMediaStream = globalThis.MediaStream;
+	const originalAudioWorkletNode = globalThis.AudioWorkletNode;
+	globalThis.MediaStream = FakeMediaStream;
+	globalThis.AudioWorkletNode = FakeAudioWorkletNode;
+	try {
+		const { createDeepFilterNetAdapter } = await import(
+			"../src/Features/VideoCall/AudioUtils/DeepFilterNet/deepfilternet.js"
+		);
+		const microphone = new FakeTrack("audio", "microphone");
+		const context = new FakeAudioContext();
+		const client = new FakeClient();
+		const errors = [];
+		const adapter = await createDeepFilterNetAdapter(
+			new FakeMediaStream([microphone]),
+			{
+				context,
+				createClient: () => client,
+				createMessageChannel: () => new FakeMessageChannel(),
+				onError: (error) => errors.push(error),
+			},
+		);
+
+		adapter.node.port.onmessage({
+			data: { type: "error", message: "inference failed" },
+		});
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		assert.equal(errors.length, 1);
+		assert.match(errors[0].message, /inference failed/);
+		assert.equal(adapter.audioTrack.stopped, true);
+		assert.equal(context.closedCount, 1);
+		assert.equal(client.closedCount, 1);
+		assert.equal(microphone.stopped, false);
+	} finally {
+		globalThis.MediaStream = originalMediaStream;
+		globalThis.AudioWorkletNode = originalAudioWorkletNode;
+	}
+});
+
+test("DeepFilterNet adapter handles a Worker crash after startup", async () => {
+	const originalMediaStream = globalThis.MediaStream;
+	const originalAudioWorkletNode = globalThis.AudioWorkletNode;
+	globalThis.MediaStream = FakeMediaStream;
+	globalThis.AudioWorkletNode = FakeAudioWorkletNode;
+	try {
+		const { createDeepFilterNetAdapter } = await import(
+			"../src/Features/VideoCall/AudioUtils/DeepFilterNet/deepfilternet.js"
+		);
+		const context = new FakeAudioContext();
+		const client = new FakeClient();
+		const errors = [];
+		const adapter = await createDeepFilterNetAdapter(
+			new FakeMediaStream([new FakeTrack("audio", "microphone")]),
+			{
+				context,
+				createClient: () => client,
+				createMessageChannel: () => new FakeMessageChannel(),
+				onError: (error) => errors.push(error),
+			},
+		);
+
+		client.fail(new Error("worker crashed"));
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		assert.equal(errors.length, 1);
+		assert.match(errors[0].message, /worker crashed/);
+		assert.equal(adapter.audioTrack.stopped, true);
+		assert.equal(context.closedCount, 1);
+		assert.equal(client.closedCount, 1);
 	} finally {
 		globalThis.MediaStream = originalMediaStream;
 		globalThis.AudioWorkletNode = originalAudioWorkletNode;

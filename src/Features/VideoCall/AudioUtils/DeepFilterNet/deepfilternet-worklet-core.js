@@ -33,6 +33,7 @@ export class DeepFilterNetWorkletBridge {
 			}
 		};
 		port.start?.();
+		this._sendNextFrame();
 	}
 
 	close() {

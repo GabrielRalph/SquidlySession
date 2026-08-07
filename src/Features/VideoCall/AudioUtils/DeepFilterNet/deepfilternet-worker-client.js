@@ -5,9 +5,22 @@ export class DeepFilterNetWorkerClient {
 		this.nextId = 1;
 		this.pending = new Map();
 		this.closed = false;
+		this.fatalError = null;
+		this.fatalErrorHandler = null;
 		worker.onmessage = ({ data }) => this._handleResponse(data);
 		worker.onerror = ({ message }) =>
-			this._rejectAll(new Error(message || "DeepFilterNet worker failed."));
+			this._handleFatalError(
+				new Error(message || "DeepFilterNet worker failed."),
+			);
+		worker.onmessageerror = () =>
+			this._handleFatalError(
+				new Error("DeepFilterNet worker message could not be decoded."),
+			);
+	}
+
+	setFatalErrorHandler(handler) {
+		this.fatalErrorHandler = handler;
+		if (this.fatalError) handler(this.fatalError);
 	}
 
 	initialize(modelUrl, wasmUrl) {
@@ -50,6 +63,13 @@ export class DeepFilterNetWorkerClient {
 	_rejectAll(error) {
 		for (const pending of this.pending.values()) pending.reject(error);
 		this.pending.clear();
+	}
+
+	_handleFatalError(error) {
+		if (this.fatalError) return;
+		this.fatalError = error;
+		this._rejectAll(error);
+		this.fatalErrorHandler?.(error);
 	}
 }
 
