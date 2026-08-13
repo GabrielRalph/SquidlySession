@@ -4,10 +4,6 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.js",
-    "build:rnnoise-worklet": "rollup node_modules/@timephy/rnnoise-wasm/dist/NoiseSuppressorWorklet.js --format es --file src/Features/VideoCall/AudioUtils/NoiseSuppress/noise-suppression-worklet.js",
-    "build:deepfilternet-worker": "rollup src/Features/VideoCall/AudioUtils/DeepFilterNet/deepfilternet-worker-source.js --format es --inlineDynamicImports --plugin @rollup/plugin-node-resolve --file src/Features/VideoCall/AudioUtils/DeepFilterNet/deepfilternet-worker.js",
-    "build:deepfilternet-worklet": "rollup src/Features/VideoCall/AudioUtils/DeepFilterNet/deepfilternet-worklet-source.js --format es --inlineDynamicImports --file src/Features/VideoCall/AudioUtils/DeepFilterNet/deepfilternet-worklet.js",
-    "build:deepfilternet": "npm run build:deepfilternet-worker && npm run build:deepfilternet-worklet",
     "build": "node ./build-scripts/build.js",
     "compile-for-deployment": "rollup -c"
   },

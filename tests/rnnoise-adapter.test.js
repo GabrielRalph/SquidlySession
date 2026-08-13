@@ -118,8 +118,11 @@ test("live adapter returns a WebRTC-compatible stream and mirrors device changes
 	globalThis.AudioWorkletNode = FakeAudioWorkletNode;
 
 	try {
-		const { createNoiseSuppressionAdapter } = await import(
-			"../src/Features/VideoCall/AudioUtils/NoiseSuppress/noise-suppression.js"
+		const { createRealtimeDenoiseSession } = await import(
+			"../src/Features/VideoCall/AudioUtils/Denoise/denoise-session.js"
+		);
+		const { createRnnoiseDenoiser } = await import(
+			"../src/Features/VideoCall/AudioUtils/Denoise/RNNoise/rnnoise.js"
 		);
 		const microphone = new FakeTrack("audio", "microphone-1", {
 			channelCount: 2,
@@ -127,14 +130,16 @@ test("live adapter returns a WebRTC-compatible stream and mirrors device changes
 		const camera = new FakeTrack("video", "camera-1");
 		const inputStream = new FakeMediaStream([microphone, camera]);
 		const context = new FakeAudioContext();
-		const adapter = await createNoiseSuppressionAdapter(inputStream, {
+		const adapter = await createRealtimeDenoiseSession(inputStream, {
 			context,
-			workletUrl: "noise-suppression-worklet.js",
+			denoiser: createRnnoiseDenoiser({
+			workletUrl: "rnnoise-worklet.js",
+			}),
 		});
 
 		assert.deepEqual(adapter.stream.getAudioTracks(), [context.processedTrack]);
 		assert.deepEqual(adapter.stream.getVideoTracks(), [camera]);
-		assert.deepEqual(context.loadedWorklets, ["noise-suppression-worklet.js"]);
+		assert.deepEqual(context.loadedWorklets, ["rnnoise-worklet.js"]);
 		assert.equal(adapter.node.processorName, "NoiseSuppressorWorklet");
 		assert.deepEqual(adapter.node.options.outputChannelCount, [1]);
 		assert.equal(context.state, "running");
@@ -160,6 +165,66 @@ test("live adapter returns a WebRTC-compatible stream and mirrors device changes
 		assert.equal(context.state, "closed");
 	} finally {
 		globalThis.MediaStream = originalMediaStream;
+		globalThis.AudioWorkletNode = originalAudioWorkletNode;
+	}
+});
+
+test("RNNoise can be selected as a realtime denoiser plugin", async () => {
+	const originalMediaStream = globalThis.MediaStream;
+	const originalAudioWorkletNode = globalThis.AudioWorkletNode;
+	globalThis.MediaStream = FakeMediaStream;
+	globalThis.AudioWorkletNode = FakeAudioWorkletNode;
+
+	try {
+		const { createRealtimeDenoiseSession } = await import(
+			"../src/Features/VideoCall/AudioUtils/Denoise/denoise-session.js"
+		);
+		const { createRnnoiseDenoiser } = await import(
+			"../src/Features/VideoCall/AudioUtils/Denoise/RNNoise/rnnoise.js"
+		);
+		const context = new FakeAudioContext();
+		const input = new FakeMediaStream([
+			new FakeTrack("audio", "microphone"),
+		]);
+
+		const session = await createRealtimeDenoiseSession(input, {
+			context,
+			denoiser: createRnnoiseDenoiser({
+				workletUrl: "selected-rnnoise-worklet.js",
+			}),
+		});
+
+		assert.deepEqual(context.loadedWorklets, [
+			"selected-rnnoise-worklet.js",
+		]);
+		assert.equal(session.node.processorName, "NoiseSuppressorWorklet");
+		await session.close();
+	} finally {
+		globalThis.MediaStream = originalMediaStream;
+		globalThis.AudioWorkletNode = originalAudioWorkletNode;
+	}
+});
+
+test("RNNoise defaults to the shared generated worklet bundle", async () => {
+	const originalAudioWorkletNode = globalThis.AudioWorkletNode;
+	globalThis.AudioWorkletNode = FakeAudioWorkletNode;
+
+	try {
+		const { createRnnoiseDenoiser } = await import(
+			"../src/Features/VideoCall/AudioUtils/Denoise/RNNoise/rnnoise.js"
+		);
+		const context = new FakeAudioContext();
+		const processor = await createRnnoiseDenoiser().realtime.createProcessor({
+			context,
+			onError: null,
+		});
+
+		assert.match(
+			context.loadedWorklets[0],
+			/\/Denoise\/RNNoise\/rnnoise-worklet\.js$/,
+		);
+		processor.node.disconnect();
+	} finally {
 		globalThis.AudioWorkletNode = originalAudioWorkletNode;
 	}
 });

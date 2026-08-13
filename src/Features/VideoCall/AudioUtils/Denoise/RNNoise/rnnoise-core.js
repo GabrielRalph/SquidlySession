@@ -29,7 +29,7 @@ function validateChannels(channels) {
  * The default implementation passes audio through unchanged. Replace the body of
  * process() with a denoiser while preserving this planar Float32 interface.
  */
-export class NoiseSuppressor {
+export class RnnoiseProcessor {
 	/**
 	 * Creates a suppressor for a fixed audio format.
 	 *
@@ -86,7 +86,7 @@ export class NoiseSuppressor {
  * @param {object} [options] - Offline processing options.
  * @param {number} [options.sampleRate=48000] - Samples per second.
  * @param {number} [options.blockSize=128] - Samples passed to each process call.
- * @param {NoiseSuppressor|null} [options.suppressor=null] - Processor instance to reuse.
+ * @param {RnnoiseProcessor|null} [options.processor=null] - Processor instance to reuse.
  * @returns {Float32Array[]} Newly allocated processed channel buffers.
  * @throws {TypeError} If inputChannels is invalid.
  * @throws {RangeError} If channel lengths differ or blockSize is invalid.
@@ -96,7 +96,7 @@ export function processAudioChannels(
 	{
 		sampleRate = 48000,
 		blockSize = 128,
-		suppressor = null,
+		processor = null,
 	} = {},
 ) {
 	const frameLength = validateChannels(inputChannels);
@@ -106,9 +106,9 @@ export function processAudioChannels(
 
 	// A single instance spans all blocks so a real denoiser can preserve filter,
 	// noise-profile, and fixed-frame buffering state between calls.
-	const processor =
-		suppressor ||
-		new NoiseSuppressor({
+	const activeProcessor =
+		processor ||
+		new RnnoiseProcessor({
 			sampleRate,
 			channelCount: inputChannels.length,
 		});
@@ -122,7 +122,7 @@ export function processAudioChannels(
 		// blockSize, so fixed-frame algorithms should buffer that tail internally.
 		const inputs = inputChannels.map((channel) => channel.subarray(offset, end));
 		const outputs = outputChannels.map((channel) => channel.subarray(offset, end));
-		processor.process(inputs, outputs);
+		activeProcessor.process(inputs, outputs);
 	}
 
 	return outputChannels;

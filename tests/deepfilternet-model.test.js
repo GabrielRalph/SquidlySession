@@ -6,7 +6,7 @@ import {
 	DFN_FRAME_SIZE,
 	DFN_STATE_SIZE,
 	readDeepFilterNetOutputs,
-} from "../src/Features/VideoCall/AudioUtils/DeepFilterNet/deepfilternet-model.js";
+} from "../src/Features/VideoCall/AudioUtils/Denoise/DeepFilterNet/deepfilternet-model.js";
 
 class FakeTensor {
 	constructor(type, data, dims) {

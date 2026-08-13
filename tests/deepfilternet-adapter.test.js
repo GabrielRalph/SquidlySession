@@ -172,6 +172,21 @@ function dispatchTrackChange(stream, oldTrack, newTrack) {
 	stream.dispatchEvent(event);
 }
 
+async function createDeepFilterNetSession(inputStream, options = {}) {
+	const { createRealtimeDenoiseSession } = await import(
+		"../src/Features/VideoCall/AudioUtils/Denoise/denoise-session.js"
+	);
+	const { createDeepFilterNetDenoiser } = await import(
+		"../src/Features/VideoCall/AudioUtils/Denoise/DeepFilterNet/deepfilternet.js"
+	);
+	const { context = null, onError = null, ...denoiserOptions } = options;
+	return createRealtimeDenoiseSession(inputStream, {
+		context,
+		onError,
+		denoiser: createDeepFilterNetDenoiser(denoiserOptions),
+	});
+}
+
 test("DeepFilterNet adapter returns a stable WebRTC stream and closes owned resources", async () => {
 	const originalMediaStream = globalThis.MediaStream;
 	const originalAudioWorkletNode = globalThis.AudioWorkletNode;
@@ -179,16 +194,13 @@ test("DeepFilterNet adapter returns a stable WebRTC stream and closes owned reso
 	globalThis.AudioWorkletNode = FakeAudioWorkletNode;
 
 	try {
-		const { createDeepFilterNetAdapter } = await import(
-			"../src/Features/VideoCall/AudioUtils/DeepFilterNet/deepfilternet.js"
-		);
 		const microphone = new FakeTrack("audio", "microphone-1");
 		const camera = new FakeTrack("video", "camera-1");
 		const rawStream = new FakeMediaStream([microphone, camera]);
 		const context = new FakeAudioContext();
 		const client = new FakeClient();
 		const channel = new FakeMessageChannel();
-		const adapter = await createDeepFilterNetAdapter(rawStream, {
+		const adapter = await createDeepFilterNetSession(rawStream, {
 			context,
 			workletUrl: "deepfilternet-worklet.js",
 			modelUrl: "denoiser_model.onnx",
@@ -245,15 +257,12 @@ test("DeepFilterNet adapter rejects non-48 kHz contexts", async () => {
 	globalThis.MediaStream = FakeMediaStream;
 	globalThis.AudioWorkletNode = FakeAudioWorkletNode;
 	try {
-		const { createDeepFilterNetAdapter } = await import(
-			"../src/Features/VideoCall/AudioUtils/DeepFilterNet/deepfilternet.js"
-		);
 		const rawStream = new FakeMediaStream([
 			new FakeTrack("audio", "microphone"),
 		]);
 		await assert.rejects(
 			() =>
-				createDeepFilterNetAdapter(rawStream, {
+				createDeepFilterNetSession(rawStream, {
 					context: new FakeAudioContext(44_100),
 					createClient: () => new FakeClient(),
 					createMessageChannel: () => new FakeMessageChannel(),
@@ -272,9 +281,6 @@ test("DeepFilterNet adapter cleans up when Worker initialization fails", async (
 	globalThis.MediaStream = FakeMediaStream;
 	globalThis.AudioWorkletNode = FakeAudioWorkletNode;
 	try {
-		const { createDeepFilterNetAdapter } = await import(
-			"../src/Features/VideoCall/AudioUtils/DeepFilterNet/deepfilternet.js"
-		);
 		const microphone = new FakeTrack("audio", "microphone");
 		const rawStream = new FakeMediaStream([microphone]);
 		const context = new FakeAudioContext();
@@ -284,7 +290,7 @@ test("DeepFilterNet adapter cleans up when Worker initialization fails", async (
 
 		await assert.rejects(
 			() =>
-				createDeepFilterNetAdapter(rawStream, {
+				createDeepFilterNetSession(rawStream, {
 					context,
 					createClient: () => client,
 					createMessageChannel: () => new FakeMessageChannel(),
@@ -306,14 +312,11 @@ test("DeepFilterNet adapter stops its output and reports inference failures", as
 	globalThis.MediaStream = FakeMediaStream;
 	globalThis.AudioWorkletNode = FakeAudioWorkletNode;
 	try {
-		const { createDeepFilterNetAdapter } = await import(
-			"../src/Features/VideoCall/AudioUtils/DeepFilterNet/deepfilternet.js"
-		);
 		const microphone = new FakeTrack("audio", "microphone");
 		const context = new FakeAudioContext();
 		const client = new FakeClient();
 		const errors = [];
-		const adapter = await createDeepFilterNetAdapter(
+		const adapter = await createDeepFilterNetSession(
 			new FakeMediaStream([microphone]),
 			{
 				context,
@@ -346,13 +349,10 @@ test("DeepFilterNet adapter handles a Worker crash after startup", async () => {
 	globalThis.MediaStream = FakeMediaStream;
 	globalThis.AudioWorkletNode = FakeAudioWorkletNode;
 	try {
-		const { createDeepFilterNetAdapter } = await import(
-			"../src/Features/VideoCall/AudioUtils/DeepFilterNet/deepfilternet.js"
-		);
 		const context = new FakeAudioContext();
 		const client = new FakeClient();
 		const errors = [];
-		const adapter = await createDeepFilterNetAdapter(
+		const adapter = await createDeepFilterNetSession(
 			new FakeMediaStream([new FakeTrack("audio", "microphone")]),
 			{
 				context,
@@ -382,13 +382,10 @@ test("DeepFilterNet adapter handles an AudioWorklet processor crash", async () =
 	globalThis.MediaStream = FakeMediaStream;
 	globalThis.AudioWorkletNode = FakeAudioWorkletNode;
 	try {
-		const { createDeepFilterNetAdapter } = await import(
-			"../src/Features/VideoCall/AudioUtils/DeepFilterNet/deepfilternet.js"
-		);
 		const context = new FakeAudioContext();
 		const client = new FakeClient();
 		const errors = [];
-		const adapter = await createDeepFilterNetAdapter(
+		const adapter = await createDeepFilterNetSession(
 			new FakeMediaStream([new FakeTrack("audio", "microphone")]),
 			{
 				context,
@@ -408,6 +405,82 @@ test("DeepFilterNet adapter handles an AudioWorklet processor crash", async () =
 		assert.equal(client.closedCount, 1);
 	} finally {
 		globalThis.MediaStream = originalMediaStream;
+		globalThis.AudioWorkletNode = originalAudioWorkletNode;
+	}
+});
+
+test("DeepFilterNet can be selected as a realtime denoiser plugin", async () => {
+	const originalMediaStream = globalThis.MediaStream;
+	const originalAudioWorkletNode = globalThis.AudioWorkletNode;
+	globalThis.MediaStream = FakeMediaStream;
+	globalThis.AudioWorkletNode = FakeAudioWorkletNode;
+	try {
+		const { createRealtimeDenoiseSession } = await import(
+			"../src/Features/VideoCall/AudioUtils/Denoise/denoise-session.js"
+		);
+		const { createDeepFilterNetDenoiser } = await import(
+			"../src/Features/VideoCall/AudioUtils/Denoise/DeepFilterNet/deepfilternet.js"
+		);
+		const context = new FakeAudioContext();
+		const client = new FakeClient();
+		const channel = new FakeMessageChannel();
+		const denoiser = createDeepFilterNetDenoiser({
+			workletUrl: "selected-deepfilternet-worklet.js",
+			modelUrl: "selected-model.onnx",
+			wasmUrl: "selected-ort.wasm",
+			createClient: () => client,
+			createMessageChannel: () => channel,
+		});
+
+		const session = await createRealtimeDenoiseSession(
+			new FakeMediaStream([new FakeTrack("audio", "microphone")]),
+			{ denoiser, context },
+		);
+
+		assert.deepEqual(context.loadedWorklets, [
+			"selected-deepfilternet-worklet.js",
+		]);
+		assert.deepEqual(client.initializedWith, {
+			modelUrl: "selected-model.onnx",
+			wasmUrl: "selected-ort.wasm",
+		});
+		assert.equal(client.connectedPort, channel.port1);
+		assert.equal(session.node.processorName, "DeepFilterNetWorkletProcessor");
+		await session.close();
+		assert.equal(client.closedCount, 1);
+	} finally {
+		globalThis.MediaStream = originalMediaStream;
+		globalThis.AudioWorkletNode = originalAudioWorkletNode;
+	}
+});
+
+test("DeepFilterNet defaults to shared generated and model assets", async () => {
+	const originalAudioWorkletNode = globalThis.AudioWorkletNode;
+	globalThis.AudioWorkletNode = FakeAudioWorkletNode;
+
+	try {
+		const { createDeepFilterNetDenoiser } = await import(
+			"../src/Features/VideoCall/AudioUtils/Denoise/DeepFilterNet/deepfilternet.js"
+		);
+		const context = new FakeAudioContext();
+		const client = new FakeClient();
+		const channel = new FakeMessageChannel();
+		const processor = await createDeepFilterNetDenoiser({
+			createClient: () => client,
+			createMessageChannel: () => channel,
+		}).realtime.createProcessor({
+			context,
+			onError: null,
+		});
+
+		assert.match(
+			context.loadedWorklets[0],
+			/\/Denoise\/DeepFilterNet\/deepfilternet-worklet\.js$/,
+		);
+		assert.match(client.initializedWith.modelUrl, /\/DeepFilterNet\/denoiser_model\.onnx$/);
+		assert.match(client.initializedWith.wasmUrl, /\/DeepFilterNet\/ort-wasm-simd-threaded\.wasm$/);
+		await processor.close();
+	} finally {
 		globalThis.AudioWorkletNode = originalAudioWorkletNode;
 	}
 });

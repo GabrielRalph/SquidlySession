@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { processAudioBufferWithRnnoise } from "../src/Features/VideoCall/AudioUtils/NoiseSuppress/noise-suppression-offline.js";
+import { renderOfflineDenoise } from "../src/Features/VideoCall/AudioUtils/Denoise/denoise-offline.js";
+import { createRnnoiseDenoiser } from "../src/Features/VideoCall/AudioUtils/Denoise/RNNoise/rnnoise.js";
 
 class FakeAudioBuffer {
 	constructor(channels, sampleRate = 48000) {
@@ -43,6 +44,7 @@ class FakeOfflineAudioContext {
 		this.source = {
 			buffer: null,
 			started: false,
+			disconnect: () => {},
 			connect: (node) => {
 				this.source.connectedTo = node;
 				return node;
@@ -75,6 +77,8 @@ class FakeAudioWorkletNode {
 		this.connectedTo = node;
 		return node;
 	}
+
+	disconnect() {}
 }
 
 test("offline RNNoise downmixes to mono and trims worklet latency", async () => {
@@ -83,10 +87,12 @@ test("offline RNNoise downmixes to mono and trims worklet latency", async () => 
 		new Float32Array([0, 1, -0.5]),
 	]);
 
-	const output = await processAudioBufferWithRnnoise(input, {
-		workletUrl: "rnnoise-worklet.js",
+	const output = await renderOfflineDenoise(input, {
+		denoiser: createRnnoiseDenoiser({
+			workletUrl: "rnnoise-worklet.js",
+			AudioWorkletNodeClass: FakeAudioWorkletNode,
+		}),
 		OfflineAudioContextClass: FakeOfflineAudioContext,
-		AudioWorkletNodeClass: FakeAudioWorkletNode,
 	});
 
 	const context = FakeOfflineAudioContext.instance;
@@ -103,5 +109,22 @@ test("offline RNNoise downmixes to mono and trims worklet latency", async () => 
 	assert.equal(context.source.started, true);
 	assert.equal(context.source.connectedTo, context.workletNode);
 	assert.equal(context.workletNode.connectedTo, context.destination);
+	assert.deepEqual(output, new Float32Array([1, 2, 3]));
+});
+
+test("RNNoise can be selected as an offline denoiser plugin", async () => {
+	const input = new FakeAudioBuffer([new Float32Array([1, 2, 3])]);
+
+	const output = await renderOfflineDenoise(input, {
+		denoiser: createRnnoiseDenoiser({
+			workletUrl: "selected-rnnoise-worklet.js",
+			AudioWorkletNodeClass: FakeAudioWorkletNode,
+		}),
+		OfflineAudioContextClass: FakeOfflineAudioContext,
+	});
+
+	assert.deepEqual(FakeOfflineAudioContext.instance.loadedWorklets, [
+		"selected-rnnoise-worklet.js",
+	]);
 	assert.deepEqual(output, new Float32Array([1, 2, 3]));
 });

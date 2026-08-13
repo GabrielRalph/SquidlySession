@@ -3,9 +3,10 @@ import { RTCSignaler } from "../../Utilities/WebRTC/rtc-signaler.js";
 import * as WebRTC from "../../Utilities/WebRTC/webrtc-base.js";
 import { getStream, startWebcam } from "../../Utilities/webcam.js";
 import { Features } from "../features-interface.js";
-import { createDeepFilterNetAdapter } from "./AudioUtils/DeepFilterNet/deepfilternet.js";
-import { recoverDeepFilterNetAudio } from "./AudioUtils/DeepFilterNet/deepfilternet-recovery.js";
-// import { createNoiseSuppressionAdapter } from "./AudioUtils/NoiseSuppress/noise-suppression.js";
+import { deepFilterNetDenoiser } from "./AudioUtils/Denoise/DeepFilterNet/deepfilternet.js";
+import { recoverDenoisedAudio } from "./AudioUtils/Denoise/denoise-recovery.js";
+import { createRealtimeDenoiseSession } from "./AudioUtils/Denoise/denoise-session.js";
+// import { rnnoiseDenoiser } from "./AudioUtils/Denoise/RNNoise/rnnoise.js";
 import { setupVoiceDetection } from "./AudioUtils/voice-detector.js";
 import { getHostPresets } from "./presets.js";
 import { VideoPanelWidget } from "./widgets.js";
@@ -428,14 +429,16 @@ export default class VideoCall extends Features {
 			// denoise here
 			let stream = null;
 			this._noiseSuppressionAdapter =
-				await createDeepFilterNetAdapter(rawStream, {
+				await createRealtimeDenoiseSession(rawStream, {
+					denoiser: deepFilterNetDenoiser,
+					// denoiser: rnnoiseDenoiser,
 					onError: (error) => {
 						console.warn(
-							"DeepFilterNet failed; falling back to the microphone.",
+							"Denoising failed; falling back to the microphone.",
 							error,
 						);
 						if (stream) {
-							recoverDeepFilterNetAudio({
+							recoverDenoisedAudio({
 								rawStream,
 								publishedStream: stream,
 								connection,
@@ -443,8 +446,6 @@ export default class VideoCall extends Features {
 						}
 					},
 				});
-			// this._noiseSuppressionAdapter =
-			// 	await createNoiseSuppressionAdapter(rawStream);
 			stream = this._noiseSuppressionAdapter.stream;
 
 			// set up voice detection

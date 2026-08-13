@@ -1,5 +1,6 @@
-import { processAudioBufferWithRnnoise } from "./noise-suppression-offline.js";
-import { encodeWav } from "./noise-suppression-wav.js";
+import { renderOfflineDenoise } from "../denoise-offline.js";
+import { createRnnoiseDenoiser } from "./rnnoise.js";
+import { encodeWav } from "./rnnoise-wav.js";
 
 const form = document.querySelector("#file-test-form");
 const fileInput = document.querySelector("#audio-file");
@@ -55,7 +56,9 @@ async function processSelectedFile(event) {
 		// Step 6: Downmix the decoded channels to mono and render them through the
 		// same RNNoise AudioWorklet used by the live WebRTC stream. The helper returns
 		// one Float32Array containing the denoised mono PCM samples.
-		const denoisedMono = await processAudioBufferWithRnnoise(decoded);
+		const denoisedMono = await renderOfflineDenoise(decoded, {
+			denoiser: createRnnoiseDenoiser(),
+		});
 		const processingTime = performance.now() - startedAt;
 
 		// Step 7: The WAV encoder accepts an array of channels, so wrap the mono

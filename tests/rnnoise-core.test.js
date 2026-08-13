@@ -2,18 +2,18 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-	NoiseSuppressor,
+	RnnoiseProcessor,
 	processAudioChannels,
-} from "../src/Features/VideoCall/AudioUtils/NoiseSuppress/noise-suppression-core.js";
-import { encodeWav } from "../src/Features/VideoCall/AudioUtils/NoiseSuppress/noise-suppression-wav.js";
+} from "../src/Features/VideoCall/AudioUtils/Denoise/RNNoise/rnnoise-core.js";
+import { encodeWav } from "../src/Features/VideoCall/AudioUtils/Denoise/RNNoise/rnnoise-wav.js";
 
-test("NoiseSuppressor passes input samples through without changing the input", () => {
-	const suppressor = new NoiseSuppressor({ sampleRate: 48000, channelCount: 1 });
+test("RnnoiseProcessor passes input samples through without changing the input", () => {
+	const processor = new RnnoiseProcessor({ sampleRate: 48000, channelCount: 1 });
 	const input = new Float32Array([0.25, -0.5, 0.75]);
 	const original = input.slice();
 	const output = new Float32Array(input.length);
 
-	suppressor.process([input], [output]);
+	processor.process([input], [output]);
 
 	assert.deepEqual(output, input);
 	assert.deepEqual(input, original);

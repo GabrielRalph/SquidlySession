@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { recoverDeepFilterNetAudio } from "../src/Features/VideoCall/AudioUtils/DeepFilterNet/deepfilternet-recovery.js";
+import { recoverDenoisedAudio } from "../src/Features/VideoCall/AudioUtils/Denoise/denoise-recovery.js";
 
 class FakeTrack {
 	constructor(kind, id, enabled = true) {
@@ -42,7 +42,7 @@ function dispatchTrackChange(stream, oldTrack, newTrack) {
 	stream.dispatchEvent(event);
 }
 
-test("video call falls back to the live microphone after a published denoiser failure", () => {
+test("denoise recovery falls back to the live microphone", () => {
 	const microphone = new FakeTrack("audio", "microphone");
 	const denoised = new FakeTrack("audio", "deepfilternet", false);
 	const camera = new FakeTrack("video", "camera");
@@ -54,7 +54,7 @@ test("video call falls back to the live microphone after a published denoiser fa
 			replacements.push([oldTrack, newTrack]),
 	};
 
-	const recovered = recoverDeepFilterNetAudio({
+	const recovered = recoverDenoisedAudio({
 		rawStream,
 		publishedStream,
 		connection,
@@ -66,7 +66,7 @@ test("video call falls back to the live microphone after a published denoiser fa
 	assert.equal(microphone.enabled, false);
 });
 
-test("fallback keeps publishing later microphone and camera changes", () => {
+test("denoise recovery keeps publishing later device changes", () => {
 	const microphone = new FakeTrack("audio", "microphone");
 	const denoised = new FakeTrack("audio", "deepfilternet", false);
 	const camera = new FakeTrack("video", "camera", false);
@@ -78,7 +78,7 @@ test("fallback keeps publishing later microphone and camera changes", () => {
 			replacements.push([oldTrack, newTrack]),
 	};
 
-	recoverDeepFilterNetAudio({ rawStream, publishedStream, connection });
+	recoverDenoisedAudio({ rawStream, publishedStream, connection });
 	const replacementMicrophone = new FakeTrack(
 		"audio",
 		"replacement-microphone",
@@ -97,13 +97,14 @@ test("fallback keeps publishing later microphone and camera changes", () => {
 	assert.equal(replacementCamera.enabled, false);
 });
 
-test("video-call wires DeepFilterNet runtime errors into microphone recovery", async () => {
+test("video-call selects a denoiser plugin and wires generic recovery", async () => {
 	const source = await readFile(
 		"src/Features/VideoCall/video-call.js",
 		"utf8",
 	);
 
-	assert.match(source, /createDeepFilterNetAdapter\(rawStream,\s*\{/);
+	assert.match(source, /createRealtimeDenoiseSession\(rawStream,\s*\{/);
+	assert.match(source, /denoiser:\s*deepFilterNetDenoiser/);
 	assert.match(source, /onError:\s*\(error\)\s*=>/);
-	assert.match(source, /recoverDeepFilterNetAudio\(/);
+	assert.match(source, /recoverDenoisedAudio\(/);
 });

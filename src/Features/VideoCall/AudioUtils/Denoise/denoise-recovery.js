@@ -15,17 +15,8 @@ function replacePublishedTrack(publishedStream, connection, newTrack) {
 	return true;
 }
 
-/**
- * Replaces a failed denoised track with the live microphone and keeps later
- * microphone/camera device changes connected to the published stream.
- *
- * @param {object} options
- * @param {MediaStream} options.rawStream
- * @param {MediaStream} options.publishedStream
- * @param {{replaceTrack?: function(MediaStreamTrack, MediaStreamTrack): void}} options.connection
- * @returns {boolean} Whether a microphone fallback was installed.
- */
-export function recoverDeepFilterNetAudio({
+/** Restores raw tracks after any realtime denoiser fails. */
+export function recoverDenoisedAudio({
 	rawStream,
 	publishedStream,
 	connection,

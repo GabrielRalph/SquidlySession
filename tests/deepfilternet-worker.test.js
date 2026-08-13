@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { DFN_FRAME_SIZE, DFN_STATE_SIZE } from "../src/Features/VideoCall/AudioUtils/DeepFilterNet/deepfilternet-model.js";
+import { DFN_FRAME_SIZE, DFN_STATE_SIZE } from "../src/Features/VideoCall/AudioUtils/Denoise/DeepFilterNet/deepfilternet-model.js";
 import {
 	DeepFilterNetWorkerClient,
-} from "../src/Features/VideoCall/AudioUtils/DeepFilterNet/deepfilternet-worker-client.js";
+} from "../src/Features/VideoCall/AudioUtils/Denoise/DeepFilterNet/deepfilternet-worker-client.js";
 import {
 	DeepFilterNetWorkerHost,
-} from "../src/Features/VideoCall/AudioUtils/DeepFilterNet/deepfilternet-worker-host.js";
+} from "../src/Features/VideoCall/AudioUtils/Denoise/DeepFilterNet/deepfilternet-worker-host.js";
 
 class FakeRuntime {
 	constructor() {

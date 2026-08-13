@@ -3,7 +3,7 @@ import test from "node:test";
 
 import {
 	DeepFilterNetWorkletBridge,
-} from "../src/Features/VideoCall/AudioUtils/DeepFilterNet/deepfilternet-worklet-core.js";
+} from "../src/Features/VideoCall/AudioUtils/Denoise/DeepFilterNet/deepfilternet-worklet-core.js";
 
 test("worklet assembles 480 mono samples and permits one frame in flight", () => {
 	const sent = [];

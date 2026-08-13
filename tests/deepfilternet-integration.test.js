@@ -26,7 +26,7 @@ async function generateModule(input, plugins = []) {
 
 test("DeepFilterNet Worker bundles ONNX Runtime without a browser bare import", async () => {
 	const code = await generateModule(
-		"src/Features/VideoCall/AudioUtils/DeepFilterNet/deepfilternet-worker-source.js",
+		"src/Features/VideoCall/AudioUtils/Denoise/DeepFilterNet/deepfilternet-worker-source.js",
 		[nodeResolve({ browser: true })],
 	);
 
@@ -34,7 +34,7 @@ test("DeepFilterNet Worker bundles ONNX Runtime without a browser bare import", 
 	assert.match(code, /DeepFilterNet worker is not initialized/);
 	assert.equal(
 		await readFile(
-			"src/Features/VideoCall/AudioUtils/DeepFilterNet/deepfilternet-worker.js",
+			"src/Features/VideoCall/AudioUtils/Denoise/DeepFilterNet/deepfilternet-worker.js",
 			"utf8",
 		),
 		code,
@@ -43,13 +43,13 @@ test("DeepFilterNet Worker bundles ONNX Runtime without a browser bare import", 
 
 test("DeepFilterNet worklet bundles its processor registration", async () => {
 	const code = await generateModule(
-		"src/Features/VideoCall/AudioUtils/DeepFilterNet/deepfilternet-worklet-source.js",
+		"src/Features/VideoCall/AudioUtils/Denoise/DeepFilterNet/deepfilternet-worklet-source.js",
 	);
 
 	assert.match(code, /registerProcessor\(\s*["']DeepFilterNetWorkletProcessor/);
 	assert.equal(
 		await readFile(
-			"src/Features/VideoCall/AudioUtils/DeepFilterNet/deepfilternet-worklet.js",
+			"src/Features/VideoCall/AudioUtils/Denoise/DeepFilterNet/deepfilternet-worklet.js",
 			"utf8",
 		),
 		code,
