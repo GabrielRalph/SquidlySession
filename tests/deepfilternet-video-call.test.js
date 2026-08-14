@@ -97,14 +97,17 @@ test("denoise recovery keeps publishing later device changes", () => {
 	assert.equal(replacementCamera.enabled, false);
 });
 
-test("video-call selects a denoiser plugin and wires generic recovery", async () => {
+test("video-call selects denoiser modes and wires generic recovery", async () => {
 	const source = await readFile(
 		"src/Features/VideoCall/video-call.js",
 		"utf8",
 	);
 
-	assert.match(source, /createRealtimeDenoiseSession\(rawStream,\s*\{/);
-	assert.match(source, /denoiser:\s*deepFilterNetDenoiser/);
+	assert.match(source, /createRealtimeDenoiseController\(\s*rawStream,/);
+	assert.match(source, /DENOISER_MODES\.RNNOISE]:\s*rnnoiseDenoiser/);
+	assert.match(source, /DENOISER_MODES\.DEEPFILTERNET]:\s*deepFilterNetDenoiser/);
+	assert.match(source, /getDenoiserMode\(\)/);
+	assert.match(source, /subscribeDenoiserMode\(/);
 	assert.match(source, /onError:\s*\(error\)\s*=>/);
 	assert.match(source, /recoverDenoisedAudio\(/);
 });

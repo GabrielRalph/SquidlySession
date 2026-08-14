@@ -5,8 +5,13 @@ import { getStream, startWebcam } from "../../Utilities/webcam.js";
 import { Features } from "../features-interface.js";
 import { deepFilterNetDenoiser } from "./AudioUtils/Denoise/DeepFilterNet/deepfilternet.js";
 import { recoverDenoisedAudio } from "./AudioUtils/Denoise/denoise-recovery.js";
-import { createRealtimeDenoiseSession } from "./AudioUtils/Denoise/denoise-session.js";
-// import { rnnoiseDenoiser } from "./AudioUtils/Denoise/RNNoise/rnnoise.js";
+import { createRealtimeDenoiseController } from "./AudioUtils/Denoise/denoise-controller.js";
+import {
+	DENOISER_MODES,
+	getDenoiserMode,
+	subscribeDenoiserMode,
+} from "./AudioUtils/Denoise/denoiser-mode.js";
+import { rnnoiseDenoiser } from "./AudioUtils/Denoise/RNNoise/rnnoise.js";
 import { setupVoiceDetection } from "./AudioUtils/voice-detector.js";
 import { getHostPresets } from "./presets.js";
 import { VideoPanelWidget } from "./widgets.js";
@@ -426,12 +431,17 @@ export default class VideoCall extends Features {
 			// get new stream from webcam
 			const rawStream = getStream(2);
 
-			// denoise here
+			// Keep one published stream so a console mode change can replace only
+			// its audio track while the WebRTC connection stays alive.
 			let stream = null;
-			this._noiseSuppressionAdapter =
-				await createRealtimeDenoiseSession(rawStream, {
-					denoiser: deepFilterNetDenoiser,
-					// denoiser: rnnoiseDenoiser,
+			this._noiseSuppressionAdapter = await createRealtimeDenoiseController(
+				rawStream,
+				{
+					mode: getDenoiserMode(),
+					denoisers: {
+						[DENOISER_MODES.RNNOISE]: rnnoiseDenoiser,
+						[DENOISER_MODES.DEEPFILTERNET]: deepFilterNetDenoiser,
+					},
 					onError: (error) => {
 						console.warn(
 							"Denoising failed; falling back to the microphone.",
@@ -445,8 +455,13 @@ export default class VideoCall extends Features {
 							});
 						}
 					},
-				});
+				},
+			);
 			stream = this._noiseSuppressionAdapter.stream;
+			this._unsubscribeDenoiserMode?.();
+			this._unsubscribeDenoiserMode = subscribeDenoiserMode((mode) =>
+				this._noiseSuppressionAdapter.switchMode(mode),
+			);
 
 			// set up voice detection
 			setupVoiceDetection(stream, (d) => {

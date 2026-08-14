@@ -19,6 +19,7 @@ import {
 } from "./Utilities/usefull-funcs.js";
 import { FeaturesList, SquildyFeatureProxy } from "./Features/feature-list.js";
 import { parseSessionLogs } from "./Utilities/SessionLogs/parse-session-logs.js";
+import "./Features/VideoCall/AudioUtils/Denoise/denoiser-mode.js";
 
 /** @typedef {import('./SessionView/session-view.js').SessionView} SessionView*/
 /** @typedef {import('./Features/features-interface.js').Features} Feature*/
