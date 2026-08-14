@@ -484,3 +484,94 @@ test("DeepFilterNet defaults to shared generated and model assets", async () => 
 		globalThis.AudioWorkletNode = originalAudioWorkletNode;
 	}
 });
+
+test("DeepFilterNet bootstraps a cross-origin Worker through a same-origin blob", async () => {
+	const originalMediaStream = globalThis.MediaStream;
+	const originalAudioWorkletNode = globalThis.AudioWorkletNode;
+	const originalWorker = globalThis.Worker;
+	const originalBlob = globalThis.Blob;
+	const originalLocation = globalThis.location;
+	const URLClass = globalThis.URL;
+	const originalCreateObjectURL = URLClass.createObjectURL;
+	const originalRevokeObjectURL = URLClass.revokeObjectURL;
+	const workerUrl =
+		"https://session.squidly.com.au/feature-noise-cancellation/deepfilternet-worker.js";
+	const blobUrl = "blob:https://squidly.com.au/worker-bootstrap";
+	const blobs = [];
+	const revokedUrls = [];
+
+	class FakeBlob {
+		constructor(parts, options) {
+			this.parts = parts;
+			this.options = options;
+			blobs.push(this);
+		}
+	}
+
+	class FakeWorker {
+		static instances = [];
+
+		constructor(url, options) {
+			this.url = url;
+			this.options = options;
+			this.onmessage = null;
+			this.onerror = null;
+			this.onmessageerror = null;
+			this.terminated = false;
+			FakeWorker.instances.push(this);
+		}
+
+		postMessage(message) {
+			queueMicrotask(() => {
+				this.onmessage?.({ data: { id: message.id, type: "ok" } });
+			});
+		}
+
+		terminate() {
+			this.terminated = true;
+		}
+	}
+
+	globalThis.MediaStream = FakeMediaStream;
+	globalThis.AudioWorkletNode = FakeAudioWorkletNode;
+	globalThis.Worker = FakeWorker;
+	globalThis.Blob = FakeBlob;
+	globalThis.location = {
+		href: "https://squidly.com.au/Session/?sid=test",
+		origin: "https://squidly.com.au",
+	};
+	URLClass.createObjectURL = () => blobUrl;
+	URLClass.revokeObjectURL = (url) => revokedUrls.push(url);
+
+	try {
+		const adapter = await createDeepFilterNetSession(
+			new FakeMediaStream([new FakeTrack("audio", "microphone")]),
+			{
+				context: new FakeAudioContext(),
+				workerUrl,
+				workletUrl: "https://session.squidly.com.au/deepfilternet-worklet.js",
+				modelUrl: "https://session.squidly.com.au/denoiser_model.onnx",
+				wasmUrl: "https://session.squidly.com.au/ort.wasm",
+			},
+		);
+
+		assert.equal(FakeWorker.instances.length, 1);
+		assert.equal(FakeWorker.instances[0].url, blobUrl);
+		assert.equal(FakeWorker.instances[0].options.type, "module");
+		assert.equal(blobs.length, 1);
+		assert.deepEqual(blobs[0].parts, [`import ${JSON.stringify(workerUrl)};`]);
+		assert.deepEqual(blobs[0].options, { type: "text/javascript" });
+
+		await adapter.close();
+		assert.equal(FakeWorker.instances[0].terminated, true);
+		assert.deepEqual(revokedUrls, [blobUrl]);
+	} finally {
+		globalThis.MediaStream = originalMediaStream;
+		globalThis.AudioWorkletNode = originalAudioWorkletNode;
+		globalThis.Worker = originalWorker;
+		globalThis.Blob = originalBlob;
+		globalThis.location = originalLocation;
+		URLClass.createObjectURL = originalCreateObjectURL;
+		URLClass.revokeObjectURL = originalRevokeObjectURL;
+	}
+});

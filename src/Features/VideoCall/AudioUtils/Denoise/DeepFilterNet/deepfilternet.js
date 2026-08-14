@@ -18,6 +18,54 @@ const DEFAULT_WASM_URL = relURL(
 	import.meta,
 );
 
+function createDeepFilterNetWorker(workerUrl) {
+	const pageLocation = globalThis.location;
+	const resolvedWorkerUrl = pageLocation
+		? new URL(workerUrl, pageLocation.href)
+		: null;
+	const isCrossOrigin =
+		resolvedWorkerUrl && resolvedWorkerUrl.origin !== pageLocation.origin;
+
+	if (!isCrossOrigin) {
+		return {
+			worker: new Worker(workerUrl, { type: "module" }),
+			cleanup: () => {},
+		};
+	}
+
+	if (
+		typeof globalThis.Blob !== "function" ||
+		typeof globalThis.URL?.createObjectURL !== "function" ||
+		typeof globalThis.URL?.revokeObjectURL !== "function"
+	) {
+		throw new Error(
+			"Cross-origin DeepFilterNet workers require Blob URL support.",
+		);
+	}
+
+	const bootstrap = new Blob(
+		[`import ${JSON.stringify(resolvedWorkerUrl.href)};`],
+		{ type: "text/javascript" },
+	);
+	const bootstrapUrl = URL.createObjectURL(bootstrap);
+	let cleanedUp = false;
+	const cleanup = () => {
+		if (cleanedUp) return;
+		cleanedUp = true;
+		URL.revokeObjectURL(bootstrapUrl);
+	};
+
+	try {
+		return {
+			worker: new Worker(bootstrapUrl, { type: "module" }),
+			cleanup,
+		};
+	} catch (error) {
+		cleanup();
+		throw error;
+	}
+}
+
 /** Creates a realtime DeepFilterNet denoiser plugin. */
 export function createDeepFilterNetDenoiser(
 	{
@@ -52,6 +100,8 @@ export function createDeepFilterNetDenoiser(
 				}
 
 				let client = null;
+				let worker = null;
+				let cleanupWorker = null;
 				let channel = null;
 				let node = null;
 				let cleanupPromise = null;
@@ -65,18 +115,26 @@ export function createDeepFilterNetDenoiser(
 							}
 							channel?.port1?.close?.();
 							channel?.port2?.close?.();
-							client?.close();
+							try {
+								client?.close();
+							} finally {
+								if (!client) worker?.terminate?.();
+								cleanupWorker?.();
+							}
 						})();
 					}
 					return cleanupPromise;
 				};
 
 				try {
-					client = createClient
-						? createClient()
-						: createDeepFilterNetWorkerClient(
-								new Worker(workerUrl, { type: "module" }),
-							);
+					if (createClient) {
+						client = createClient();
+					} else {
+						const workerHandle = createDeepFilterNetWorker(workerUrl);
+						worker = workerHandle.worker;
+						cleanupWorker = workerHandle.cleanup;
+						client = createDeepFilterNetWorkerClient(worker);
+					}
 					client.setFatalErrorHandler(onError);
 					await client.initialize(modelUrl, wasmUrl);
 					await context.audioWorklet.addModule(workletUrl);
