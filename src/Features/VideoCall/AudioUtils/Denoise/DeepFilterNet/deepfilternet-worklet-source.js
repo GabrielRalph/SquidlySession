@@ -1,10 +1,15 @@
 import { DeepFilterNetWorkletBridge } from "./deepfilternet-worklet-core.js";
 
 class DeepFilterNetWorkletProcessor extends AudioWorkletProcessor {
-	constructor() {
+	constructor({ processorOptions = {} } = {}) {
 		super();
 		this.bridge = new DeepFilterNetWorkletBridge(null, (message) => {
 			this.port.postMessage({ type: "error", message });
+		}, {
+			diagnosticsEveryFrames: processorOptions.diagnosticsEveryFrames,
+			onDiagnostics: (metrics) => {
+				this.port.postMessage({ type: "diagnostics", metrics });
+			},
 		});
 		this.port.onmessage = ({ data }) => {
 			if (data?.type === "connect" && data.port) {

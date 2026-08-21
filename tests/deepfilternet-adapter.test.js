@@ -485,6 +485,39 @@ test("DeepFilterNet defaults to shared generated and model assets", async () => 
 	}
 });
 
+test("DeepFilterNet forwards diagnostics from its AudioWorklet", async () => {
+	const originalMediaStream = globalThis.MediaStream;
+	const originalAudioWorkletNode = globalThis.AudioWorkletNode;
+	globalThis.MediaStream = FakeMediaStream;
+	globalThis.AudioWorkletNode = FakeAudioWorkletNode;
+
+	try {
+		const diagnostics = [];
+		const client = new FakeClient();
+		const processor = await createDeepFilterNetSession(
+			new FakeMediaStream([new FakeTrack("audio", "microphone")]),
+			{
+				context: new FakeAudioContext(),
+				createClient: () => client,
+				createMessageChannel: () => new FakeMessageChannel(),
+				onDiagnostics: (metrics) => diagnostics.push(metrics),
+				diagnosticsEveryFrames: 7,
+			},
+		);
+
+		assert.deepEqual(processor.node.options.processorOptions, {
+			diagnosticsEveryFrames: 7,
+		});
+		const metrics = { inferenceMs: 12.5, droppedFrames: 1 };
+		processor.node.port.onmessage({ data: { type: "diagnostics", metrics } });
+		assert.deepEqual(diagnostics, [metrics]);
+		await processor.close();
+	} finally {
+		globalThis.MediaStream = originalMediaStream;
+		globalThis.AudioWorkletNode = originalAudioWorkletNode;
+	}
+});
+
 test("DeepFilterNet bootstraps a cross-origin Worker through a same-origin blob", async () => {
 	const originalMediaStream = globalThis.MediaStream;
 	const originalAudioWorkletNode = globalThis.AudioWorkletNode;

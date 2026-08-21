@@ -1,6 +1,9 @@
 import { relURL } from "../../../../../Utilities/usefull-funcs.js";
 
-import { DFN_SAMPLE_RATE } from "./deepfilternet-model.js";
+import {
+	DFN_FRAME_SIZE,
+	DFN_SAMPLE_RATE,
+} from "./deepfilternet-model.js";
 import { createDeepFilterNetWorkerClient } from "./deepfilternet-worker-client.js";
 
 const PROCESSOR_NAME = "DeepFilterNetWorkletProcessor";
@@ -17,6 +20,41 @@ const DEFAULT_WASM_URL = relURL(
 	"./ort-wasm-simd-threaded.wasm",
 	import.meta,
 );
+const FRAME_BUDGET_MS = (DFN_FRAME_SIZE / DFN_SAMPLE_RATE) * 1000;
+const DEFAULT_DIAGNOSTICS_EVERY_FRAMES = 100;
+
+function createDiagnosticsLogger() {
+	let lastDroppedFrames = 0;
+	let lastUnderflowQuanta = null;
+	let lastWarningAt = 0;
+	return (metrics) => {
+		const droppedFrames = metrics?.droppedFrames || 0;
+		const underflowQuanta = metrics?.underflowQuanta || 0;
+		const isSlow = metrics?.inferenceMs > FRAME_BUDGET_MS;
+		const hasNewDrops = droppedFrames > lastDroppedFrames;
+		const newUnderflows =
+			lastUnderflowQuanta === null
+				? 0
+				: underflowQuanta - lastUnderflowQuanta;
+		lastDroppedFrames = droppedFrames;
+		lastUnderflowQuanta = underflowQuanta;
+		if (!isSlow && !hasNewDrops && newUnderflows <= 5) return;
+
+		const currentTime = Date.now();
+		if (
+			!hasNewDrops &&
+			newUnderflows <= 5 &&
+			currentTime - lastWarningAt < 1000
+		) {
+			return;
+		}
+		lastWarningAt = currentTime;
+		console.warn(
+			"[DeepFilterNet] realtime processing is behind.",
+			metrics,
+		);
+	};
+}
 
 function createDeepFilterNetWorker(workerUrl) {
 	const pageLocation = globalThis.location;
@@ -73,6 +111,8 @@ export function createDeepFilterNetDenoiser(
 		workletUrl = DEFAULT_WORKLET_URL,
 		modelUrl = DEFAULT_MODEL_URL,
 		wasmUrl = DEFAULT_WASM_URL,
+		onDiagnostics = createDiagnosticsLogger(),
+		diagnosticsEveryFrames = DEFAULT_DIAGNOSTICS_EVERY_FRAMES,
 		createClient = null,
 		createMessageChannel = null,
 		AudioWorkletNodeClass = null,
@@ -86,6 +126,10 @@ export function createDeepFilterNetDenoiser(
 			async createProcessor({ context, onError }) {
 				const WorkletNodeClass =
 					AudioWorkletNodeClass || globalThis.AudioWorkletNode;
+				const diagnosticsEnabled =
+					typeof onDiagnostics === "function" &&
+					Number.isInteger(diagnosticsEveryFrames) &&
+					diagnosticsEveryFrames > 0;
 				if (!WorkletNodeClass) {
 					throw new Error("AudioWorklet is not supported by this browser.");
 				}
@@ -143,10 +187,17 @@ export function createDeepFilterNetDenoiser(
 						numberOfInputs: 1,
 						numberOfOutputs: 1,
 						outputChannelCount: [1],
+						processorOptions: {
+							diagnosticsEveryFrames: diagnosticsEnabled
+								? diagnosticsEveryFrames
+								: 0,
+						},
 					});
 					node.port.onmessage = ({ data }) => {
 						if (data?.type === "error") {
 							onError(new Error(data.message));
+						} else if (data?.type === "diagnostics") {
+							onDiagnostics?.(data.metrics);
 						}
 					};
 					node.onprocessorerror = () => {

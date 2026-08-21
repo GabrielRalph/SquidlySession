@@ -19,6 +19,12 @@ function validateRuntimeResult(result) {
 	return result;
 }
 
+function now() {
+	return typeof globalThis.performance?.now === "function"
+		? globalThis.performance.now()
+		: Date.now();
+}
+
 /** Owns one initialized DeepFilterNet runtime and its recurrent state. */
 export class DeepFilterNetWorkerHost {
 	constructor(createRuntime) {
@@ -59,12 +65,14 @@ export class DeepFilterNetWorkerHost {
 			if (event.data?.type !== "process") return;
 			this.processing = this.processing.then(async () => {
 				try {
+					const startedAt = now();
 					const output = await this.process(
 						new Float32Array(event.data.samples),
 					);
+					const inferenceMs = Math.max(0, now() - startedAt);
 					const transferred = output.slice().buffer;
 					port.postMessage(
-						{ type: "processed", samples: transferred },
+						{ type: "processed", samples: transferred, inferenceMs },
 						[transferred],
 					);
 				} catch (error) {

@@ -4,9 +4,19 @@ const MAX_PENDING_FRAMES = 8;
 
 /** Buffers Web Audio quanta around one asynchronous DeepFilterNet Worker. */
 class DeepFilterNetWorkletBridge {
-	constructor(sendFrame = null, onError = () => {}) {
+	constructor(
+		sendFrame = null,
+		onError = () => {},
+		{ onDiagnostics = null, diagnosticsEveryFrames = 0 } = {},
+	) {
 		this.sendFrame = sendFrame;
 		this.onError = onError;
+		this.onDiagnostics =
+			typeof onDiagnostics === "function" ? onDiagnostics : null;
+		this.diagnosticsEveryFrames =
+			Number.isInteger(diagnosticsEveryFrames) && diagnosticsEveryFrames > 0
+				? diagnosticsEveryFrames
+				: 0;
 		this.inputFrame = new Float32Array(DFN_FRAME_SIZE);
 		this.inputLength = 0;
 		this.inFlight = false;
@@ -14,6 +24,11 @@ class DeepFilterNetWorkletBridge {
 		this.pendingFrames = [];
 		this.outputFrames = [];
 		this.outputOffset = 0;
+		this.framesProcessed = 0;
+		this.lastInferenceMs = null;
+		this.maxPendingFrames = 0;
+		this.droppedFrames = 0;
+		this.underflowQuanta = 0;
 	}
 
 	connect(port) {
@@ -24,7 +39,10 @@ class DeepFilterNetWorkletBridge {
 		};
 		port.onmessage = ({ data }) => {
 			if (data?.type === "processed") {
-				this.receiveProcessedFrame(new Float32Array(data.samples));
+				this.receiveProcessedFrame(
+					new Float32Array(data.samples),
+					data.inferenceMs,
+				);
 			} else if (data?.type === "error") {
 				this.failed = true;
 				this.inFlight = false;
@@ -50,13 +68,16 @@ class DeepFilterNetWorkletBridge {
 		this._readInput(inputChannels);
 	}
 
-	receiveProcessedFrame(frame) {
+	receiveProcessedFrame(frame, inferenceMs = null) {
 		if (!(frame instanceof Float32Array) || frame.length !== DFN_FRAME_SIZE) {
 			throw new RangeError("Invalid DeepFilterNet output frame length.");
 		}
 		this.outputFrames.push(frame);
+		this.framesProcessed += 1;
+		this.lastInferenceMs = Number.isFinite(inferenceMs) ? inferenceMs : null;
 		this.inFlight = false;
 		this._sendNextFrame();
+		this._emitDiagnostics();
 	}
 
 	_readInput(inputChannels) {
@@ -87,8 +108,13 @@ class DeepFilterNetWorkletBridge {
 		}
 		if (this.pendingFrames.length === MAX_PENDING_FRAMES) {
 			this.pendingFrames.shift();
+			this.droppedFrames += 1;
 		}
 		this.pendingFrames.push(frame);
+		this.maxPendingFrames = Math.max(
+			this.maxPendingFrames,
+			this.pendingFrames.length,
+		);
 	}
 
 	_sendNextFrame() {
@@ -120,14 +146,39 @@ class DeepFilterNetWorkletBridge {
 				this.outputOffset = 0;
 			}
 		}
+		if (writeOffset < outputChannel.length) this.underflowQuanta += 1;
+	}
+
+	_emitDiagnostics() {
+		if (
+			!this.onDiagnostics ||
+			!this.diagnosticsEveryFrames ||
+			this.framesProcessed % this.diagnosticsEveryFrames !== 0
+		) {
+			return;
+		}
+		this.onDiagnostics({
+			framesProcessed: this.framesProcessed,
+			inferenceMs: this.lastInferenceMs,
+			pendingFrames: this.pendingFrames.length,
+			outputFrames: this.outputFrames.length,
+			maxPendingFrames: this.maxPendingFrames,
+			droppedFrames: this.droppedFrames,
+			underflowQuanta: this.underflowQuanta,
+		});
 	}
 }
 
 class DeepFilterNetWorkletProcessor extends AudioWorkletProcessor {
-	constructor() {
+	constructor({ processorOptions = {} } = {}) {
 		super();
 		this.bridge = new DeepFilterNetWorkletBridge(null, (message) => {
 			this.port.postMessage({ type: "error", message });
+		}, {
+			diagnosticsEveryFrames: processorOptions.diagnosticsEveryFrames,
+			onDiagnostics: (metrics) => {
+				this.port.postMessage({ type: "diagnostics", metrics });
+			},
 		});
 		this.port.onmessage = ({ data }) => {
 			if (data?.type === "connect" && data.port) {

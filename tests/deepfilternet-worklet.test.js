@@ -178,3 +178,37 @@ test("worklet transfers frames over its MessagePort and forwards errors", () => 
 	bridge.close();
 	assert.equal(port.closed, true);
 });
+
+test("worklet reports inference, queue, drop, and underflow diagnostics", () => {
+	const diagnostics = [];
+	const sent = [];
+	const bridge = new DeepFilterNetWorkletBridge(
+		(frame) => sent.push(frame.slice()),
+		() => {},
+		{
+			diagnosticsEveryFrames: 1,
+			onDiagnostics: (metrics) => diagnostics.push(metrics),
+		},
+	);
+
+	for (let marker = 1; marker <= 10; marker += 1) {
+		bridge.process(
+			[new Float32Array(480).fill(marker)],
+			new Float32Array(128),
+		);
+	}
+	bridge.receiveProcessedFrame(new Float32Array(480), 12.5);
+
+	assert.equal(sent.length, 2);
+	assert.deepEqual(diagnostics, [
+		{
+			framesProcessed: 1,
+			inferenceMs: 12.5,
+			pendingFrames: 7,
+			outputFrames: 1,
+			maxPendingFrames: 8,
+			droppedFrames: 1,
+			underflowQuanta: 10,
+		},
+	]);
+});

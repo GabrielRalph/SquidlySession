@@ -98,6 +98,8 @@ test("Worker host transfers processed frames and reports inference errors", asyn
 
 	assert.equal(port.started, true);
 	assert.equal(port.messages[0].message.type, "processed");
+	assert.equal(typeof port.messages[0].message.inferenceMs, "number");
+	assert.ok(port.messages[0].message.inferenceMs >= 0);
 	assert.deepEqual(
 		new Float32Array(port.messages[0].message.samples),
 		samples,
