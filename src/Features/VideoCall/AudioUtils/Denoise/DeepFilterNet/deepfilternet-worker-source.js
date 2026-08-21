@@ -6,6 +6,8 @@ import {
 } from "./deepfilternet-model.js";
 import { DeepFilterNetWorkerHost } from "./deepfilternet-worker-host.js";
 
+const DEEPFILTERNET_OUTPUTS = ["enhanced_audio_frame", "new_states"];
+
 class OnnxDeepFilterNetRuntime {
 	async initialize(modelUrl, wasmUrl) {
 		env.wasm.numThreads = 1;
@@ -22,6 +24,7 @@ class OnnxDeepFilterNetRuntime {
 		}
 		const outputs = await this.session.run(
 			createDeepFilterNetFeeds(Tensor, frame, state),
+			DEEPFILTERNET_OUTPUTS,
 		);
 		return readDeepFilterNetOutputs(outputs);
 	}

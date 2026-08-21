@@ -140,6 +140,8 @@ class DeepFilterNetWorkerHost {
 	}
 }
 
+const DEEPFILTERNET_OUTPUTS = ["enhanced_audio_frame", "new_states"];
+
 class OnnxDeepFilterNetRuntime {
 	async initialize(modelUrl, wasmUrl) {
 		Y.wasm.numThreads = 1;
@@ -156,6 +158,7 @@ class OnnxDeepFilterNetRuntime {
 		}
 		const outputs = await this.session.run(
 			createDeepFilterNetFeeds(de, frame, state),
+			DEEPFILTERNET_OUTPUTS,
 		);
 		return readDeepFilterNetOutputs(outputs);
 	}

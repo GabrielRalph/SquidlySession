@@ -31,6 +31,14 @@ test("DeepFilterNet Worker bundles ONNX Runtime without a browser bare import", 
 	);
 
 	assert.doesNotMatch(code, /from\s*["']onnxruntime-web/);
+	assert.match(
+		code,
+		/DEEPFILTERNET_OUTPUTS\s*=\s*\[\s*"enhanced_audio_frame",\s*"new_states"\s*\]/,
+	);
+	assert.match(
+		code,
+		/session\.run\([\s\S]*createDeepFilterNetFeeds\([^,]+, frame, state\)[\s\S]*DEEPFILTERNET_OUTPUTS\s*,/,
+	);
 	assert.match(code, /DeepFilterNet worker is not initialized/);
 	assert.equal(
 		await readFile(
