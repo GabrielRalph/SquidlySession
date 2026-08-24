@@ -22,6 +22,38 @@ function replaceStreamTrack(stream, newTrack) {
 	return true;
 }
 
+export function buildDenoiserFallbackOrder(preferredMode) {
+	return [preferredMode, DENOISER_MODES.RNNOISE, DENOISER_MODES.OFF].filter(
+		(mode, index, modes) => mode && modes.indexOf(mode) === index,
+	);
+}
+
+export async function createAdapterWithFallback(
+	rawStream,
+	{
+		preferredMode,
+		denoisers = {},
+		onError = null,
+		createController = createRealtimeDenoiseController,
+	} = {},
+) {
+	const order = buildDenoiserFallbackOrder(preferredMode);
+	let lastError = null;
+	for (const mode of order) {
+		try {
+			return await createController(rawStream, {
+				mode,
+				denoisers,
+				onError,
+			});
+		} catch (error) {
+			lastError = error;
+			console.warn(`Denoiser mode ${mode} failed to start; trying fallback.`, error);
+		}
+	}
+	throw lastError;
+}
+
 function getDenoiser(mode, denoisers) {
 	if (mode === DENOISER_MODES.OFF) return null;
 	const denoiser = denoisers?.[mode];
