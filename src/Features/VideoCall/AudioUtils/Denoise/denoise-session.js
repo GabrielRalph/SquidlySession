@@ -11,8 +11,9 @@ function makeTrackChangedEvent(oldTrack, newTrack) {
  * Creates a stable WebRTC stream using a denoiser's realtime capability.
  *
  * A denoiser declares `id`, `sampleRate`, and `channelCount`. Realtime support
- * is enabled by a `realtime.createProcessor({ context, onError })` factory.
- * The factory returns `{ node, close? }`; the session owns the surrounding
+ * is enabled by `realtime.attachStream` (package-owned graph) or
+ * `realtime.createProcessor({ context, onError })` (host-owned graph).
+ * createProcessor returns `{ node, close? }`; the session owns the surrounding
  * graph, stream/device changes, runtime failure cleanup, and AudioContext.
  *
  * @param {MediaStream} inputStream
@@ -28,7 +29,10 @@ export async function createRealtimeDenoiseSession(
 	if (!(inputStream instanceof MediaStream)) {
 		throw new TypeError("inputStream must be a MediaStream.");
 	}
-	if (!denoiser?.realtime?.createProcessor) {
+	if (
+		!denoiser?.realtime?.attachStream &&
+		!denoiser?.realtime?.createProcessor
+	) {
 		throw new Error(
 			`${denoiser?.id || "The denoiser"} does not support realtime denoising.`,
 		);
@@ -37,6 +41,31 @@ export async function createRealtimeDenoiseSession(
 	const inputAudioTrack = inputStream.getAudioTracks()[0];
 	if (!inputAudioTrack) {
 		throw new Error("inputStream must contain an audio track.");
+	}
+
+	if (denoiser.realtime.attachStream) {
+		const attached = await denoiser.realtime.attachStream(inputStream, {
+			onError,
+		});
+		const audioTrack = attached.audioTrack;
+		if (!audioTrack) {
+			await attached.close?.();
+			throw new Error("The denoiser did not produce an audio track.");
+		}
+		audioTrack.enabled = inputAudioTrack.enabled;
+		const videoTracks = inputStream.getVideoTracks();
+		const attachedVideos = attached.stream.getVideoTracks?.() ?? [];
+		const stream =
+			attachedVideos.length > 0 || videoTracks.length === 0
+				? attached.stream
+				: new MediaStream([...videoTracks, audioTrack]);
+		return {
+			stream,
+			audioTrack,
+			context: null,
+			node: null,
+			close: attached.close,
+		};
 	}
 
 	const AudioContextClass =

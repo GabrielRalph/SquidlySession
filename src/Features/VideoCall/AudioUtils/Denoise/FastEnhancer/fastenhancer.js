@@ -1,0 +1,95 @@
+// Path B — package owns stream graph; no createProcessor.
+import { loadModel } from "fastenhancer-web";
+
+const SAMPLE_RATE = 48_000;
+const CHANNEL_COUNT = 1;
+const MODEL_SIZE = "tiny";
+
+const DEFAULT_WORKLET_URL =
+	typeof import.meta.resolve === "function"
+		? import.meta.resolve("fastenhancer-web/worklet/processor.js")
+		: new URL(
+				"../../../../../../node_modules/fastenhancer-web/dist/worklet/processor.js",
+				import.meta.url,
+			).href;
+
+export function createFastEnhancerDenoiser({
+	modelSize = MODEL_SIZE,
+	loadModelImpl = loadModel,
+	workletUrl = DEFAULT_WORKLET_URL,
+	audioContext = undefined,
+} = {}) {
+	if (modelSize !== "tiny") {
+		throw new Error("FastEnhancer currently ships only the tiny model.");
+	}
+
+	let modelPromise = null;
+	const getModel = () => {
+		if (!modelPromise) modelPromise = loadModelImpl("tiny");
+		return modelPromise;
+	};
+
+	return {
+		id: "fastenhancer-tiny",
+		sampleRate: SAMPLE_RATE,
+		channelCount: CHANNEL_COUNT,
+		realtime: {
+			async attachStream(inputStream, { onError } = {}) {
+				const audioTracks = inputStream.getAudioTracks?.() ?? [];
+				if (!audioTracks.length) {
+					throw new Error("inputStream must contain an audio track.");
+				}
+				const audioOnlyStream = new MediaStream(audioTracks);
+				try {
+					const model = await getModel();
+					const streamDenoiser = await model.createStreamDenoiser(
+						audioOnlyStream,
+						{
+							workletUrl,
+							...(audioContext ? { audioContext } : {}),
+							onWarning: (message) => {
+								onError?.(
+									message instanceof Error
+										? message
+										: new Error(String(message)),
+								);
+							},
+							onAutoBypass: (enabled) => {
+								if (enabled) {
+									onError?.(
+										new Error("FastEnhancer auto-bypassed processing."),
+									);
+								}
+							},
+						},
+					);
+					const stream = streamDenoiser.outputStream;
+					const audioTrack = stream?.getAudioTracks?.()[0];
+					if (!audioTrack) {
+						await streamDenoiser.destroyAsync?.();
+						throw new Error("FastEnhancer did not produce an audio track.");
+					}
+					return {
+						stream,
+						audioTrack,
+						close: async () => {
+							if (typeof streamDenoiser.destroyAsync === "function") {
+								await streamDenoiser.destroyAsync();
+								return;
+							}
+							streamDenoiser.destroy?.();
+						},
+					};
+				} catch (error) {
+					const wrapped =
+						error instanceof Error
+							? error
+							: new Error(`FastEnhancer failed to load: ${error}`);
+					throw wrapped;
+				}
+			},
+		},
+	};
+}
+
+export const fastEnhancerTinyDenoiser = createFastEnhancerDenoiser();

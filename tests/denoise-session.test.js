@@ -159,6 +159,50 @@ test("realtime session runs an arbitrary denoiser and keeps its output stable", 
 	}
 });
 
+test("realtime session uses attachStream and reattaches video tracks", async () => {
+const originalMediaStream = globalThis.MediaStream;
+globalThis.MediaStream = FakeMediaStream;
+
+try {
+const microphone = new FakeTrack("audio", "microphone-1");
+const camera = new FakeTrack("video", "camera-1");
+const processed = new FakeTrack("audio", "processed-audio");
+const input = new FakeMediaStream([microphone, camera]);
+const packageStream = new FakeMediaStream([processed]);
+let closed = 0;
+const denoiser = {
+id: "fastenhancer-tiny",
+sampleRate: 48_000,
+channelCount: 1,
+realtime: {
+async attachStream(stream) {
+assert.equal(stream, input);
+return {
+stream: packageStream,
+audioTrack: processed,
+close: async () => {
+closed += 1;
+},
+};
+},
+},
+};
+
+const session = await createRealtimeDenoiseSession(input, { denoiser });
+
+assert.deepEqual(session.stream.getAudioTracks(), [processed]);
+assert.deepEqual(session.stream.getVideoTracks(), [camera]);
+assert.equal(session.audioTrack, processed);
+assert.equal(session.context, null);
+assert.equal(session.node, null);
+
+await session.close();
+assert.equal(closed, 1);
+} finally {
+globalThis.MediaStream = originalMediaStream;
+}
+});
+
 test("realtime session owns cleanup after a denoiser runtime failure", async () => {
 	const originalMediaStream = globalThis.MediaStream;
 	globalThis.MediaStream = FakeMediaStream;
