@@ -117,8 +117,7 @@ function setUserMediaVariable() {
 	if (navigator.mediaDevices.getUserMedia === undefined) {
 		navigator.mediaDevices.getUserMedia = async (constraints) => {
 			// gets the alternative old getUserMedia is possible
-			var getUserMedia =
-				navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+			var getUserMedia = navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
 
 			// set an error message if browser doesn't support getUserMedia
 			if (!getUserMedia) {
@@ -241,9 +240,7 @@ async function checkPermissions() {
 			navigator.permissions.query({ name: "microphone" }),
 			navigator.permissions.query({ name: "camera" }),
 		]);
-		return (
-			micPermission.state === "granted" && camPermission.state === "granted"
-		);
+		return micPermission.state === "granted" && camPermission.state === "granted";
 	} else {
 		return false;
 	}
@@ -386,10 +383,8 @@ export async function changeDevice(type, deviceId) {
 			if (await setSelectedDevice("videoinput", deviceId)) {
 				camParams1.video.deviceId.exact = deviceId;
 				camParams2.video.deviceId.exact = deviceId;
-				const newStream1 =
-					await navigator.mediaDevices.getUserMedia(camParams1);
-				const newStream2 =
-					await navigator.mediaDevices.getUserMedia(camParams2);
+				const newStream1 = await navigator.mediaDevices.getUserMedia(camParams1);
+				const newStream2 = await navigator.mediaDevices.getUserMedia(camParams2);
 				if (newStream2 && newStream1) {
 					if (VideoOnlyStream) {
 						const oldVideoTrack = VideoOnlyStream.getVideoTracks()[0];
@@ -426,8 +421,7 @@ export async function changeDevice(type, deviceId) {
 		case "audioinput":
 			if (await setSelectedDevice("audioinput", deviceId)) {
 				camParams2.audio.deviceId.exact = deviceId;
-				const newStream2 =
-					await navigator.mediaDevices.getUserMedia(camParams2);
+				const newStream2 = await navigator.mediaDevices.getUserMedia(camParams2);
 				if (newStream2) {
 					if (VideoAudioStream) {
 						const oldAudioTrack = VideoAudioStream.getAudioTracks()[0];

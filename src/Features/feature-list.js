@@ -1,4 +1,4 @@
-import { relURL } from '../Utilities/usefull-funcs.js';
+import { relURL } from "../Utilities/usefull-funcs.js";
 
 /** @typedef {import('./ToolBar/tool-bar.js').default} ToolBarFeature */
 /** @typedef {import('./Settings/settings.js').default} SettingsFeature */
@@ -18,58 +18,88 @@ import { relURL } from '../Utilities/usefull-funcs.js';
 /** @typedef {import('./ShareContent/share-content.js').default} ShareContent */
 
 export class SquildyFeatureProxy {
-
 	/** @return {ToolBarFeature} */
-	get toolBar() { return this.getFeature("toolBar"); }
+	get toolBar() {
+		return this.getFeature("toolBar");
+	}
 
 	/** @return {SettingsFeature} */
-	get settings() { return this.getFeature("settings"); }
+	get settings() {
+		return this.getFeature("settings");
+	}
 
 	/** @return {Cursors} */
-	get cursors() { return this.getFeature("cursors"); }
+	get cursors() {
+		return this.getFeature("cursors");
+	}
 
 	/** @return {VideoCall} */
-	get videoCall() { return this.getFeature("videoCall"); }
+	get videoCall() {
+		return this.getFeature("videoCall");
+	}
 
 	/** @return {EyeGazeFeature} */
-	get eyeGaze() { return this.getFeature("eyeGaze"); }
+	get eyeGaze() {
+		return this.getFeature("eyeGaze");
+	}
 
 	/** @return {KeyboardFeature} */
-	get keyboard() { return this.getFeature("keyboard"); }
+	get keyboard() {
+		return this.getFeature("keyboard");
+	}
 
 	/** @return {AccessControl} */
-	get accessControl() { return this.getFeature("accessControl"); }
+	get accessControl() {
+		return this.getFeature("accessControl");
+	}
 
 	/** @return {Text2Speech} */
-	get text2speech() { return this.getFeature("text2speech"); }
+	get text2speech() {
+		return this.getFeature("text2speech");
+	}
 
 	/** @return {Notifications} */
-	get notifications() { return this.getFeature("notifications"); }
+	get notifications() {
+		return this.getFeature("notifications");
+	}
 
 	/** @return {AACGrid} */
-	get aacGrid() { return this.getFeature("aacGrid"); }
+	get aacGrid() {
+		return this.getFeature("aacGrid");
+	}
 
 	/** @return {AccessSetup} */
-	get accessSetup() { return this.getFeature("accessSetup"); }
+	get accessSetup() {
+		return this.getFeature("accessSetup");
+	}
 
 	/** @return {Apps} */
-	get apps() { return this.getFeature("apps"); }
+	get apps() {
+		return this.getFeature("apps");
+	}
 
 	/** @return {ChatFeature} */
-	get chat() { return this.getFeature("chat"); }
+	get chat() {
+		return this.getFeature("chat");
+	}
 
 	/** @return {HeatmapFeature} */
-	get heatmaps() { return this.getFeature("heatmaps"); }
+	get heatmaps() {
+		return this.getFeature("heatmaps");
+	}
 
 	/** @return {QuizFeature} */
-	get quiz() { return this.getFeature("quiz"); }
+	get quiz() {
+		return this.getFeature("quiz");
+	}
 
 	/** @return {ShareContent} */
-	get shareContent() { return this.getFeature("shareContent"); }
+	get shareContent() {
+		return this.getFeature("shareContent");
+	}
 
 	/** @override */
-	getFeature() { }
-
+	getFeature() {}
 }
 
 export const FeaturesList = [
@@ -88,5 +118,5 @@ export const FeaturesList = [
 	[() => import("./Chat/chat.js"), "chat"],
 	[() => import("./Heatmap/heatmap-feature.js"), "heatmaps"],
 	[() => import("./Quiz/quiz.js"), "quiz"],
-	[() => import("./ShareContent/share-content.js"), "shareContent"]
+	[() => import("./ShareContent/share-content.js"), "shareContent"],
 ];

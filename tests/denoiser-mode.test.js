@@ -31,10 +31,7 @@ test("denoiser mode controls expose the three modes and current state", async ()
 
 		await controls.setDenoiserMode("rnnoise");
 		assert.equal(controls.getDenoiserMode(), "rnnoise");
-		assert.deepEqual(messages, [
-			"switched to rnnoise",
-			"already set the mode",
-		]);
+		assert.deepEqual(messages, ["switched to rnnoise", "already set the mode"]);
 	} finally {
 		console.log = originalLog;
 	}

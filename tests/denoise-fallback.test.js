@@ -8,11 +8,14 @@ import {
 } from "../src/Features/VideoCall/AudioUtils/Denoise/denoise-controller.js";
 
 test("automatic fallback order is FastEnhancer Tiny then RNNoise then off", () => {
-	assert.deepEqual(buildDenoiserFallbackOrder(DENOISER_MODES.FASTENHANCER_TINY), [
-		DENOISER_MODES.FASTENHANCER_TINY,
-		DENOISER_MODES.RNNOISE,
-		DENOISER_MODES.OFF,
-	]);
+	assert.deepEqual(
+		buildDenoiserFallbackOrder(DENOISER_MODES.FASTENHANCER_TINY),
+		[
+			DENOISER_MODES.FASTENHANCER_TINY,
+			DENOISER_MODES.RNNOISE,
+			DENOISER_MODES.OFF,
+		],
+	);
 	assert.ok(
 		!buildDenoiserFallbackOrder(DENOISER_MODES.FASTENHANCER_TINY).includes(
 			DENOISER_MODES.DEEPFILTERNET,

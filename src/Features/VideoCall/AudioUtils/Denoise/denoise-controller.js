@@ -10,9 +10,7 @@ function makeTrackChangedEvent(oldTrack, newTrack) {
 
 function replaceStreamTrack(stream, newTrack) {
 	if (!newTrack) return false;
-	const oldTrack = stream
-		.getTracks()
-		.find(({ kind }) => kind === newTrack.kind);
+	const oldTrack = stream.getTracks().find(({ kind }) => kind === newTrack.kind);
 	if (!oldTrack || oldTrack === newTrack) return false;
 
 	newTrack.enabled = oldTrack.enabled;
@@ -48,7 +46,10 @@ export async function createAdapterWithFallback(
 			});
 		} catch (error) {
 			lastError = error;
-			console.warn(`Denoiser mode ${mode} failed to start; trying fallback.`, error);
+			console.warn(
+				`Denoiser mode ${mode} failed to start; trying fallback.`,
+				error,
+			);
 		}
 	}
 	throw lastError;
@@ -70,7 +71,12 @@ function getDenoiser(mode, denoisers) {
  */
 export async function createRealtimeDenoiseController(
 	inputStream,
-	{ mode = DENOISER_MODES.OFF, denoisers = {}, context = null, onError = null } = {},
+	{
+		mode = DENOISER_MODES.OFF,
+		denoisers = {},
+		context = null,
+		onError = null,
+	} = {},
 ) {
 	if (!inputStream || typeof inputStream.getAudioTracks !== "function") {
 		throw new TypeError("inputStream must be a MediaStream.");
