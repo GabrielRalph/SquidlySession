@@ -135,7 +135,8 @@ export default class VideoCall extends Features {
 			this.mainAreaWidget.appendChild(video); // needed to get frames from some browsers
 
 			if ((!video.requestVideoFrameCallback) instanceof Function) {
-				video.requestVideoFrameCallback = window.requestAnimationFrame.bind(window);
+				video.requestVideoFrameCallback =
+					window.requestAnimationFrame.bind(window);
 			}
 			const next = () => {
 				if (video.videoWidth > 5 && video.videoHeight > 5) {
@@ -444,7 +445,10 @@ export default class VideoCall extends Features {
 						[DENOISER_MODES.DEEPFILTERNET]: deepFilterNetDenoiser,
 					},
 					onError: (error) => {
-						console.warn("Denoising failed; falling back to the microphone.", error);
+						console.warn(
+							"Denoising failed; falling back to the microphone.",
+							error,
+						);
 						if (stream) {
 							recoverDenoisedAudio({
 								rawStream,
@@ -493,9 +497,12 @@ export default class VideoCall extends Features {
 				},
 			]);
 
-			this.session.settings.onValue(`${this.sdata.me}/volume/level`, (value) => {
-				this._setVolume(value);
-			});
+			this.session.settings.onValue(
+				`${this.sdata.me}/volume/level`,
+				(value) => {
+					this._setVolume(value);
+				},
+			);
 			this.session.settings.onValue(
 				"participant/profileSettings/name",
 				(value) => {
@@ -574,7 +581,9 @@ export default class VideoCall extends Features {
 					dataString = "S" + data;
 					break;
 				default:
-					console.warn(`Cannot send ${typeof data} accross webrtc data channel.`);
+					console.warn(
+						`Cannot send ${typeof data} accross webrtc data channel.`,
+					);
 					break;
 			}
 

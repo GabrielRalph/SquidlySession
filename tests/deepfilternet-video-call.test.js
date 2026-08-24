@@ -50,7 +50,8 @@ test("denoise recovery falls back to the live microphone", () => {
 	const publishedStream = new FakeMediaStream([denoised, camera]);
 	const replacements = [];
 	const connection = {
-		replaceTrack: (oldTrack, newTrack) => replacements.push([oldTrack, newTrack]),
+		replaceTrack: (oldTrack, newTrack) =>
+			replacements.push([oldTrack, newTrack]),
 	};
 
 	const recovered = recoverDenoisedAudio({
@@ -73,11 +74,15 @@ test("denoise recovery keeps publishing later device changes", () => {
 	const publishedStream = new FakeMediaStream([denoised, camera]);
 	const replacements = [];
 	const connection = {
-		replaceTrack: (oldTrack, newTrack) => replacements.push([oldTrack, newTrack]),
+		replaceTrack: (oldTrack, newTrack) =>
+			replacements.push([oldTrack, newTrack]),
 	};
 
 	recoverDenoisedAudio({ rawStream, publishedStream, connection });
-	const replacementMicrophone = new FakeTrack("audio", "replacement-microphone");
+	const replacementMicrophone = new FakeTrack(
+		"audio",
+		"replacement-microphone",
+	);
 	const replacementCamera = new FakeTrack("video", "replacement-camera");
 	dispatchTrackChange(rawStream, microphone, replacementMicrophone);
 	dispatchTrackChange(rawStream, camera, replacementCamera);
@@ -93,7 +98,10 @@ test("denoise recovery keeps publishing later device changes", () => {
 });
 
 test("video-call selects denoiser modes and wires generic recovery", async () => {
-	const source = await readFile("src/Features/VideoCall/video-call.js", "utf8");
+	const source = await readFile(
+		"src/Features/VideoCall/video-call.js",
+		"utf8",
+	);
 
 	assert.match(source, /createAdapterWithFallback\(\s*rawStream,/);
 	assert.match(source, /preferredMode:\s*getDenoiserMode\(\)/);
