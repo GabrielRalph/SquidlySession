@@ -136,3 +136,55 @@ test("attachStream failures surface as rejected promises", async () => {
 		globalThis.MediaStream = originalMediaStream;
 	}
 });
+
+test("onWarning and onAutoBypass do not invoke onError or fail attachStream", async () => {
+	const originalMediaStream = globalThis.MediaStream;
+	const originalWarn = console.warn;
+	globalThis.MediaStream = FakeMediaStream;
+	const warns = [];
+	console.warn = (...args) => {
+		warns.push(args.map(String).join(" "));
+	};
+	const { createFastEnhancerDenoiser } = await import(
+		"../src/Features/VideoCall/AudioUtils/Denoise/FastEnhancer/fastenhancer.js"
+	);
+
+	const processed = new FakeTrack("audio", "processed-audio");
+	const outputStream = new FakeMediaStream([processed]);
+	let createOptions;
+	const model = {
+		createStreamDenoiser: async (_stream, options) => {
+			createOptions = options;
+			options.onWarning("AudioContext state changed to running");
+			options.onAutoBypass(true);
+			return {
+				outputStream,
+				destroyAsync: async () => {},
+			};
+		},
+	};
+	const denoiser = createFastEnhancerDenoiser({
+		loadModelImpl: async () => model,
+	});
+	const input = new FakeMediaStream([new FakeTrack("audio", "mic")]);
+	const errors = [];
+
+	try {
+		const attached = await denoiser.realtime.attachStream(input, {
+			onError: (error) => errors.push(error),
+			audioContext: { sampleRate: 48_000 },
+		});
+		assert.equal(attached.audioTrack, processed);
+		assert.equal(errors.length, 0);
+		assert.ok(
+			warns.some((line) => line.includes("AudioContext state changed to running")),
+		);
+		assert.ok(warns.some((line) => line.includes("auto-bypass")));
+		createOptions.onWarning("sample-rate note");
+		createOptions.onAutoBypass(false);
+		assert.equal(errors.length, 0);
+	} finally {
+		console.warn = originalWarn;
+		globalThis.MediaStream = originalMediaStream;
+	}
+});

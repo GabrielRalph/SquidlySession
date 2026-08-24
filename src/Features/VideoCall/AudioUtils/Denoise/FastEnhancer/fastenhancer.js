@@ -53,14 +53,16 @@ export function createFastEnhancerDenoiser({
 						workletUrl,
 						...(injectedContext ? { audioContext: injectedContext } : {}),
 						onWarning: (message) => {
-							onError?.(
-								message instanceof Error ? message : new Error(String(message)),
+							console.warn(
+								"[fastenhancer-tiny]",
+								message instanceof Error ? message.message : String(message),
 							);
 						},
 						onAutoBypass: (enabled) => {
-							if (enabled) {
-								onError?.(new Error("FastEnhancer auto-bypassed processing."));
-							}
+							console.warn(
+								"[fastenhancer-tiny] auto-bypass",
+								enabled ? "enabled (silence passthrough)" : "disabled",
+							);
 						},
 					});
 					const stream = streamDenoiser.outputStream;
