@@ -1,17 +1,15 @@
 // Path B — package owns stream graph; no createProcessor.
 import { loadModel } from "fastenhancer-web";
+import { relURL } from "../../../../../Utilities/usefull-funcs.js";
 
 const SAMPLE_RATE = 48_000;
 const CHANNEL_COUNT = 1;
 const MODEL_SIZE = "tiny";
 
-const DEFAULT_WORKLET_URL =
-	typeof import.meta.resolve === "function"
-		? import.meta.resolve("fastenhancer-web/worklet/processor.js")
-		: new URL(
-				"../../../../../../node_modules/fastenhancer-web/dist/worklet/processor.js",
-				import.meta.url,
-			).href;
+const DEFAULT_WORKLET_URL = relURL(
+	"../../../../../../node_modules/fastenhancer-web/dist/worklet/processor.js",
+	import.meta,
+);
 
 export function createFastEnhancerDenoiser({
 	modelSize = MODEL_SIZE,
@@ -34,7 +32,10 @@ export function createFastEnhancerDenoiser({
 		sampleRate: SAMPLE_RATE,
 		channelCount: CHANNEL_COUNT,
 		realtime: {
-			async attachStream(inputStream, { onError, audioContext: streamContext } = {}) {
+			async attachStream(
+				inputStream,
+				{ onError, audioContext: streamContext } = {},
+			) {
 				const audioTracks = inputStream.getAudioTracks?.() ?? [];
 				if (!audioTracks.length) {
 					throw new Error("inputStream must contain an audio track.");
@@ -53,16 +54,12 @@ export function createFastEnhancerDenoiser({
 						...(injectedContext ? { audioContext: injectedContext } : {}),
 						onWarning: (message) => {
 							onError?.(
-								message instanceof Error
-									? message
-									: new Error(String(message)),
+								message instanceof Error ? message : new Error(String(message)),
 							);
 						},
 						onAutoBypass: (enabled) => {
 							if (enabled) {
-								onError?.(
-									new Error("FastEnhancer auto-bypassed processing."),
-								);
+								onError?.(new Error("FastEnhancer auto-bypassed processing."));
 							}
 						},
 					});

@@ -1,4 +1,5 @@
 import terser from '@rollup/plugin-terser';
+import nodeResolve from '@rollup/plugin-node-resolve';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
@@ -257,6 +258,9 @@ export default [
         },
         plugins: [
             relURLAssetPlugin(),
+            nodeResolve({
+                browser: true,
+            }),
         ]
     },
     {
