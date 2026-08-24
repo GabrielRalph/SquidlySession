@@ -11,11 +11,11 @@ const camParams2 = {
 		},
 	},
 	audio: {
-		noiseSuppression: true,
-		echoCancellation: true,
-		autoGainControl: true,
-		sampleRate: 48000,
 		channelCount: 1,
+		sampleRate: 48000,
+		echoCancellation: true,
+		noiseSuppression: false,
+		autoGainControl: false,
 		deviceId: {
 			exact: "abc",
 		},
