@@ -104,6 +104,7 @@ test("video-call selects denoiser modes and wires generic recovery", async () =>
 	);
 
 	assert.match(source, /createRealtimeDenoiseController\(\s*rawStream,/);
+	assert.match(source, /DENOISER_MODES\.FASTENHANCER_TINY]:\s*fastEnhancerTinyDenoiser/);
 	assert.match(source, /DENOISER_MODES\.RNNOISE]:\s*rnnoiseDenoiser/);
 	assert.match(source, /DENOISER_MODES\.DEEPFILTERNET]:\s*deepFilterNetDenoiser/);
 	assert.match(source, /getDenoiserMode\(\)/);

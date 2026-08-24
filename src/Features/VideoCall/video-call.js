@@ -11,6 +11,7 @@ import {
 	getDenoiserMode,
 	subscribeDenoiserMode,
 } from "./AudioUtils/Denoise/denoiser-mode.js";
+import { fastEnhancerTinyDenoiser } from "./AudioUtils/Denoise/FastEnhancer/fastenhancer.js";
 import { rnnoiseDenoiser } from "./AudioUtils/Denoise/RNNoise/rnnoise.js";
 import { setupVoiceDetection } from "./AudioUtils/voice-detector.js";
 import { getHostPresets } from "./presets.js";
@@ -439,6 +440,7 @@ export default class VideoCall extends Features {
 				{
 					mode: getDenoiserMode(),
 					denoisers: {
+						[DENOISER_MODES.FASTENHANCER_TINY]: fastEnhancerTinyDenoiser,
 						[DENOISER_MODES.RNNOISE]: rnnoiseDenoiser,
 						[DENOISER_MODES.DEEPFILTERNET]: deepFilterNetDenoiser,
 					},
