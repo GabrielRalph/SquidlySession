@@ -61,8 +61,8 @@ class FakeNode {
 }
 
 class FakeAudioContext {
-	constructor() {
-		this.sampleRate = 48_000;
+	constructor({ sampleRate = 48_000 } = {}) {
+		this.sampleRate = sampleRate;
 		this.state = "suspended";
 		this.sources = [];
 		this.outputTrack = new FakeTrack("audio", "processed");
@@ -160,47 +160,101 @@ test("realtime session runs an arbitrary denoiser and keeps its output stable", 
 });
 
 test("realtime session uses attachStream and reattaches video tracks", async () => {
-const originalMediaStream = globalThis.MediaStream;
-globalThis.MediaStream = FakeMediaStream;
+	const originalMediaStream = globalThis.MediaStream;
+	globalThis.MediaStream = FakeMediaStream;
 
-try {
-const microphone = new FakeTrack("audio", "microphone-1");
-const camera = new FakeTrack("video", "camera-1");
-const processed = new FakeTrack("audio", "processed-audio");
-const input = new FakeMediaStream([microphone, camera]);
-const packageStream = new FakeMediaStream([processed]);
-let closed = 0;
-const denoiser = {
-id: "fastenhancer-tiny",
-sampleRate: 48_000,
-channelCount: 1,
-realtime: {
-async attachStream(stream) {
-assert.equal(stream, input);
-return {
-stream: packageStream,
-audioTrack: processed,
-close: async () => {
-closed += 1;
-},
-};
-},
-},
-};
+	try {
+		const microphone = new FakeTrack("audio", "microphone-1");
+		const camera = new FakeTrack("video", "camera-1");
+		const processed = new FakeTrack("audio", "processed-audio");
+		const input = new FakeMediaStream([microphone, camera]);
+		let closed = 0;
+		const context = new FakeAudioContext();
+		let attachCalls = 0;
+		const denoiser = {
+			id: "fastenhancer-tiny",
+			sampleRate: 48_000,
+			channelCount: 1,
+			realtime: {
+				async attachStream(stream, { audioContext }) {
+					assert.equal(stream, input);
+					assert.equal(audioContext, context);
+					attachCalls += 1;
+					const track =
+						attachCalls === 1
+							? processed
+							: new FakeTrack("audio", "processed-audio-2");
+					return {
+						stream: new FakeMediaStream([track]),
+						audioTrack: track,
+						close: async () => {
+							closed += 1;
+						},
+					};
+				},
+			},
+		};
 
-const session = await createRealtimeDenoiseSession(input, { denoiser });
+		const session = await createRealtimeDenoiseSession(input, {
+			denoiser,
+			context,
+		});
 
-assert.deepEqual(session.stream.getAudioTracks(), [processed]);
-assert.deepEqual(session.stream.getVideoTracks(), [camera]);
-assert.equal(session.audioTrack, processed);
-assert.equal(session.context, null);
-assert.equal(session.node, null);
+		assert.deepEqual(session.stream.getAudioTracks(), [processed]);
+		assert.deepEqual(session.stream.getVideoTracks(), [camera]);
+		assert.equal(session.audioTrack, processed);
+		assert.equal(session.context, context);
+		assert.equal(session.node, null);
+		assert.equal(context.state, "running");
 
-await session.close();
-assert.equal(closed, 1);
-} finally {
-globalThis.MediaStream = originalMediaStream;
-}
+		const replacementMicrophone = new FakeTrack("audio", "microphone-2");
+		dispatchTrackChange(input, microphone, replacementMicrophone);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		assert.equal(attachCalls, 2);
+		assert.equal(closed, 1);
+		assert.equal(session.stream.getAudioTracks()[0].id, "processed-audio-2");
+		assert.deepEqual(session.stream.getVideoTracks(), [camera]);
+
+		const replacementCamera = new FakeTrack("video", "camera-2");
+		dispatchTrackChange(input, camera, replacementCamera);
+		assert.deepEqual(session.stream.getVideoTracks(), [replacementCamera]);
+
+		await session.close();
+		assert.equal(closed, 2);
+		assert.equal(context.closedCount, 0);
+	} finally {
+		globalThis.MediaStream = originalMediaStream;
+	}
+});
+
+test("realtime session rejects attachStream with a non-48 kHz context", async () => {
+	const originalMediaStream = globalThis.MediaStream;
+	globalThis.MediaStream = FakeMediaStream;
+
+	try {
+		await assert.rejects(
+			() =>
+				createRealtimeDenoiseSession(
+					new FakeMediaStream([new FakeTrack("audio", "mic")]),
+					{
+						denoiser: {
+							id: "fastenhancer-tiny",
+							sampleRate: 48_000,
+							channelCount: 1,
+							realtime: {
+								async attachStream() {
+									throw new Error("should not attach");
+								},
+							},
+						},
+						context: new FakeAudioContext({ sampleRate: 44_100 }),
+					},
+				),
+			/48 kHz AudioContext/i,
+		);
+	} finally {
+		globalThis.MediaStream = originalMediaStream;
+	}
 });
 
 test("realtime session owns cleanup after a denoiser runtime failure", async () => {

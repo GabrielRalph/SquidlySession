@@ -34,35 +34,38 @@ export function createFastEnhancerDenoiser({
 		sampleRate: SAMPLE_RATE,
 		channelCount: CHANNEL_COUNT,
 		realtime: {
-			async attachStream(inputStream, { onError } = {}) {
+			async attachStream(inputStream, { onError, audioContext: streamContext } = {}) {
 				const audioTracks = inputStream.getAudioTracks?.() ?? [];
 				if (!audioTracks.length) {
 					throw new Error("inputStream must contain an audio track.");
 				}
+				const injectedContext = streamContext || audioContext;
+				if (injectedContext && injectedContext.sampleRate !== SAMPLE_RATE) {
+					throw new RangeError(
+						`fastenhancer-tiny requires a ${SAMPLE_RATE / 1000} kHz AudioContext.`,
+					);
+				}
 				const audioOnlyStream = new MediaStream(audioTracks);
 				try {
 					const model = await getModel();
-					const streamDenoiser = await model.createStreamDenoiser(
-						audioOnlyStream,
-						{
-							workletUrl,
-							...(audioContext ? { audioContext } : {}),
-							onWarning: (message) => {
-								onError?.(
-									message instanceof Error
-										? message
-										: new Error(String(message)),
-								);
-							},
-							onAutoBypass: (enabled) => {
-								if (enabled) {
-									onError?.(
-										new Error("FastEnhancer auto-bypassed processing."),
-									);
-								}
-							},
+					const streamDenoiser = await model.createStreamDenoiser(audioOnlyStream, {
+						workletUrl,
+						...(injectedContext ? { audioContext: injectedContext } : {}),
+						onWarning: (message) => {
+							onError?.(
+								message instanceof Error
+									? message
+									: new Error(String(message)),
+							);
 						},
-					);
+						onAutoBypass: (enabled) => {
+							if (enabled) {
+								onError?.(
+									new Error("FastEnhancer auto-bypassed processing."),
+								);
+							}
+						},
+					});
 					const stream = streamDenoiser.outputStream;
 					const audioTrack = stream?.getAudioTracks?.()[0];
 					if (!audioTrack) {

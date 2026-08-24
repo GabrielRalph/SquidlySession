@@ -85,6 +85,7 @@ test("attachStream loads model, uses explicit worklet, and close maps to destroy
 	};
 
 	const workletUrl = "https://example.test/worklet/processor.js";
+	const audioContext = { sampleRate: 48_000 };
 	const denoiser = createFastEnhancerDenoiser({
 		loadModelImpl,
 		workletUrl,
@@ -94,11 +95,15 @@ test("attachStream loads model, uses explicit worklet, and close maps to destroy
 	const onError = () => {};
 
 	try {
-		const attached = await denoiser.realtime.attachStream(input, { onError });
+		const attached = await denoiser.realtime.attachStream(input, {
+			onError,
+			audioContext,
+		});
 
 		assert.equal(loadedSize, "tiny");
 		assert.deepEqual(createArgs.stream.getAudioTracks(), [inputAudio]);
 		assert.equal(createArgs.options.workletUrl, workletUrl);
+		assert.equal(createArgs.options.audioContext, audioContext);
 		assert.equal(typeof createArgs.options.onWarning, "function");
 		assert.equal(attached.stream, outputStream);
 		assert.equal(attached.audioTrack, processed);

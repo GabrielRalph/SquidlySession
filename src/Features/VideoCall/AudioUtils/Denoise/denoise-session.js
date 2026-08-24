@@ -43,38 +43,136 @@ export async function createRealtimeDenoiseSession(
 		throw new Error("inputStream must contain an audio track.");
 	}
 
-	if (denoiser.realtime.attachStream) {
-		const attached = await denoiser.realtime.attachStream(inputStream, {
-			onError,
-		});
-		const audioTrack = attached.audioTrack;
-		if (!audioTrack) {
-			await attached.close?.();
-			throw new Error("The denoiser did not produce an audio track.");
-		}
-		audioTrack.enabled = inputAudioTrack.enabled;
-		const videoTracks = inputStream.getVideoTracks();
-		const attachedVideos = attached.stream.getVideoTracks?.() ?? [];
-		const stream =
-			attachedVideos.length > 0 || videoTracks.length === 0
-				? attached.stream
-				: new MediaStream([...videoTracks, audioTrack]);
-		return {
-			stream,
-			audioTrack,
-			context: null,
-			node: null,
-			close: attached.close,
-		};
-	}
-
 	const AudioContextClass =
 		globalThis.AudioContext || globalThis.webkitAudioContext;
 	if (!context && !AudioContextClass) {
 		throw new Error("Web Audio is not supported by this browser.");
 	}
+	const ownsAudioContext = !context;
 	const audioContext =
 		context || new AudioContextClass({ sampleRate: denoiser.sampleRate });
+	if (audioContext.sampleRate !== denoiser.sampleRate) {
+		if (ownsAudioContext && audioContext.state !== "closed") {
+			await audioContext.close();
+		}
+		throw new RangeError(
+			`${denoiser.id} requires a ${denoiser.sampleRate / 1000} kHz AudioContext.`,
+		);
+	}
+
+	if (denoiser.realtime.attachStream) {
+		let attached = null;
+		let outputTrack = null;
+		let outputStream = null;
+		let listeningForTrackChanges = false;
+		let cleanupPromise = null;
+		let remounting = false;
+
+		const close = () => {
+			if (!cleanupPromise) {
+				cleanupPromise = (async () => {
+					if (listeningForTrackChanges) {
+						inputStream.removeEventListener("trackchanged", onTrackChanged);
+					}
+					await attached?.close?.();
+					if (ownsAudioContext && audioContext.state !== "closed") {
+						await audioContext.close();
+					}
+				})();
+			}
+			return cleanupPromise;
+		};
+
+		const reportRuntimeError = (error) => {
+			const runtimeError =
+				error instanceof Error
+					? error
+					: new Error(`${denoiser.id} runtime failed.`);
+			void close().then(
+				() => onError?.(runtimeError),
+				() => onError?.(runtimeError),
+			);
+		};
+
+		const applyAttached = (next, sourceAudioTrack) => {
+			const audioTrack = next.audioTrack;
+			if (!audioTrack) {
+				throw new Error("The denoiser did not produce an audio track.");
+			}
+			audioTrack.enabled = sourceAudioTrack.enabled;
+			attached = next;
+			outputTrack = audioTrack;
+			return audioTrack;
+		};
+
+		const onTrackChanged = ({ oldTrack, newTrack }) => {
+			if (!oldTrack || !newTrack || oldTrack.kind !== newTrack.kind) return;
+
+			if (newTrack.kind === "video") {
+				if (outputStream.getTracks().includes(oldTrack)) {
+					outputStream.removeTrack(oldTrack);
+				}
+				outputStream.addTrack(newTrack);
+				outputStream.dispatchEvent(makeTrackChangedEvent(oldTrack, newTrack));
+				return;
+			}
+
+			if (remounting || cleanupPromise) return;
+			remounting = true;
+			void (async () => {
+				try {
+					const previous = attached;
+					const previousTrack = outputTrack;
+					await previous?.close?.();
+					const next = await denoiser.realtime.attachStream(inputStream, {
+						onError: reportRuntimeError,
+						audioContext,
+					});
+					applyAttached(next, newTrack);
+					if (outputStream.getTracks().includes(previousTrack)) {
+						outputStream.removeTrack(previousTrack);
+					}
+					outputStream.addTrack(outputTrack);
+					outputStream.dispatchEvent(
+						makeTrackChangedEvent(previousTrack, outputTrack),
+					);
+				} catch (error) {
+					reportRuntimeError(error);
+				} finally {
+					remounting = false;
+				}
+			})();
+		};
+
+		try {
+			const first = await denoiser.realtime.attachStream(inputStream, {
+				onError: reportRuntimeError,
+				audioContext,
+			});
+			applyAttached(first, inputAudioTrack);
+			const videoTracks = inputStream.getVideoTracks();
+			const attachedVideos = first.stream.getVideoTracks?.() ?? [];
+			outputStream =
+				attachedVideos.length > 0 || videoTracks.length === 0
+					? first.stream
+					: new MediaStream([...videoTracks, outputTrack]);
+			inputStream.addEventListener("trackchanged", onTrackChanged);
+			listeningForTrackChanges = true;
+			if (audioContext.state === "suspended") await audioContext.resume();
+			return {
+				stream: outputStream,
+				get audioTrack() {
+					return outputTrack;
+				},
+				context: audioContext,
+				node: null,
+				close,
+			};
+		} catch (error) {
+			await close();
+			throw error;
+		}
+	}
 
 	let destination = null;
 	let graph = null;
@@ -130,12 +228,6 @@ export async function createRealtimeDenoiseSession(
 	};
 
 	try {
-		if (audioContext.sampleRate !== denoiser.sampleRate) {
-			throw new RangeError(
-				`${denoiser.id} requires a ${denoiser.sampleRate / 1000} kHz AudioContext.`,
-			);
-		}
-
 		destination = audioContext.createMediaStreamDestination();
 		destination.channelCount = denoiser.channelCount;
 		destination.channelCountMode = "explicit";
