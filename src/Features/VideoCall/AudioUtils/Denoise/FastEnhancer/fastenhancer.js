@@ -49,22 +49,25 @@ export function createFastEnhancerDenoiser({
 				const audioOnlyStream = new MediaStream(audioTracks);
 				try {
 					const model = await getModel();
-					const streamDenoiser = await model.createStreamDenoiser(audioOnlyStream, {
-						workletUrl,
-						...(injectedContext ? { audioContext: injectedContext } : {}),
-						onWarning: (message) => {
-							console.warn(
-								"[fastenhancer-small]",
-								message instanceof Error ? message.message : String(message),
-							);
+					const streamDenoiser = await model.createStreamDenoiser(
+						audioOnlyStream,
+						{
+							workletUrl,
+							...(injectedContext ? { audioContext: injectedContext } : {}),
+							onWarning: (message) => {
+								console.warn(
+									"[fastenhancer-small]",
+									message instanceof Error ? message.message : String(message),
+								);
+							},
+							onAutoBypass: (enabled) => {
+								console.warn(
+									"[fastenhancer-small] auto-bypass",
+									enabled ? "enabled (automatic passthrough)" : "disabled",
+								);
+							},
 						},
-						onAutoBypass: (enabled) => {
-							console.warn(
-								"[fastenhancer-small] auto-bypass",
-								enabled ? "enabled (automatic passthrough)" : "disabled",
-							);
-						},
-					});
+					);
 					const stream = streamDenoiser.outputStream;
 					const audioTrack = stream?.getAudioTracks?.()[0];
 					if (!audioTrack) {
