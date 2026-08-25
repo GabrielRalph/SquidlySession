@@ -17,9 +17,9 @@ test("denoiser mode controls expose the three modes and current state", async ()
 		OFF: "off",
 		RNNOISE: "rnnoise",
 		DEEPFILTERNET: "deepfilternet",
-		FASTENHANCER_TINY: "fastenhancer-tiny",
+		FASTENHANCER_SMALL: "fastenhancer-small",
 	});
-	assert.equal(controls.getDenoiserMode(), "fastenhancer-tiny");
+	assert.equal(controls.getDenoiserMode(), "fastenhancer-small");
 
 	const messages = [];
 	const originalLog = console.log;
@@ -44,7 +44,7 @@ test("denoiser mode controls reject unknown modes without changing state", async
 
 	await assert.rejects(
 		() => setDenoiserMode("not-a-denoiser"),
-		/denoiser mode must be one of: off, rnnoise, deepfilternet, fastenhancer-tiny/i,
+		/denoiser mode must be one of: off, rnnoise, deepfilternet, fastenhancer-small/i,
 	);
 	assert.equal(getDenoiserMode(), "off");
 

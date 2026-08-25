@@ -41,12 +41,12 @@ class FakeMediaStream extends EventTarget {
 	}
 }
 
-test("createFastEnhancerDenoiser defaults to tiny / 48 kHz mono", async () => {
+test("createFastEnhancerDenoiser defaults to small / 48 kHz mono", async () => {
 	const { createFastEnhancerDenoiser } = await import(
 		"../src/Features/VideoCall/AudioUtils/Denoise/FastEnhancer/fastenhancer.js"
 	);
 	const denoiser = createFastEnhancerDenoiser();
-	assert.equal(denoiser.id, "fastenhancer-tiny");
+	assert.equal(denoiser.id, "fastenhancer-small");
 	assert.equal(denoiser.sampleRate, 48_000);
 	assert.equal(denoiser.channelCount, 1);
 	assert.equal(typeof denoiser.realtime.attachStream, "function");
@@ -100,7 +100,7 @@ test("attachStream loads model, uses explicit worklet, and close maps to destroy
 			audioContext,
 		});
 
-		assert.equal(loadedSize, "tiny");
+		assert.equal(loadedSize, "small");
 		assert.deepEqual(createArgs.stream.getAudioTracks(), [inputAudio]);
 		assert.equal(createArgs.options.workletUrl, workletUrl);
 		assert.equal(createArgs.options.audioContext, audioContext);

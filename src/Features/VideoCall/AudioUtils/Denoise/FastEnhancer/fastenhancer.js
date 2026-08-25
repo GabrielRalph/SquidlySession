@@ -4,7 +4,7 @@ import { relURL } from "../../../../../Utilities/usefull-funcs.js";
 
 const SAMPLE_RATE = 48_000;
 const CHANNEL_COUNT = 1;
-const MODEL_SIZE = "tiny";
+const MODEL_SIZE = "small";
 
 const DEFAULT_WORKLET_URL = relURL(
 	"../../../../../../node_modules/fastenhancer-web/dist/worklet/processor.js",
@@ -17,18 +17,18 @@ export function createFastEnhancerDenoiser({
 	workletUrl = DEFAULT_WORKLET_URL,
 	audioContext = undefined,
 } = {}) {
-	if (modelSize !== "tiny") {
-		throw new Error("FastEnhancer currently ships only the tiny model.");
+	if (modelSize !== "small") {
+		throw new Error("FastEnhancer currently ships only the small model.");
 	}
 
 	let modelPromise = null;
 	const getModel = () => {
-		if (!modelPromise) modelPromise = loadModelImpl("tiny");
+		if (!modelPromise) modelPromise = loadModelImpl("small");
 		return modelPromise;
 	};
 
 	return {
-		id: "fastenhancer-tiny",
+		id: "fastenhancer-small",
 		sampleRate: SAMPLE_RATE,
 		channelCount: CHANNEL_COUNT,
 		realtime: {
@@ -43,7 +43,7 @@ export function createFastEnhancerDenoiser({
 				const injectedContext = streamContext || audioContext;
 				if (injectedContext && injectedContext.sampleRate !== SAMPLE_RATE) {
 					throw new RangeError(
-						`fastenhancer-tiny requires a ${SAMPLE_RATE / 1000} kHz AudioContext.`,
+						`fastenhancer-small requires a ${SAMPLE_RATE / 1000} kHz AudioContext.`,
 					);
 				}
 				const audioOnlyStream = new MediaStream(audioTracks);
@@ -54,14 +54,14 @@ export function createFastEnhancerDenoiser({
 						...(injectedContext ? { audioContext: injectedContext } : {}),
 						onWarning: (message) => {
 							console.warn(
-								"[fastenhancer-tiny]",
+								"[fastenhancer-small]",
 								message instanceof Error ? message.message : String(message),
 							);
 						},
 						onAutoBypass: (enabled) => {
 							console.warn(
-								"[fastenhancer-tiny] auto-bypass",
-								enabled ? "enabled (silence passthrough)" : "disabled",
+								"[fastenhancer-small] auto-bypass",
+								enabled ? "enabled (automatic passthrough)" : "disabled",
 							);
 						},
 					});
@@ -94,4 +94,4 @@ export function createFastEnhancerDenoiser({
 	};
 }
 
-export const fastEnhancerTinyDenoiser = createFastEnhancerDenoiser();
+export const fastEnhancerSmallDenoiser = createFastEnhancerDenoiser();

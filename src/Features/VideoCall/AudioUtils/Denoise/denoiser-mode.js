@@ -2,11 +2,11 @@ export const DENOISER_MODES = Object.freeze({
 	OFF: "off",
 	RNNOISE: "rnnoise",
 	DEEPFILTERNET: "deepfilternet",
-	FASTENHANCER_TINY: "fastenhancer-tiny",
+	FASTENHANCER_SMALL: "fastenhancer-small",
 });
 
 const VALID_MODES = new Set(Object.values(DENOISER_MODES));
-const DEFAULT_MODE = DENOISER_MODES.FASTENHANCER_TINY;
+const DEFAULT_MODE = DENOISER_MODES.FASTENHANCER_SMALL;
 
 let currentMode = DEFAULT_MODE;
 const listeners = new Set();

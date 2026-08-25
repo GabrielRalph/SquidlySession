@@ -11,7 +11,7 @@ import {
 	getDenoiserMode,
 	subscribeDenoiserMode,
 } from "./AudioUtils/Denoise/denoiser-mode.js";
-import { fastEnhancerTinyDenoiser } from "./AudioUtils/Denoise/FastEnhancer/fastenhancer.js";
+import { fastEnhancerSmallDenoiser } from "./AudioUtils/Denoise/FastEnhancer/fastenhancer.js";
 import { rnnoiseDenoiser } from "./AudioUtils/Denoise/RNNoise/rnnoise.js";
 import { setupVoiceDetection } from "./AudioUtils/voice-detector.js";
 import { getHostPresets } from "./presets.js";
@@ -135,8 +135,7 @@ export default class VideoCall extends Features {
 			this.mainAreaWidget.appendChild(video); // needed to get frames from some browsers
 
 			if ((!video.requestVideoFrameCallback) instanceof Function) {
-				video.requestVideoFrameCallback =
-					window.requestAnimationFrame.bind(window);
+				video.requestVideoFrameCallback = window.requestAnimationFrame.bind(window);
 			}
 			const next = () => {
 				if (video.videoWidth > 5 && video.videoHeight > 5) {
@@ -435,30 +434,24 @@ export default class VideoCall extends Features {
 			// Keep one published stream so a console mode change can replace only
 			// its audio track while the WebRTC connection stays alive.
 			let stream = null;
-			this._noiseSuppressionAdapter = await createAdapterWithFallback(
-				rawStream,
-				{
-					preferredMode: getDenoiserMode(),
-					denoisers: {
-						[DENOISER_MODES.FASTENHANCER_TINY]: fastEnhancerTinyDenoiser,
-						[DENOISER_MODES.RNNOISE]: rnnoiseDenoiser,
-						[DENOISER_MODES.DEEPFILTERNET]: deepFilterNetDenoiser,
-					},
-					onError: (error) => {
-						console.warn(
-							"Denoising failed; falling back to the microphone.",
-							error,
-						);
-						if (stream) {
-							recoverDenoisedAudio({
-								rawStream,
-								publishedStream: stream,
-								connection,
-							});
-						}
-					},
+			this._noiseSuppressionAdapter = await createAdapterWithFallback(rawStream, {
+				preferredMode: getDenoiserMode(),
+				denoisers: {
+					[DENOISER_MODES.FASTENHANCER_SMALL]: fastEnhancerSmallDenoiser,
+					[DENOISER_MODES.RNNOISE]: rnnoiseDenoiser,
+					[DENOISER_MODES.DEEPFILTERNET]: deepFilterNetDenoiser,
 				},
-			);
+				onError: (error) => {
+					console.warn("Denoising failed; falling back to the microphone.", error);
+					if (stream) {
+						recoverDenoisedAudio({
+							rawStream,
+							publishedStream: stream,
+							connection,
+						});
+					}
+				},
+			});
 			stream = this._noiseSuppressionAdapter.stream;
 			this._unsubscribeDenoiserMode?.();
 			this._unsubscribeDenoiserMode = subscribeDenoiserMode((mode) =>
@@ -497,12 +490,9 @@ export default class VideoCall extends Features {
 				},
 			]);
 
-			this.session.settings.onValue(
-				`${this.sdata.me}/volume/level`,
-				(value) => {
-					this._setVolume(value);
-				},
-			);
+			this.session.settings.onValue(`${this.sdata.me}/volume/level`, (value) => {
+				this._setVolume(value);
+			});
 			this.session.settings.onValue(
 				"participant/profileSettings/name",
 				(value) => {
@@ -581,9 +571,7 @@ export default class VideoCall extends Features {
 					dataString = "S" + data;
 					break;
 				default:
-					console.warn(
-						`Cannot send ${typeof data} accross webrtc data channel.`,
-					);
+					console.warn(`Cannot send ${typeof data} accross webrtc data channel.`);
 					break;
 			}
 

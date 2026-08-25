@@ -172,7 +172,7 @@ test("realtime session uses attachStream and reattaches video tracks", async () 
 		const context = new FakeAudioContext();
 		let attachCalls = 0;
 		const denoiser = {
-			id: "fastenhancer-tiny",
+			id: "fastenhancer-small",
 			sampleRate: 48_000,
 			channelCount: 1,
 			realtime: {
@@ -238,7 +238,7 @@ test("realtime session rejects attachStream with a non-48 kHz context", async ()
 					new FakeMediaStream([new FakeTrack("audio", "mic")]),
 					{
 						denoiser: {
-							id: "fastenhancer-tiny",
+							id: "fastenhancer-small",
 							sampleRate: 48_000,
 							channelCount: 1,
 							realtime: {

@@ -7,17 +7,17 @@ import {
 	createAdapterWithFallback,
 } from "../src/Features/VideoCall/AudioUtils/Denoise/denoise-controller.js";
 
-test("automatic fallback order is FastEnhancer Tiny then RNNoise then off", () => {
+test("automatic fallback order is FastEnhancer Small then RNNoise then off", () => {
 	assert.deepEqual(
-		buildDenoiserFallbackOrder(DENOISER_MODES.FASTENHANCER_TINY),
+		buildDenoiserFallbackOrder(DENOISER_MODES.FASTENHANCER_SMALL),
 		[
-			DENOISER_MODES.FASTENHANCER_TINY,
+			DENOISER_MODES.FASTENHANCER_SMALL,
 			DENOISER_MODES.RNNOISE,
 			DENOISER_MODES.OFF,
 		],
 	);
 	assert.ok(
-		!buildDenoiserFallbackOrder(DENOISER_MODES.FASTENHANCER_TINY).includes(
+		!buildDenoiserFallbackOrder(DENOISER_MODES.FASTENHANCER_SMALL).includes(
 			DENOISER_MODES.DEEPFILTERNET,
 		),
 	);
@@ -40,7 +40,7 @@ test("createAdapterWithFallback retries RNNoise then off when preferred init fai
 	const result = await createAdapterWithFallback(
 		{ id: "raw" },
 		{
-			preferredMode: DENOISER_MODES.FASTENHANCER_TINY,
+			preferredMode: DENOISER_MODES.FASTENHANCER_SMALL,
 			denoisers,
 			onError,
 			createController: async (rawStream, options) => {
@@ -48,8 +48,8 @@ test("createAdapterWithFallback retries RNNoise then off when preferred init fai
 				assert.equal(rawStream.id, "raw");
 				assert.equal(options.denoisers, denoisers);
 				assert.equal(options.onError, onError);
-				if (options.mode === DENOISER_MODES.FASTENHANCER_TINY) {
-					throw new Error("tiny failed");
+				if (options.mode === DENOISER_MODES.FASTENHANCER_SMALL) {
+					throw new Error("small failed");
 				}
 				if (options.mode === DENOISER_MODES.RNNOISE) {
 					return controller;
@@ -61,7 +61,7 @@ test("createAdapterWithFallback retries RNNoise then off when preferred init fai
 
 	assert.equal(result, controller);
 	assert.deepEqual(attempted, [
-		DENOISER_MODES.FASTENHANCER_TINY,
+		DENOISER_MODES.FASTENHANCER_SMALL,
 		DENOISER_MODES.RNNOISE,
 	]);
 });
@@ -73,7 +73,7 @@ test("createAdapterWithFallback uses off/raw when RNNoise also fails", async () 
 	const result = await createAdapterWithFallback(
 		{ id: "raw" },
 		{
-			preferredMode: DENOISER_MODES.FASTENHANCER_TINY,
+			preferredMode: DENOISER_MODES.FASTENHANCER_SMALL,
 			createController: async (_rawStream, options) => {
 				attempted.push(options.mode);
 				if (options.mode === DENOISER_MODES.OFF) return offController;
@@ -84,7 +84,7 @@ test("createAdapterWithFallback uses off/raw when RNNoise also fails", async () 
 
 	assert.equal(result, offController);
 	assert.deepEqual(attempted, [
-		DENOISER_MODES.FASTENHANCER_TINY,
+		DENOISER_MODES.FASTENHANCER_SMALL,
 		DENOISER_MODES.RNNOISE,
 		DENOISER_MODES.OFF,
 	]);
