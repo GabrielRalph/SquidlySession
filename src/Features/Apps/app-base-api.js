@@ -1,4 +1,4 @@
-(function () {
+(() => {
   // Avoid re-declaring if injected multiple times
   if (window.SquidlyAPI) return;
 
@@ -220,12 +220,12 @@
    * @param {number} [order] - Optional order within the group
    * @returns {string} The generated button ID
    */
-  const registerAccessButton = function (element, group, order) {
+  const registerAccessButton = (element, group, order) => {
     if (!(element instanceof HTMLElement)) return null;
 
     // Generate unique ID if element doesn't have one
-    let id =
-      element.id || "access_btn_" + Math.random().toString(36).substring(2, 15);
+    const id =
+      element.id || `access_btn_${Math.random().toString(36).substring(2, 15)}`;
     if (!element.id) element.id = id;
 
     // Mark element as registered for auto-unregister tracking
@@ -257,7 +257,7 @@
    * Unregisters an access button from the parent app.
    * @param {string} id - The button ID to unregister
    */
-  const unregisterAccessButton = function (id) {
+  const unregisterAccessButton = (id) => {
     if (id in ACCESS_BUTTONS) {
       delete ACCESS_BUTTONS[id];
     }
@@ -300,7 +300,7 @@
   // PUBLIC API (window.SquidlyAPI)
   // ============================================================================
   window.SquidlyAPI = {
-    firebaseSet: function (path, value) {
+    firebaseSet: (path, value) => {
       // Auto-prepend appName to namespace all Firebase paths per app
       const appName = window.session_info?.appName;
       const fullPath = appName ? `${appName}/${path}` : path;
@@ -315,7 +315,7 @@
       );
     },
 
-    firebaseOnValue: function (path, callback) {
+    firebaseOnValue: (path, callback) => {
       // Auto-prepend appName to match firebaseSet namespacing
       const appName = window.session_info?.appName;
       const fullPath = appName ? `${appName}/${path}` : path;
@@ -331,8 +331,8 @@
       );
     },
 
-    setIcon: function (x, y, options, callback) {
-      let key = "setIcon_" + Math.random().toString(36).substring(2, 15);
+    setIcon: (x, y, options, callback) => {
+      const key = `setIcon_${Math.random().toString(36).substring(2, 15)}`;
       SET_ICON_CALLBACKS[key] = callback;
       window.parent.postMessage(
         {
@@ -347,7 +347,7 @@
       return key;
     },
 
-    setGridSize: function (rows, cols) {
+    setGridSize: (rows, cols) => {
       window.parent.postMessage(
         {
           mode: "setGridSize",
@@ -357,7 +357,7 @@
       );
     },
 
-    removeIcon: function (key) {
+    removeIcon: (key) => {
       if (key in SET_ICON_CALLBACKS) {
         delete SET_ICON_CALLBACKS[key];
       }
@@ -370,7 +370,7 @@
       );
     },
 
-    addCursorListener: function (callback) {
+    addCursorListener: (callback) => {
       CURSOR_UPDATE_CALLBACK = callback;
       window.parent.postMessage(
         {
@@ -380,7 +380,7 @@
       );
     },
 
-    setSettings: function (path, value) {
+    setSettings: (path, value) => {
       window.parent.postMessage(
         {
           mode: "setSettings",
@@ -391,9 +391,9 @@
       );
     },
 
-    getSettings: function (path, callback) {
+    getSettings: (path, callback) => {
       if (!callback) return;
-      let key = "getSettings_" + Math.random().toString(36).substring(2, 15);
+      const key = `getSettings_${Math.random().toString(36).substring(2, 15)}`;
       GET_SETTINGS_CALLBACKS[key] = callback;
       window.parent.postMessage(
         {
@@ -405,7 +405,7 @@
       );
     },
 
-    addSettingsListener: function (path, callback) {
+    addSettingsListener: (path, callback) => {
       if (!callback) return;
       SETTINGS_LISTENERS[path] = callback;
       window.parent.postMessage(
@@ -417,13 +417,13 @@
       );
     },
 
-    addSessionInfoListener: function (callback) {
+    addSessionInfoListener: (callback) => {
       if (!callback) return;
       if (window.session_info) callback(window.session_info);
       window.addEventListener("sessionInfoUpdate", (e) => callback(e.detail));
     },
 
-    loadUtterances: function (utterances) {
+    loadUtterances: (utterances) => {
       window.parent.postMessage(
         {
           mode: "loadUtterances",
@@ -433,7 +433,7 @@
       );
     },
 
-    speak: function (utterance) {
+    speak: (utterance) => {
       window.parent.postMessage(
         {
           mode: "speak",
