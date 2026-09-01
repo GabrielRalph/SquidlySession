@@ -1,4 +1,4 @@
-import * as FaceMesh from "./Utils/face-mesh.js"
+import * as FaceMesh from "../../../Utilities/MediaPipe/face-mesh.js"
 import * as Webcam from "../../../Utilities/webcam.js";
 import * as ModelLibrary from "./ModelLibrary.js"
 

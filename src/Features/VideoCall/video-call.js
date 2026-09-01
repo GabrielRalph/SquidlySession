@@ -6,6 +6,11 @@ import { RTCSignaler } from "../../Utilities/WebRTC/rtc-signaler.js";
 import * as WebRTC from "../../Utilities/WebRTC/webrtc-base.js"
 import { VideoPanelWidget } from "./widgets.js";
 import { addDeviceChangeCallback } from "../../Utilities/device-manager.js";
+import {
+    background,
+    setBackgroundEffect as applyBackgroundEffect,
+    setBeautyStrength as applyBeautyStrength,
+} from "./background.js";
 
 
 
@@ -45,6 +50,36 @@ const MuteIconNames = {
 }
 
 const DATA_DELIMITER = ":::"
+const MAX_BACKGROUND_IMAGE_BYTES = 20 * 1024 * 1024;
+
+async function decodeBackgroundImage(file) {
+    if (!(file instanceof File) || !file.type.startsWith("image/")) {
+        throw new TypeError("Please select an image file.");
+    }
+    if (file.size > MAX_BACKGROUND_IMAGE_BYTES) {
+        throw new RangeError("Background images must be 20 MB or smaller.");
+    }
+
+    if (typeof createImageBitmap === "function") {
+        try {
+            return await createImageBitmap(file, { imageOrientation: "from-image" });
+        } catch {
+            return await createImageBitmap(file);
+        }
+    }
+
+    const url = URL.createObjectURL(file);
+    try {
+        const image = new Image();
+        image.decoding = "async";
+        image.src = url;
+        await image.decode();
+        return image;
+    } finally {
+        URL.revokeObjectURL(url);
+    }
+}
+
 function dummyVideo() {
     let video = document.createElement("video");
     video.width = 640;
@@ -61,6 +96,15 @@ function dummyVideo() {
     return video;
 }
 export default class VideoCall extends Features {
+    _backgroundEffectAvailable = false;
+    _backgroundImageAvailable = false;
+    _backgroundEffectMode = "none";
+    _backgroundEffectTransition = null;
+    _backgroundImageName = null;
+    _beautyEffectAvailable = false;
+    _beautyStrength = 0;
+    _beautyControl = null;
+
     _muteState = {
         host: {
             video: undefined,
@@ -165,6 +209,188 @@ export default class VideoCall extends Features {
         this._allWidgets.forEach(w => {
             w[user].isTalking = bool;
         })
+    }
+
+    _updateBackgroundButton() {
+        const symbols = {
+            none: "blur-off",
+            blur: "blur",
+            image: "upload-img",
+        };
+        const text = !this._backgroundEffectAvailable
+            ? "background effects unavailable"
+            : this._backgroundEffectMode === "image"
+                ? `background: ${this._backgroundImageName ?? "image"}`
+                : `background: ${this._backgroundEffectMode}`;
+        this.session.toolBar.setMenuItemProperty(
+            "control/background/symbol",
+            symbols[this._backgroundEffectMode] ?? "blur-off",
+        );
+        this.session.toolBar.setMenuItemProperty(
+            "control/background/text",
+            text,
+        );
+    }
+
+    _updateBeautyButton() {
+        this.session.toolBar.setMenuItemProperty(
+            "control/beauty/text",
+            this._beautyStrength > 0
+                ? `beauty: ${this._beautyStrength}%`
+                : "beauty: off",
+        );
+    }
+
+    _createBeautyControl() {
+        if (this._beautyControl) return this._beautyControl;
+
+        const panel = document.createElement("div");
+        const label = document.createElement("label");
+        const slider = document.createElement("input");
+        const output = document.createElement("output");
+        const close = document.createElement("button");
+
+        panel.setAttribute("role", "dialog");
+        panel.setAttribute("aria-label", "Beauty level");
+        Object.assign(panel.style, {
+            position: "fixed",
+            left: "50%",
+            bottom: "96px",
+            transform: "translateX(-50%)",
+            zIndex: "10000",
+            display: "none",
+            alignItems: "center",
+            gap: "12px",
+            padding: "12px 16px",
+            color: "white",
+            background: "rgba(30, 30, 30, 0.92)",
+            border: "1px solid rgba(255, 255, 255, 0.35)",
+            borderRadius: "12px",
+            boxShadow: "0 6px 24px rgba(0, 0, 0, 0.35)",
+            font: "16px sans-serif",
+        });
+
+        label.textContent = "Beauty";
+        label.htmlFor = "video-call-beauty-level";
+        slider.id = label.htmlFor;
+        slider.type = "range";
+        slider.min = "0";
+        slider.max = "100";
+        slider.step = "1";
+        slider.value = String(this._beautyStrength);
+        slider.setAttribute("aria-label", "Beauty level");
+        Object.assign(slider.style, {
+            width: "min(42vw, 320px)",
+            accentColor: "#7ec8ff",
+        });
+
+        output.value = `${this._beautyStrength}%`;
+        output.style.minWidth = "3.5em";
+        close.type = "button";
+        close.textContent = "Done";
+        Object.assign(close.style, {
+            padding: "6px 10px",
+            color: "white",
+            background: "rgba(255, 255, 255, 0.14)",
+            border: "1px solid rgba(255, 255, 255, 0.35)",
+            borderRadius: "8px",
+            cursor: "pointer",
+        });
+
+        const hide = () => {
+            panel.style.display = "none";
+        };
+        slider.addEventListener("input", () => {
+            const result = applyBeautyStrength(Number(slider.value));
+            if (result.ok) {
+                this._beautyStrength = result.strength;
+                output.value = `${this._beautyStrength}%`;
+                this._updateBeautyButton();
+            }
+        });
+        close.addEventListener("click", hide);
+        panel.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") hide();
+        });
+
+        panel.append(label, slider, output, close);
+        document.body.appendChild(panel);
+        this._beautyControl = { panel, slider, output };
+        return this._beautyControl;
+    }
+
+    _toggleBeautyControl() {
+        if (!this._beautyEffectAvailable) {
+            this._notifyBackground(
+                "Beauty requires the Gregblur WebGL2 video engine.",
+                "error",
+            );
+            return;
+        }
+        const control = this._createBeautyControl();
+        const show = control.panel.style.display === "none";
+        control.panel.style.display = show ? "flex" : "none";
+        if (show) control.slider.focus();
+    }
+
+    _notifyBackground(message, type = "info") {
+        if (this.session.notifications?.notify instanceof Function) {
+            this.session.notifications.notify(message, type);
+        } else {
+            console[type === "error" ? "warn" : "info"](`[VideoCall] ${message}`);
+        }
+    }
+
+    _selectBackgroundImageFile() {
+        if (!this._backgroundImageAvailable) {
+            this._notifyBackground("Image backgrounds are unavailable.", "error");
+            return;
+        }
+
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "image/png,image/jpeg,image/webp,image/gif";
+        input.hidden = true;
+        document.body.appendChild(input);
+
+        let cleaned = false;
+        const cleanup = () => {
+            if (cleaned) return;
+            cleaned = true;
+            input.remove();
+        };
+        input.addEventListener("change", () => {
+            const file = input.files?.[0] ?? null;
+            cleanup();
+            if (file) void this._applyBackgroundImageFile(file);
+        }, { once: true });
+        window.addEventListener("focus", () => {
+            setTimeout(cleanup, 1000);
+        }, { once: true });
+        input.click();
+    }
+
+    async _applyBackgroundImageFile(file) {
+        let image;
+        try {
+            this._notifyBackground("Loading background image.");
+            image = await decodeBackgroundImage(file);
+            const result = await this.setBackgroundEffect("image", {
+                image,
+                imageName: file.name,
+            });
+            if (!result.ok) {
+                image.close?.();
+                throw new Error(result.reason ?? "Image background could not be enabled.");
+            }
+            this._notifyBackground("Background image applied.", "success");
+        } catch (error) {
+            console.warn("[VideoCall] Background image could not be applied.", error);
+            this._notifyBackground(
+                error instanceof Error ? error.message : String(error),
+                "error",
+            );
+        }
     }
 
     /**
@@ -404,7 +630,21 @@ export default class VideoCall extends Features {
 
             // get new stream from webcam
             let stream = getStream(2);
-
+            // Apply background processing while keeping one stable output track.
+            stream = await background(stream);
+            const backgroundState = window.squidlyBackground?.getState()?.engineState;
+            this._backgroundEffectAvailable =
+                typeof backgroundState?.effectMode === "string" ||
+                typeof backgroundState?.enabled === "boolean";
+            this._backgroundImageAvailable =
+                Boolean(backgroundState?.imageSupported);
+            this._backgroundEffectMode = backgroundState?.effectMode ??
+                (backgroundState?.enabled ? "blur" : "none");
+            this._backgroundImageName = backgroundState?.imageName ?? null;
+            this._beautyEffectAvailable =
+                Boolean(backgroundState?.beautySupported);
+            this._beautyStrength =
+                Number(backgroundState?.beautyStrength) || 0;
             // set up voice detection
             setupVoiceDetection(stream, (d) => {
                 this._setWidgetTalking(d, this.sdata.me)
@@ -428,6 +668,54 @@ export default class VideoCall extends Features {
                     text: "video",
                     index: 0,
                     onSelect: (e) => this.toggleMuted("video", this.sdata.me)
+                },
+                {
+                    name: "beauty",
+                    symbol: "show-face",
+                    text: this._beautyStrength > 0
+                        ? `beauty: ${this._beautyStrength}%`
+                        : "beauty: off",
+                    hidden: !this._beautyEffectAvailable,
+                    index: 225,
+                    onSelect: () => this._toggleBeautyControl(),
+                },
+                {
+                    name: "background",
+                    symbol: this._backgroundEffectMode === "blur"
+                        ? "blur"
+                        : this._backgroundEffectMode === "image"
+                            ? "upload-img"
+                            : "blur-off",
+                    text: this._backgroundEffectAvailable
+                        ? `background: ${this._backgroundEffectMode}`
+                        : "background effects unavailable",
+                    index: 270,
+                    subMenu: [
+                        {
+                            name: "background-none",
+                            symbol: "blur-off",
+                            text: "no background effect",
+                            index: 0,
+                            onSelect: (e) =>
+                                e.waitFor(this.setBackgroundEffect("none")),
+                        },
+                        {
+                            name: "background-blur",
+                            symbol: "blur",
+                            text: "blur background",
+                            index: 120,
+                            onSelect: (e) =>
+                                e.waitFor(this.setBackgroundEffect("blur")),
+                        },
+                        {
+                            name: "background-image",
+                            symbol: "upload-img",
+                            text: "upload background image",
+                            hidden: !this._backgroundImageAvailable,
+                            index: 240,
+                            onSelect: () => this._selectBackgroundImageFile(),
+                        },
+                    ],
                 },
                 {
                     name: "audio",
@@ -526,6 +814,46 @@ export default class VideoCall extends Features {
             let oldState = muteState[user][type];
             await this._updateMutedState(type, !oldState, user);
         }
+    }
+
+    async setBackgroundEffect(mode, options = {}) {
+        const previous = this._backgroundEffectTransition ?? Promise.resolve();
+        const transition = previous
+            .catch(() => {})
+            .then(() => applyBackgroundEffect(mode, options));
+        this._backgroundEffectTransition = transition;
+        try {
+            const result = await transition;
+            if (result.ok) {
+                this._backgroundEffectAvailable = true;
+                this._backgroundImageAvailable =
+                    result.imageSupported || this._backgroundImageAvailable;
+                this._backgroundEffectMode = result.mode;
+                this._backgroundImageName = result.imageName ??
+                    (result.mode === "image" ? this._backgroundImageName : null);
+                this._updateBackgroundButton();
+            } else {
+                console.warn(
+                    "[VideoCall] Background effect could not be changed.",
+                    result.reason,
+                );
+                this._notifyBackground(
+                    result.reason ?? "Background effect could not be changed.",
+                    "error",
+                );
+            }
+            return result;
+        } finally {
+            if (this._backgroundEffectTransition === transition) {
+                this._backgroundEffectTransition = null;
+            }
+        }
+    }
+
+    async toggleBackgroundBlur() {
+        return await this.setBackgroundEffect(
+            this._backgroundEffectMode === "blur" ? "none" : "blur",
+        );
     }
 
 

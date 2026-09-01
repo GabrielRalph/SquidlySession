@@ -1,6 +1,6 @@
-import * as vision from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/+esm"
+import * as vision from "./vision-runtime.js"
 import {Vector, Vector3} from "./vector3.js"
-import { relURL } from "../../../../Utilities/usefull-funcs.js";
+import { relURL } from "../usefull-funcs.js";
 const {FaceLandmarker, FilesetResolver} = vision;
 
 /**
@@ -311,4 +311,10 @@ export function getFacePointsFromVideo(video) {
   let points = getFacePoints(res, video.videoWidth, video.videoHeight);
   points.ts = ts;
   return points;
+}
+
+export function detectvideo(video){
+  let ts = Date.now();
+  let res = FaceMesh.detectForVideo(video, ts);
+  return res;
 }

@@ -9,13 +9,14 @@ import { relURL } from '../Utilities/usefull-funcs.js';
 /** @typedef {import('./AccessControl/access-control.js').default} AccessControl */
 /** @typedef {import('./Text2Speech/text2speech.js').default} Text2Speech */
 /** @typedef {import('./Notifications/notifications.js').default} Notifications */
+/** @typedef {import('./Heatmap/heatmap-feature.js').default} HeatmapFeature */
 /** @typedef {import('./AAC/grid.js').default} AACGrid */
 /** @typedef {import('./AccessSetup/access-setup.js').default} AccessSetup */
 /** @typedef {import('./Apps/apps.js').default} Apps */
 /** @typedef {import('./Chat/chat.js').default} ChatFeature */
-/** @typedef {import('./Heatmap/heatmap-feature.js').default} HeatmapFeature */
 /** @typedef {import('./Quiz/quiz.js').default} QuizFeature */
 /** @typedef {import('./ShareContent/share-content.js').default} ShareContent */
+/** @typedef {import('./TemplateFeature/template.js').default} Template */
 
 export class SquildyFeatureProxy {
 
@@ -46,6 +47,9 @@ export class SquildyFeatureProxy {
 	/** @return {Notifications} */
 	get notifications() { return this.getFeature("notifications"); }
 
+	/** @return {HeatmapFeature} */
+	get heatmaps() { return this.getFeature("heatmaps"); }
+
 	/** @return {AACGrid} */
 	get aacGrid() { return this.getFeature("aacGrid"); }
 
@@ -58,14 +62,14 @@ export class SquildyFeatureProxy {
 	/** @return {ChatFeature} */
 	get chat() { return this.getFeature("chat"); }
 
-	/** @return {HeatmapFeature} */
-	get heatmaps() { return this.getFeature("heatmaps"); }
-
 	/** @return {QuizFeature} */
 	get quiz() { return this.getFeature("quiz"); }
 
 	/** @return {ShareContent} */
 	get shareContent() { return this.getFeature("shareContent"); }
+
+	/** @return {Template} */
+	get walkThrough() { return this.getFeature("walkThrough"); }
 
 	/** @override */
 	getFeature() { }
@@ -82,11 +86,12 @@ export const FeaturesList = [
 	[() => import("./AccessControl/access-control.js"), "accessControl"],
 	[() => import("./Text2Speech/text2speech.js"), "text2speech"],
 	[() => import("./Notifications/notifications.js"), "notifications"],
+	[() => import("./Heatmap/heatmap-feature.js"), "heatmaps"],
 	[() => import("./AAC/grid.js"), "aacGrid"],
 	[() => import("./AccessSetup/access-setup.js"), "accessSetup"],
 	[() => import("./Apps/apps.js"), "apps"],
 	[() => import("./Chat/chat.js"), "chat"],
-	[() => import("./Heatmap/heatmap-feature.js"), "heatmaps"],
 	[() => import("./Quiz/quiz.js"), "quiz"],
-	[() => import("./ShareContent/share-content.js"), "shareContent"]
+	[() => import("./ShareContent/share-content.js"), "shareContent"],
+	[() => import("./TemplateFeature/template.js"), "walkThrough"]
 ];
