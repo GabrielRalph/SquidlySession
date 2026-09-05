@@ -164,8 +164,15 @@ access-button[name="left"] {
 access-button[name="right"] {
     grid-column: 4;
 }
-access-button[name="left"], access-button[name="right"], access-button[name="up"], access-button[name="down"] {
+access-button[name="remote-control"] {
+    grid-column: 5;
+}
+access-button[name="left"], access-button[name="right"], access-button[name="up"], access-button[name="down"], access-button[name="remote-control"] {
     grid-row: 4;
+}
+
+content-viewer:not([display-type="stream"]) access-button[name="remote-control"] {
+    display: none;
 }
 
 .tool-bar-area:not([open]) access-button[showable] {

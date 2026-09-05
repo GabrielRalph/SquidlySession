@@ -425,6 +425,10 @@ export class ContentViewer extends OccupiableWindow {
       "access-click": () => this.content.moveDelta(new Vector(0, 1))
     }}, "downArrow", "down")
 
+    iconsList.createChild(ToolIcon, {showable: true, name: "remote-control", events: {
+      "access-click": (e) => this.root.dispatchEvent(new AccessEvent("remote-control", e))
+    }}, "cursor", "remote control");
+
     this.iconsList = iconsList;
   }
 

@@ -17,7 +17,8 @@ export default class ShareContent extends Features {
             upload: (e) => {
                 this.shareFile()
             },
-            screen: (e) => this.shareScreen()
+            screen: (e) => this.shareScreen(),
+            "remote-control": (e) => this.toggleRemoteControl(e)
         }
         this.session.toolBar.addMenuItems("share", [
             {
@@ -134,6 +135,12 @@ export default class ShareContent extends Features {
             this.uploadFile(input.files[0])
             await this.session.openWindow("shareContent")
         }        
+    }
+
+    /**
+     * Placeholder for enabling remote control of the shared screen.
+     */
+    toggleRemoteControl(){
     }
 
     /**
