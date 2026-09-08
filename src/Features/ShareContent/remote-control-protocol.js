@@ -263,8 +263,8 @@ export class RemoteControlPublisher {
 }
 
 /**
- * Map a parsed stream/key event to the RemoteAgent JSON shape (Phase 2).
- * Pixel fields stay null until screen bounds are known.
+ * Map a parsed stream/key event to normalized agent fields.
+ * Mouse commands keep nx/ny until {@link toAgentWire} applies display bounds.
  */
 export function toAgentCommand(parsed) {
     if (!parsed) return null;
@@ -279,4 +279,37 @@ export function toAgentCommand(parsed) {
     if (parsed.kind === "ku") return { type: "key.up", code: parsed.code, key: parsed.key, modifiers: parsed.modifiers };
     if (parsed.kind === "kr") return { type: "key.releaseAll" };
     return null;
+}
+
+/**
+ * Convert a normalized command to the WebSocket JSON RemoteAgent expects.
+ * @param {object} command
+ * @param {{x: number, y: number, width: number, height: number}|null} bounds
+ */
+export function toAgentWire(command, bounds) {
+    if (!command) return null;
+    if (command.type === "key.down" || command.type === "key.up") {
+        return {
+            type: command.type,
+            code: command.code,
+            key: command.key || "",
+            modifiers: command.modifiers || [],
+        };
+    }
+    if (command.type === "key.releaseAll") {
+        return { type: "key.releaseAll" };
+    }
+    if (!bounds || !(bounds.width > 0) || !(bounds.height > 0)) return null;
+    if (typeof command.nx !== "number" || typeof command.ny !== "number") return null;
+    const wire = {
+        type: command.type,
+        x: bounds.x + command.nx * bounds.width,
+        y: bounds.y + command.ny * bounds.height,
+    };
+    if (command.button) wire.button = command.button;
+    if (command.type === "mouse.scroll") {
+        wire.dx = command.dx || 0;
+        wire.dy = command.dy || 0;
+    }
+    return wire;
 }

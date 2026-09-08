@@ -568,15 +568,17 @@ export class ContentViewer extends OccupiableWindow {
   }
 
   /**
-   * @param {{enabled: boolean, isController: boolean, isReceiver: boolean, surface?: string|null}} state
+   * @param {{enabled: boolean, isController: boolean, isReceiver: boolean, surface?: string|null, agentConnected?: boolean}} state
    */
   setRemoteControl(state = {}) {
     const enabled = !!state.enabled;
     const isController = !!state.isController;
     const isReceiver = !!state.isReceiver;
+    const agentConnected = !!state.agentConnected;
     this.root.toggleAttribute("remote-control-on", enabled);
     this.root.toggleAttribute("remote-control-controller", isController);
     this.root.toggleAttribute("remote-control-receiver", isReceiver);
+    this.root.toggleAttribute("rc-agent-on", isReceiver && agentConnected);
     if (state.surface) this.root.setAttribute("rc-surface", state.surface);
     else this.root.removeAttribute("rc-surface");
 
@@ -585,7 +587,9 @@ export class ContentViewer extends OccupiableWindow {
 
     if (this.remoteControlButton) {
       this.remoteControlButton.toggleAttribute("on", enabled);
-      this.remoteControlButton.displayValue = isController ? "controlling" : "remote control";
+      if (isController) this.remoteControlButton.displayValue = "controlling";
+      else if (isReceiver && !agentConnected) this.remoteControlButton.displayValue = "agent offline";
+      else this.remoteControlButton.displayValue = "remote control";
     }
   }
 

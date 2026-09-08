@@ -12,7 +12,9 @@ import {
     parseKeyPayload,
     parseStreamPayload,
     toAgentCommand,
+    toAgentWire,
 } from "./remote-control-protocol.js";
+import { RemoteAgentClient } from "./remote-agent-client.js";
 
 
 export default class ShareContent extends Features {
@@ -24,6 +26,8 @@ export default class ShareContent extends Features {
     _rcKeysArmed = false;
     _rcHeldKeys = new Set();
     _rcFbGuard = new FirstValueGuard();
+    _rcAgent = null;
+    _rcInjectCount = 0;
 
     constructor(session, sdata){
         super(session, sdata)
@@ -187,8 +191,8 @@ export default class ShareContent extends Features {
     }
 
     /**
-     * Toggle the browser remote-control channel. The non-sharer becomes
-     * the controller; the sharer receives events (agent injection is next step).
+     * Toggle remote control. The non-sharer becomes the controller;
+     * the sharer injects events through the local RemoteAgent.
      */
     async toggleRemoteControl(){
         if (this.contentView.displayType !== "stream") return;
@@ -265,7 +269,36 @@ export default class ShareContent extends Features {
             isController,
             isReceiver,
             surface: state?.surface || this._displaySurface,
+            agentConnected: !!(this._rcAgent && this._rcAgent.connected),
         });
+
+        if (isReceiver) this._connectAgent();
+        else this._disconnectAgent();
+    }
+
+    _connectAgent() {
+        if (!this._rcAgent) {
+            this._rcAgent = new RemoteAgentClient({
+                onStatus: () => {
+                    const s = this._rcState;
+                    if (!s) return;
+                    this.contentView.setRemoteControl({
+                        enabled: !!(s.enabled && this.contentView.displayType === "stream"),
+                        isController: s.enabled && s.controller === this.sdata.me,
+                        isReceiver: s.enabled && s.sharer === this.sdata.me,
+                        surface: s.surface || this._displaySurface,
+                        agentConnected: !!(this._rcAgent && this._rcAgent.connected),
+                    });
+                },
+            });
+        }
+        this._rcAgent.connect();
+    }
+
+    _disconnectAgent() {
+        if (!this._rcAgent) return;
+        this._rcAgent.send({ type: "key.releaseAll" });
+        this._rcAgent.disconnect();
     }
 
     _onRemoteInput(detail) {
@@ -388,13 +421,20 @@ export default class ShareContent extends Features {
 
     _previewRemoteCommand(command) {
         if (!command) return;
-        console.log("%cremote-control", "color:#3d9a6a", command);
+        const wire = toAgentWire(command, this._rcAgent?.bounds || null);
+        const injected = !!(wire && this._rcAgent && this._rcAgent.send(wire));
+        const discrete = command.type !== "mouse.move";
+        this._rcInjectCount += 1;
+        if (discrete || this._rcInjectCount <= 5 || this._rcInjectCount % 20 === 0) {
+            console.log("%cremote-control", "color:#3d9a6a", command, injected ? wire : "not injected");
+        }
     }
 
     clearRemoteControl() {
         this._captureController = null;
         this._displaySurface = null;
         this._setKeysArmed(false);
+        this._disconnectAgent();
         if (this._rcPublisher) {
             this._rcPublisher.stop();
             this._rcPublisher = null;

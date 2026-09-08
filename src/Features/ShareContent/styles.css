@@ -185,6 +185,16 @@ content-viewer[remote-control-controller] access-button[name="remote-control"] {
     outline-offset: 2px;
 }
 
+content-viewer[remote-control-receiver]:not([rc-agent-on]) access-button[name="remote-control"] {
+    outline: 3px solid #e07a2f;
+    outline-offset: 2px;
+}
+
+content-viewer[rc-agent-on] access-button[name="remote-control"] {
+    outline: 3px solid var(--color-safe, #3d9a6a);
+    outline-offset: 2px;
+}
+
 content-frame[remote-control] {
     cursor: crosshair;
 }
