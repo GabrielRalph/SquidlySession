@@ -7,6 +7,7 @@ import { AccessEvent } from "../../Utilities/Buttons/access-buttons.js";
 import { Icon } from "../../Utilities/Icons/icons.js";
 import { HideShowTransition } from "../../Utilities/hide-show.js";
 import { GridIcon } from "../../Utilities/Buttons/grid-icon.js";
+import { CLICK_SLOP_NORM, buttonName, clientToNorm, wheelToLines } from "./remote-control-protocol.js";
 
 /**
  * @typedef {Object} ContentInfo
@@ -69,6 +70,8 @@ class ContentFrame extends SvgPlus {
 
     this.video = this.createChild("video", { playsinline: true, muted: true, autoplay: true });
 
+    this.rcPreview = this.createChild("div", { class: "rc-preview" });
+
     let icons = this.createChild("div", { class: "pdf-controls" });
     this.icons = icons;
     this.middle_icon = icons.createChild("div", { class: "bottom-middle" });
@@ -82,6 +85,7 @@ class ContentFrame extends SvgPlus {
     root.events = {
 
       mousewheel: (e) => {
+        if (this._remoteInput) return;
         if (this.transformable) {
           let pixelPos = new Vector(e.clientX, e.clientY);
           let wscale = 600 / this.scale;
@@ -92,6 +96,7 @@ class ContentFrame extends SvgPlus {
       },
 
       mousemove: (e) => {
+          if (this._remoteInput) return;
           if (selected && e.buttons == 1 && this.transformable) {
             let point = new Vector(e.clientX, e.clientY);
             if (last == null) last = point;
@@ -107,6 +112,7 @@ class ContentFrame extends SvgPlus {
       },
 
       mousedown: (e) => {
+        if (this._remoteInput) return;
         selected = true;
         e.preventDefault();
       },
@@ -117,12 +123,14 @@ class ContentFrame extends SvgPlus {
       },
 
       mouseup: (e) => {
+        if (this._remoteInput) return;
         last = null; selected = false;
         e.preventDefault();
 
       },
 
       dblclick: () => {
+        if (this._remoteInput) return;
         if (this.transformable) {
             this.resetTransform();
         }
@@ -283,6 +291,130 @@ class ContentFrame extends SvgPlus {
     else return this.image.bbox;
   }
 
+  setRemoteInput(on) {
+    const next = !!on;
+    this._remoteInput = next;
+    this.transformable = !next;
+    this.toggleAttribute("remote-control", next);
+    if (next && !this._rcBound) this._bindRemoteInput();
+    else if (!next && this._rcBound) this._unbindRemoteInput();
+  }
+
+  setPreviewVisible(on) {
+    this.toggleAttribute("rc-preview", !!on);
+    if (!on) this.rcPreview.removeAttribute("kind");
+  }
+
+  setPreviewNorm(nx, ny, kind) {
+    if (typeof nx !== "number" || typeof ny !== "number") return;
+    const canvasRect = this.streamCanvas.getBoundingClientRect();
+    const frameRect = this.getBoundingClientRect();
+    if (canvasRect.width <= 0 || canvasRect.height <= 0) return;
+    const left = canvasRect.left - frameRect.left + nx * canvasRect.width;
+    const top = canvasRect.top - frameRect.top + ny * canvasRect.height;
+    this.rcPreview.styles = { left: `${left}px`, top: `${top}px` };
+    if (kind) this.rcPreview.setAttribute("kind", kind);
+  }
+
+  _eventNorm(e) {
+    return clientToNorm(e.clientX, e.clientY, this.streamCanvas.getBoundingClientRect());
+  }
+
+  _emitRemote(detail) {
+    if (this.onRemoteInput instanceof Function) this.onRemoteInput(detail);
+  }
+
+  _bindRemoteInput() {
+    this._rcBound = true;
+    this._rcPressStart = null;
+    this._rcButton = "left";
+    this._rcPressed = false;
+    this._rcSentDown = false;
+
+    this._onRcPointerDown = (e) => {
+      if (!this._remoteInput) return;
+      const mapped = this._eventNorm(e);
+      if (!mapped) return;
+      e.preventDefault();
+      this._rcPressed = true;
+      this._rcSentDown = false;
+      this._rcPressStart = mapped;
+      this._rcButton = buttonName(e.button);
+      this.setPointerCapture?.(e.pointerId);
+      this._emitRemote({ type: "pointerdown", ...mapped, button: this._rcButton });
+    };
+
+    this._onRcPointerMove = (e) => {
+      if (!this._remoteInput) return;
+      const mapped = this._eventNorm(e);
+      if (!mapped) return;
+      let drag = false;
+      if (this._rcPressed && this._rcPressStart && !this._rcSentDown) {
+        const dist = Math.hypot(mapped.nx - this._rcPressStart.nx, mapped.ny - this._rcPressStart.ny);
+        if (dist > CLICK_SLOP_NORM) {
+          drag = true;
+          this._rcSentDown = true;
+        }
+      }
+      this._emitRemote({
+        type: "pointermove",
+        ...mapped,
+        button: this._rcButton,
+        drag,
+        start: this._rcPressStart,
+      });
+    };
+
+    this._onRcPointerUp = (e) => {
+      if (!this._remoteInput || !this._rcPressed) return;
+      const mapped = this._eventNorm(e) || this._rcPressStart;
+      this._rcPressed = false;
+      if (mapped) {
+        this._emitRemote({ type: "pointerup", ...mapped, button: this._rcButton });
+      }
+      this._rcSentDown = false;
+      this._rcPressStart = null;
+      if (e && this.hasPointerCapture?.(e.pointerId)) {
+        this.releasePointerCapture(e.pointerId);
+      }
+    };
+
+    this._onRcContext = (e) => {
+      if (this._remoteInput) e.preventDefault();
+    };
+
+    this._onRcWheel = (e) => {
+      if (!this._remoteInput) return;
+      e.preventDefault();
+      const mapped = this._eventNorm(e);
+      if (!mapped) return;
+      this._emitRemote({
+        type: "scroll",
+        ...mapped,
+        dx: wheelToLines(e.deltaX),
+        dy: wheelToLines(e.deltaY),
+      });
+    };
+
+    this.addEventListener("pointerdown", this._onRcPointerDown);
+    this.addEventListener("pointermove", this._onRcPointerMove);
+    this.addEventListener("pointerup", this._onRcPointerUp);
+    this.addEventListener("pointercancel", this._onRcPointerUp);
+    this.addEventListener("contextmenu", this._onRcContext);
+    this.addEventListener("wheel", this._onRcWheel, { passive: false });
+  }
+
+  _unbindRemoteInput() {
+    this._rcBound = false;
+    this._rcPressed = false;
+    this.removeEventListener("pointerdown", this._onRcPointerDown);
+    this.removeEventListener("pointermove", this._onRcPointerMove);
+    this.removeEventListener("pointerup", this._onRcPointerUp);
+    this.removeEventListener("pointercancel", this._onRcPointerUp);
+    this.removeEventListener("contextmenu", this._onRcContext);
+    this.removeEventListener("wheel", this._onRcWheel);
+  }
+
 }
 
 class ToolIcon extends GridIcon {
@@ -344,6 +476,9 @@ export class ContentViewer extends OccupiableWindow {
 
     this.content = this.createChild(ContentFrame);
     this.content.addControlEvents(this);
+    this.content.onRemoteInput = (detail) => {
+      this.root.dispatchEvent(new CustomEvent("rc-input", { bubbles: true, detail }));
+    };
     this.createChild("border-frame");
     this._make_tools();
     this.loader = this.createChild(Loader)
@@ -425,11 +560,37 @@ export class ContentViewer extends OccupiableWindow {
       "access-click": () => this.content.moveDelta(new Vector(0, 1))
     }}, "downArrow", "down")
 
-    iconsList.createChild(ToolIcon, {showable: true, name: "remote-control", events: {
+    this.remoteControlButton = iconsList.createChild(ToolIcon, {showable: true, name: "remote-control", events: {
       "access-click": (e) => this.root.dispatchEvent(new AccessEvent("remote-control", e))
     }}, "cursor", "remote control");
 
     this.iconsList = iconsList;
+  }
+
+  /**
+   * @param {{enabled: boolean, isController: boolean, isReceiver: boolean, surface?: string|null}} state
+   */
+  setRemoteControl(state = {}) {
+    const enabled = !!state.enabled;
+    const isController = !!state.isController;
+    const isReceiver = !!state.isReceiver;
+    this.root.toggleAttribute("remote-control-on", enabled);
+    this.root.toggleAttribute("remote-control-controller", isController);
+    this.root.toggleAttribute("remote-control-receiver", isReceiver);
+    if (state.surface) this.root.setAttribute("rc-surface", state.surface);
+    else this.root.removeAttribute("rc-surface");
+
+    this.content.setRemoteInput(isController);
+    this.content.setPreviewVisible(isReceiver);
+
+    if (this.remoteControlButton) {
+      this.remoteControlButton.toggleAttribute("on", enabled);
+      this.remoteControlButton.displayValue = isController ? "controlling" : "remote control";
+    }
+  }
+
+  setRemotePreview(nx, ny, kind) {
+    this.content.setPreviewNorm(nx, ny, kind);
   }
 
 
