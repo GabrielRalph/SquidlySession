@@ -232,22 +232,15 @@ callbacks, and removes hidden videos.
 
 ## Validation
 
-```sh
-node --test \
-  tests/background-lite-pairing.test.js \
-  tests/background-lite-scheduling.test.js \
-  tests/background-benchmark.test.js \
-  tests/background-latency.test.js
-```
+Generate `background.js` through Rollup to catch syntax and module-resolution
+errors. This repository does not keep a dedicated automated background-effects
+test directory.
 
-The suite covers selection lifecycle, scheduling, long-call state, source/mask
-identity, fixed-buffer reuse, wrong/late results, effects, GPU timing policy,
-and rendering. Generate `background.js` through Rollup to catch syntax and
-module-resolution errors.
-
-Tests mock camera, Canvas, Worker, WebGL, and time APIs. After latency-sensitive
-changes, test a real call with fast movement, a longer call, tab hide/restore,
-Eye Gaze plus blur, image replacement, and teardown.
+After latency-sensitive changes, test a real call with fast horizontal movement,
+a longer call, tab hide/restore, Eye Gaze plus blur, image replacement, effect
+switching, and teardown. Check `window.squidlyBackground.getState()` during
+the call to confirm source/mask timestamp pairing, segmentation cadence, late
+pair drops, resource level, and the locked engine.
 
 ## Maintenance rules
 
