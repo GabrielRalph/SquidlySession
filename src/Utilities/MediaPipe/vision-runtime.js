@@ -23,6 +23,7 @@ const longTaskSamples = [];
 const frameSamples = [];
 let performanceObserver = null;
 let lastSessionFrameAt = -Infinity;
+let backgroundWindowStartedAt = -Infinity;
 let sharedFaceLandmarker = null;
 let faceLandmarkerInfo = {
   model: "face_landmarker.task",
@@ -51,7 +52,9 @@ function ensurePerformanceObserver() {
   try {
     performanceObserver = new globalThis.PerformanceObserver((list) => {
       for (const entry of list.getEntries()) {
-        longTaskSamples.push({ at: entry.startTime, duration: entry.duration });
+        if (entry.startTime >= backgroundWindowStartedAt) {
+          longTaskSamples.push({ at: entry.startTime, duration: entry.duration });
+        }
       }
       trimSamples(longTaskSamples, performance.now());
     });
@@ -211,7 +214,26 @@ export function getLatestFaceLandmarks(maxAgeMs = 150) {
     : null;
 }
 
-/** Records delivered video cadence against its expected interval, without logging. */
+/**
+ * Startup-only isolation between sequential background candidates. Clear
+ * transient background/frame/long-task pressure without discarding Eye Gaze
+ * model ownership or its task history. Never use this to hide live-call load.
+ */
+export function resetBackgroundPerformanceWindow() {
+  backgroundWindowStartedAt = performance.now();
+  frameSamples.length = 0;
+  longTaskSamples.length = 0;
+  lastSessionFrameAt = -Infinity;
+  taskActivity.delete("background-segmenter");
+  taskActivity.delete("background-motion");
+  // FaceLandmarker instances, detections and activity are deliberately retained.
+}
+
+/**
+ * Records delivered video cadence against its expected interval, without logging.
+ * Lite calls this for camera arrivals, not Worker completions: its same-frame
+ * output rate is constrained by inference and must not throttle itself again.
+ */
 export function noteSessionFrame(expectedIntervalMs = 1000 / 30) {
   const now = performance.now();
   if (Number.isFinite(lastSessionFrameAt)) {

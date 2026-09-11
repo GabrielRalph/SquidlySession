@@ -11,10 +11,10 @@ import { relURL } from "../../Utilities/usefull-funcs.js";
 
 /**
  * Lite runtime flow
- * 1. Draw the camera into a small analysis canvas.
- * 2. Schedule segmentation independently from the 30 FPS renderer.
+ * 1. Snapshot the camera once; derive analysis from that exact image.
+ * 2. Schedule one inference at a time, independently of camera callbacks.
  * 3. Send at most one frame to the MediaPipe Worker; never queue stale work.
- * 4. Keep the newest expanded mask and composite blur, image, or no effect.
+ * 4. Pair each mask with its retained source, then composite immediately.
  * 5. Fall back to the same model on the main thread only if Worker setup fails.
  */
 
@@ -22,14 +22,15 @@ const MODEL_NAME = "selfie-segmenter-landscape-float16";
 const MODEL_URL =
   "https://storage.googleapis.com/mediapipe-models/image_segmenter/" +
   "selfie_segmenter_landscape/float16/latest/selfie_segmenter_landscape.tflite";
+// captureStream ceiling, not a promise of 30 distinct processed frames/second.
 const OUTPUT = Object.freeze({ width: 480, height: 270, fps: 30 });
 const ANALYSIS = Object.freeze({ width: 256, height: 144 });
 const BLUR = Object.freeze({ width: 240, height: 135, pixels: 5 });
 const EFFECT_MODES = new Set(["none", "blur", "image"]);
 const LEVELS = Object.freeze(["normal", "constrained", "critical", "hidden"]);
 const LEVEL_MAX_FPS = Object.freeze({
-  normal: 20,
-  constrained: 12,
+  normal: 30,
+  constrained: 20,
   critical: 6,
   hidden: 1,
 });
@@ -39,11 +40,16 @@ const MAIN_THREAD_MAX_FPS = Object.freeze({
   critical: 4,
   hidden: 1,
 });
+// Completed output may be held while inference waits; incoming pairs have a
+// separate, tighter deadline so a stalled delivery cannot rewind the video.
 const MASK_MAX_AGE_MS = 2500;
+const PAIR_MAX_LATENCY_MS = 250;
 const MASK_RENDER_PADDING = 2;
 const SCHEDULE_TOLERANCE_MS = 2;
 const ALLOCATION_CHECK_MS = 1000;
-const RECOVERY_MS = 8000;
+const RECOVERY_MS = 8000; // Compatibility main-thread path.
+const WORKER_RECOVERY_MS = 3000;
+const WORKER_DOWNGRADE_MS = 2000;
 
 let activeState = null;
 
@@ -62,8 +68,14 @@ function classifyWorkerPerformance(performanceState) {
   ) {
     return { level: "critical", reasons: ["Main-thread or video-frame pressure"] };
   }
+  // Moderate unrelated main-thread tasks alone do not justify throttling a
+  // separate Worker when the delivered camera cadence is still healthy.
+  // Severe stalls above retain unconditional protection.
+  const frameDeliveryHealthy = hasLateFrames &&
+    performanceState.estimatedFrameFps >= 24 &&
+    performanceState.slowFrameRatio < 0.10;
   if (
-    performanceState.longTaskRatio >= 0.06 ||
+    (performanceState.longTaskRatio >= 0.06 && !frameDeliveryHealthy) ||
     (hasLateFrames && performanceState.slowFrameRatio >= 0.12)
   ) {
     return { level: "constrained", reasons: ["Moderate rendering pressure"] };
@@ -101,6 +113,19 @@ function createCanvas(width, height, options = {}) {
   const context = canvas.getContext("2d", options);
   if (!context) throw new Error("Canvas 2D is unavailable.");
   return { canvas, context };
+}
+
+function createAnalysisCanvas() {
+  // Worker path can transfer its analysis image synchronously. This avoids
+  // waiting for createImageBitmap after the main-thread blur render finishes.
+  if (typeof OffscreenCanvas === "function") {
+    const canvas = new OffscreenCanvas(ANALYSIS.width, ANALYSIS.height);
+    const context = canvas.getContext("2d", {alpha:false, desynchronized:true});
+    if (context && typeof canvas.transferToImageBitmap === "function") {
+      return {canvas, context};
+    }
+  }
+  return createCanvas(ANALYSIS.width, ANALYSIS.height, {alpha:false, desynchronized:true});
 }
 
 function createHiddenVideo(track) {
@@ -148,10 +173,25 @@ async function waitForVideo(video) {
 // Adaptive, phase-locked segmentation scheduling
 // -----------------------------------------------------------------------------
 
+// A single delayed message must not turn a fast Worker into a 2 FPS loop.
+// Use recent median delivery cost; repeated slow deliveries still lower the cap.
+function getSchedulingLatencyMs(state) {
+  if (state.maskLatencySamples.length < 3) return state.averageInferenceMs;
+  const sorted = [...state.maskLatencySamples].sort((a, b) => a - b);
+  return Math.max(state.averageInferenceMs, sorted[Math.floor(sorted.length / 2)]);
+}
+
+/**
+ * Returns a cached allocation snapshot, reevaluated at most once per second.
+ * Worker pressure uses camera cadence; inference completion cadence must not
+ * feed it, otherwise reducing segmentation could trigger further reductions.
+ * Only work rate changes here: the router keeps the chosen engine locked.
+ */
 function createScheduler(state) {
   let level = "normal";
   let lastCheckAt = -Infinity;
   let recoveryStartedAt = null;
+  let downgradeStartedAt = null;
   let allocation = null;
 
   return () => {
@@ -167,17 +207,35 @@ function createScheduler(state) {
     const desiredRank = LEVELS.indexOf(desired.level);
     const previousLevel = level;
 
-    if (desiredRank > currentRank) {
+    const worker = state.executionMode === "worker";
+    const recoveryMs = worker ? WORKER_RECOVERY_MS : RECOVERY_MS;
+    if (worker && level === "hidden" && desired.level !== "hidden") {
+      // Visibility throttling is not evidence of inadequate hardware. Do not
+      // keep a foreground call at 1 FPS for multiple recovery stages.
       level = desired.level;
+      recoveryStartedAt = downgradeStartedAt = null;
+    } else if (desiredRank > currentRank) {
       recoveryStartedAt = null;
+      if (worker && desired.level === "constrained") {
+        downgradeStartedAt ??= now;
+        if (now - downgradeStartedAt >= WORKER_DOWNGRADE_MS) {
+          level = desired.level;
+          downgradeStartedAt = null;
+        }
+      } else {
+        // Severe pressure and hidden tabs still react immediately.
+        level = desired.level;
+        downgradeStartedAt = null;
+      }
     } else if (desiredRank < currentRank) {
+      downgradeStartedAt = null;
       recoveryStartedAt ??= now;
-      if (now - recoveryStartedAt >= RECOVERY_MS) {
+      if (now - recoveryStartedAt >= recoveryMs) {
         level = LEVELS[Math.max(desiredRank, currentRank - 1)];
         recoveryStartedAt = null;
       }
     } else {
-      recoveryStartedAt = null;
+      recoveryStartedAt = downgradeStartedAt = null;
     }
 
     if (previousLevel !== level) {
@@ -194,18 +252,26 @@ function createScheduler(state) {
     if (state.executionMode === "worker" && eyeGazeActive) {
       maximumFps = Math.min(maximumFps, 15);
     }
-    const sustainableFps = state.averageInferenceMs
-      ? Math.max(1, Math.floor(950 / state.averageInferenceMs))
-      : maximumFps;
+    // Include bitmap preparation, worker transport and mask delivery in the
+    // budget, not just model inference. Start conservatively until measured.
+    const processingMs = getSchedulingLatencyMs(state);
+    const sustainableFps = processingMs
+      ? Math.max(1, Math.floor(900 / processingMs))
+      : Math.min(20, maximumFps);
     allocation = {
       policy: state.executionMode === "worker"
-        ? "lite-worker-independent-v5"
-        : "lite-main-thread-independent-v5",
+        ? "lite-worker-stable-budget-v10"
+        : "lite-main-thread-stall-resilient-v7",
       level,
       desiredLevel: desired.level,
       reasons: desired.reasons,
       eyeGazeActive,
       targetFps: Math.min(maximumFps, sustainableFps),
+      schedulingLatencyMs: Number(processingMs.toFixed(1)),
+      downgradeInMs: downgradeStartedAt === null ? 0
+        : Math.max(0, WORKER_DOWNGRADE_MS - (now - downgradeStartedAt)),
+      recoveryInMs: recoveryStartedAt === null ? 0
+        : Math.max(0, recoveryMs - (now - recoveryStartedAt)),
       outputFps: OUTPUT.fps,
       sessionPerformance,
     };
@@ -238,14 +304,14 @@ function claimSegmentationSlot(state, now, targetFps) {
 }
 
 /*
- * Independent segmentation pump (v5).
+ * Independent segmentation pump.
  *
  * The compositor no longer decides when MediaPipe runs. This timer wakes at the
  * scheduler's exact deadline, while `segmentationBusy` guarantees that only one
  * frame can be in flight. Worker completion schedules the next wake-up, so no
  * stale frames are queued and no deadline waits for the next render callback.
- * Keep this block isolated so the experiment can be reverted without touching
- * the renderer, model, or mask-processing code.
+ * Camera callbacks wake the pump when a genuinely new frame becomes available;
+ * completed results publish their matched image through commitPairedFrame.
  */
 function cancelSegmentationTimer(state) {
   if (state.segmentationTimerId === null) return;
@@ -258,6 +324,7 @@ function scheduleSegmentation(state) {
   if (
     !state.running ||
     state.effectMode === "none" ||
+    state.waitingForCameraFrame ||
     state.segmentationBusy ||
     state.fallbackPromise ||
     state.workerFailed
@@ -290,10 +357,30 @@ function recordSegmentation(state, inferenceMs) {
   noteVisionTaskRun("background-segmenter", inferenceMs);
 }
 
+/**
+ * Record processing/delivery timing before the pair acceptance check. A late
+ * result still informs scheduling even when commitPairedFrame discards it.
+ * timestampMs is echoed from the main thread, not the Worker clock origin.
+ */
 function recordMaskFrame(state, timestampMs) {
   const sourceTimestamp = Number.isFinite(timestampMs)
     ? timestampMs
     : performance.now();
+  state.lastMaskLatencyMs = Math.max(0, performance.now() - sourceTimestamp);
+  state.averageMaskLatencyMs = state.averageMaskLatencyMs
+    ? state.averageMaskLatencyMs * 0.8 + state.lastMaskLatencyMs * 0.2
+    : state.lastMaskLatencyMs;
+  state.maskLatencySamples.push(state.lastMaskLatencyMs);
+  if (state.maskLatencySamples.length > 5) state.maskLatencySamples.shift();
+  const completedAt = performance.now();
+  state.maskCompletedTimes.push(completedAt);
+  state.maskCompletedTimes = state.maskCompletedTimes.filter(at => completedAt - at < 1000);
+  if (state.lastMaskLatencyMs > Math.max(250, state.averageInferenceMs * 5)) {
+    state.deliveryStalls += 1;
+    // The old deadline belongs to the paused timeline. Request a fresh frame
+    // immediately after this result, retaining the single-in-flight guard.
+    state.nextSegmentationAt = -Infinity;
+  }
   const maskIntervalMs = sourceTimestamp - state.maskSourceTimestampMs;
   if (maskIntervalMs > 0 && maskIntervalMs < 2000) {
     state.averageMaskIntervalMs = state.averageMaskIntervalMs
@@ -304,13 +391,14 @@ function recordMaskFrame(state, timestampMs) {
   state.hasMask = true;
 }
 
+// Validate identity before releasing the busy flag: an old Worker result must
+// not unlock or replace the source image of the current request.
 function acceptWorkerMask(state, data) {
-  recordSegmentation(state, data.inferenceMs);
-
-  if (!state.running) {
+  if (!state.running || data.timestampMs !== state.pendingFrameTimestampMs) {
     data.bitmap.close();
     return;
   }
+  recordSegmentation(state, data.inferenceMs);
   if (
     state.mask.canvas.width !== data.width ||
     state.mask.canvas.height !== data.height
@@ -322,9 +410,12 @@ function acceptWorkerMask(state, data) {
   state.mask.context.drawImage(data.bitmap, 0, 0);
   data.bitmap.close();
   recordMaskFrame(state, data.timestampMs);
+  commitPairedFrame(state, data.timestampMs);
   scheduleSegmentation(state);
 }
 
+// Keep this alpha conversion consistent with prepareMask in the Worker:
+// four-neighbour expansion plus smoothstep maps confidence to foreground alpha.
 function acceptMainThreadMask(state, mask, timestampMs) {
   if (
     !state.mask.image ||
@@ -357,9 +448,32 @@ function acceptMainThreadMask(state, mask, timestampMs) {
   }
   state.mask.context.putImageData(state.mask.image, 0, 0);
   recordMaskFrame(state, timestampMs);
+  commitPairedFrame(state, timestampMs);
+}
+
+// Exactly two reusable source surfaces: one in flight and one completed.
+// The analysis bitmap and foreground always originate from the same snapshot.
+function commitPairedFrame(state, timestampMs) {
+  if (!state.running || timestampMs !== state.pendingFrameTimestampMs) return;
+  // Never publish an old camera snapshot after a long delivery stall. Keep
+  // the existing raw-video fallback until a fresh pair becomes available.
+  if (performance.now() - timestampMs > PAIR_MAX_LATENCY_MS) {
+    state.pendingFrameTimestampMs = null;
+    state.hasMask = false;
+    state.droppedLatePairs += 1;
+    state.nextSegmentationAt = -Infinity;
+    renderFrame(state, performance.now());
+    return;
+  }
+  [state.pairedFrame, state.pendingFrame] = [state.pendingFrame, state.pairedFrame];
+  state.pendingFrameTimestampMs = null;
+  state.pairedFrameTimestampMs = timestampMs;
+  state.pairNeedsRender = true;
+  renderFrame(state, performance.now());
 }
 
 function recordSegmentationError(state, message, inferenceMs = 0) {
+  state.pendingFrameTimestampMs = null;
   state.segmentationBusy = false;
   state.segmentationErrors += 1;
   state.consecutiveErrors += 1;
@@ -417,6 +531,7 @@ async function constructSegmenterWorker(state) {
 async function createMainThreadSegmenter(state, workerReason) {
   state.worker?.terminate();
   state.worker = null;
+  state.pendingFrameTimestampMs = null;
   releaseWorkerObjectUrl(state);
   state.segmentationBusy = false;
   const [vision, fileset] = await Promise.all([
@@ -439,6 +554,8 @@ async function createMainThreadSegmenter(state, workerReason) {
   };
 }
 
+// Compatibility recovery within Lite, not a router switch to another engine.
+// One shared promise prevents concurrent failures from creating extra models.
 function enableMainThreadFallback(state, reason) {
   if (state.executionMode === "main-thread") return Promise.resolve();
   if (state.fallbackPromise) return state.fallbackPromise;
@@ -478,6 +595,10 @@ async function createSegmenterWorker(state) {
     }, 8000);
 
     worker.onmessage = ({ data }) => {
+      if (!state.running || state.worker !== worker) {
+        data.bitmap?.close?.();
+        return;
+      }
       if (data.type === "ready") {
         clearTimeout(timeout);
         initialising = false;
@@ -557,10 +678,16 @@ function runMainThreadSegmentation(state, timestampMs) {
   }
 }
 
+/**
+ * Capture only after both the scheduling slot and single-in-flight guard pass.
+ * The output-size snapshot is the sole camera read; the model input is scaled
+ * from it. pendingFrame stays untouched until completion or failure.
+ */
 async function runSegmentationTick(state) {
   const now = performance.now();
   if (
     !state.running ||
+    state.effectMode === "none" ||
     state.segmentationBusy ||
     state.fallbackPromise ||
     state.workerFailed ||
@@ -572,13 +699,15 @@ async function runSegmentationTick(state) {
   const targetFps = state.executionMode === "main-thread"
     ? Math.min(allocation.targetFps, MAIN_THREAD_MAX_FPS[allocation.level])
     : allocation.targetFps;
-  if (!claimSegmentationSlot(state, now, targetFps)) {
-    scheduleSegmentation(state);
+  // A duplicate camera frame must not consume a scheduled inference slot.
+  // Wait for a decoded frame instead of repeatedly scheduling an overdue timer.
+  if (state.video.currentTime === state.lastSegmentedVideoTime) {
+    state.waitingForCameraFrame = true;
+    cancelSegmentationTimer(state);
     return;
   }
-  // A timer may wake faster than a low-frame-rate camera; never infer twice on
-  // the same decoded frame.
-  if (state.video.currentTime === state.lastSegmentedVideoTime) {
+  state.waitingForCameraFrame = false;
+  if (!claimSegmentationSlot(state, now, targetFps)) {
     scheduleSegmentation(state);
     return;
   }
@@ -586,23 +715,29 @@ async function runSegmentationTick(state) {
 
   state.segmentationBusy = true;
   try {
+    drawCover(state.pendingFrame.context, state.video, OUTPUT.width, OUTPUT.height);
     state.analysis.context.clearRect(0, 0, ANALYSIS.width, ANALYSIS.height);
     drawCover(
       state.analysis.context,
-      state.video,
+      state.pendingFrame.canvas,
       ANALYSIS.width,
       ANALYSIS.height,
     );
+    // Strictly increasing MediaPipe VIDEO time also identifies the retained frame.
     state.lastMediaPipeTimestamp = Math.max(
       Math.floor(now),
       state.lastMediaPipeTimestamp + 1,
     );
+    state.pendingFrameTimestampMs = state.lastMediaPipeTimestamp;
     if (state.executionMode === "main-thread") {
       runMainThreadSegmentation(state, state.lastMediaPipeTimestamp);
+      scheduleSegmentation(state);
       return;
     }
 
-    const bitmap = await createImageBitmap(state.analysis.canvas);
+    const bitmap = typeof state.analysis.canvas.transferToImageBitmap === "function"
+      ? state.analysis.canvas.transferToImageBitmap()
+      : await createImageBitmap(state.analysis.canvas);
     if (!state.running) {
       bitmap.close();
       return;
@@ -625,7 +760,7 @@ async function runSegmentationTick(state) {
 }
 
 // -----------------------------------------------------------------------------
-// 30 FPS composition
+// Completed-pair composition; camera callbacks only drive raw mode and telemetry
 // -----------------------------------------------------------------------------
 
 function drawDirectVideo(state) {
@@ -633,13 +768,13 @@ function drawDirectVideo(state) {
   drawCover(state.output.context, state.video, OUTPUT.width, OUTPUT.height);
 }
 
-function drawBlurBackground(state) {
+function drawBlurBackground(state, source) {
   state.blur.context.save();
   state.blur.context.clearRect(0, 0, BLUR.width, BLUR.height);
   state.blur.context.filter = `blur(${BLUR.pixels}px)`;
   drawCover(
     state.blur.context,
-    state.video,
+    source,
     BLUR.width,
     BLUR.height,
     BLUR.pixels * 2,
@@ -655,14 +790,14 @@ function drawBlurBackground(state) {
   );
 }
 
-function drawForeground(state) {
+function drawForeground(state, source) {
   state.foreground.context.save();
   state.foreground.context.clearRect(0, 0, OUTPUT.width, OUTPUT.height);
   state.foreground.context.globalCompositeOperation = "source-over";
   state.foreground.context.filter = "none";
   drawCover(
     state.foreground.context,
-    state.video,
+    source,
     OUTPUT.width,
     OUTPUT.height,
   );
@@ -679,6 +814,11 @@ function drawForeground(state) {
   state.output.context.drawImage(state.foreground.canvas, 0, 0);
 }
 
+/**
+ * Publish a new completed pair, redraw it after an effect change, or draw raw
+ * video when no usable pair exists. Do not combine live video with a cached
+ * mask. Canvas capture/encoding/display add latency beyond this function.
+ */
 function renderFrame(state, now) {
   if (!state.running) return;
   const ready =
@@ -689,9 +829,12 @@ function renderFrame(state, now) {
   state.output.track.enabled = state.inputTrack.enabled;
   if (!ready) return;
 
-  noteSessionFrame(1000 / OUTPUT.fps);
-  const maskIsFresh =
-    state.hasMask && now - state.maskSourceTimestampMs <= MASK_MAX_AGE_MS;
+  const maskIsFresh = state.hasMask &&
+    state.pairedFrameTimestampMs === state.maskSourceTimestampMs &&
+    now - state.maskSourceTimestampMs <= MASK_MAX_AGE_MS;
+  // Leave the completed output untouched while another camera frame is being
+  // segmented. Redrawing the live video here would reintroduce contour lag.
+  if (state.effectMode !== "none" && maskIsFresh && !state.pairNeedsRender) return;
   try {
     if (state.effectMode === "none" || !maskIsFresh) {
       drawDirectVideo(state);
@@ -700,15 +843,18 @@ function renderFrame(state, now) {
         state.output.context.clearRect(0, 0, OUTPUT.width, OUTPUT.height);
         state.output.context.drawImage(state.background.canvas, 0, 0);
       } else {
-        drawBlurBackground(state);
+        drawBlurBackground(state, state.pairedFrame.canvas);
       }
-      drawForeground(state);
+      drawForeground(state, state.pairedFrame.canvas);
+      state.lastCompositeLatencyMs = performance.now() - state.pairedFrameTimestampMs;
+      state.pairedFrames += 1;
     }
   } catch (error) {
     state.lastRenderError = error instanceof Error ? error.message : String(error);
     drawDirectVideo(state);
   }
 
+  state.pairNeedsRender = false;
   state.renderedFrames += 1;
   const elapsed = now - state.renderWindowStartedAt;
   if (elapsed >= 1000) {
@@ -721,11 +867,31 @@ function renderFrame(state, now) {
 }
 
 // -----------------------------------------------------------------------------
+function resumeSegmentationOnCameraFrame(state) {
+  const wasWaiting = state.waitingForCameraFrame;
+  state.waitingForCameraFrame = false;
+  // Send an eligible new frame to the Worker before spending time compositing.
+  // Main-thread inference retains its timer so it does not block this callback.
+  const now = performance.now();
+  if (state.executionMode === "worker" && state.running &&
+      state.effectMode !== "none" && !state.segmentationBusy &&
+      (wasWaiting || now + SCHEDULE_TOLERANCE_MS >= state.nextSegmentationAt)) {
+    cancelSegmentationTimer(state);
+    return runSegmentationTick(state);
+  }
+  if (wasWaiting) scheduleSegmentation(state);
+}
+
+// Camera callbacks measure delivery pressure and resume waiting inference.
+// In active effects, renderFrame normally leaves the previous paired output
+// untouched; Worker completion is what publishes the next processed image.
 function scheduleFrame(state) {
   if (!state.running) return;
   if (typeof state.video.requestVideoFrameCallback === "function") {
     state.videoFrameCallbackId = state.video.requestVideoFrameCallback(
       (now) => {
+        noteSessionFrame(1000 / OUTPUT.fps);
+        resumeSegmentationOnCameraFrame(state);
         renderFrame(state, now);
         scheduleFrame(state);
       },
@@ -734,6 +900,8 @@ function scheduleFrame(state) {
     state.animationFrameId = requestAnimationFrame((now) => {
       if (state.video.currentTime !== state.lastRenderedVideoTime) {
         state.lastRenderedVideoTime = state.video.currentTime;
+        noteSessionFrame(1000 / OUTPUT.fps);
+        resumeSegmentationOnCameraFrame(state);
         renderFrame(state, now);
       }
       scheduleFrame(state);
@@ -766,6 +934,7 @@ function setEffect(state, options = {}) {
   }
   const previousMode = state.effectMode;
   state.effectMode = options.mode;
+  state.pairNeedsRender = true;
   if (options.mode === "none") {
     cancelSegmentationTimer(state);
   } else if (previousMode === "none") {
@@ -786,9 +955,12 @@ function getState(state) {
     segmentationRuns: state.segmentationRuns,
     segmentationErrors: state.segmentationErrors,
     averageInferenceMs: Number(state.averageInferenceMs.toFixed(1)),
-    measuredSegmentationFps: state.averageMaskIntervalMs
-      ? Number((1000 / state.averageMaskIntervalMs).toFixed(1))
-      : 0,
+    averageMaskLatencyMs: Number(state.averageMaskLatencyMs.toFixed(1)),
+    lastMaskLatencyMs: Number(state.lastMaskLatencyMs.toFixed(1)),
+    waitingForCameraFrame: state.waitingForCameraFrame,
+    measuredSegmentationFps: state.maskCompletedTimes.filter(at => performance.now() - at < 1000).length,
+    deliveryStalls: state.deliveryStalls,
+    schedulingLatencyMs: Number(getSchedulingLatencyMs(state).toFixed(1)),
     averageMaskIntervalMs: Number(state.averageMaskIntervalMs.toFixed(1)),
     maskAgeMs: state.hasMask
       ? Math.round(performance.now() - state.maskSourceTimestampMs)
@@ -797,6 +969,17 @@ function getState(state) {
   return {
     engine: "lite-cpu",
     mode: state.executionMode,
+    compositionMode: "same-source-frame",
+    framePairing: {
+      sourceBuffers: 2,
+      pendingFrames: state.pendingFrameTimestampMs === null ? 0 : 1,
+      completedFrames: state.pairedFrames,
+      droppedLatePairs: state.droppedLatePairs,
+      maxPairLatencyMs: PAIR_MAX_LATENCY_MS,
+      lastCompositeLatencyMs: Number(state.lastCompositeLatencyMs.toFixed(1)),
+      sourceTimestampMs: state.pairedFrameTimestampMs,
+      maskTimestampMs: state.hasMask ? state.maskSourceTimestampMs : null,
+    },
     running: state.running,
     enabled: state.effectMode === "blur",
     effectMode: state.effectMode,
@@ -807,6 +990,8 @@ function getState(state) {
     delegate: `CPU ${state.executionMode}`,
     processingSize: OUTPUT,
     analysisSize: ANALYSIS,
+    analysisTransfer: typeof state.analysis.canvas.transferToImageBitmap === "function"
+      ? "synchronous-offscreen" : "async-image-bitmap",
     measuredRenderFps: state.measuredRenderFps,
     hasMask: state.hasMask,
     allocator,
@@ -820,6 +1005,11 @@ function getState(state) {
   };
 }
 
+/**
+ * Lifetime-owned surfaces and scheduler state for one Lite instance. The two
+ * source buffers exchange roles; they are not a growing frame queue. Timing
+ * fields ending in Ms use the main-thread monotonic clock unless noted.
+ */
 function createRuntimeState(inputTrack, video, outputTrack, surfaces) {
   const state = {
     running: true,
@@ -828,6 +1018,14 @@ function createRuntimeState(inputTrack, video, outputTrack, surfaces) {
     video,
     output: { ...surfaces.output, track: outputTrack },
     analysis: surfaces.analysis,
+    pendingFrame: surfaces.pendingFrame,
+    pairedFrame: surfaces.pairedFrame,
+    pendingFrameTimestampMs: null,
+    pairedFrameTimestampMs: null,
+    pairNeedsRender: false,
+    pairedFrames: 0,
+    droppedLatePairs: 0,
+    lastCompositeLatencyMs: 0,
     mask: { ...surfaces.mask, image: null },
     foreground: surfaces.foreground,
     blur: surfaces.blur,
@@ -840,10 +1038,16 @@ function createRuntimeState(inputTrack, video, outputTrack, surfaces) {
     workerFallbackReason: null,
     fallbackPromise: null,
     segmentationBusy: false,
+    waitingForCameraFrame: false,
     workerFailed: false,
     hasMask: false,
     maskSourceTimestampMs: -Infinity,
     averageMaskIntervalMs: 0,
+    averageMaskLatencyMs: 0,
+    maskLatencySamples: [],
+    maskCompletedTimes: [],
+    deliveryStalls: 0,
+    lastMaskLatencyMs: 0,
     nextSegmentationAt: -Infinity,
     scheduledTargetFps: 0,
     lastMediaPipeTimestamp: -1,
@@ -868,11 +1072,14 @@ function createRuntimeState(inputTrack, video, outputTrack, surfaces) {
   return state;
 }
 
+// Stop callbacks and owned output resources; the router owns the camera clone
+// and releases it separately. Shared microphone tracks must never be stopped.
 export async function destroyLiteBackground() {
   const state = activeState;
   activeState = null;
   if (!state) return;
   state.running = false;
+  state.pendingFrameTimestampMs = null;
   cancelSegmentationTimer(state);
   if (
     state.videoFrameCallbackId !== null &&
@@ -922,10 +1129,9 @@ export async function backgroundLite(stream) {
       alpha: false,
       desynchronized: true,
     });
-    const analysis = createCanvas(ANALYSIS.width, ANALYSIS.height, {
-      alpha: false,
-      desynchronized: true,
-    });
+    const analysis = createAnalysisCanvas();
+    const pendingFrame = createCanvas(OUTPUT.width, OUTPUT.height, { alpha: false });
+    const pairedFrame = createCanvas(OUTPUT.width, OUTPUT.height, { alpha: false });
     const mask = createCanvas(ANALYSIS.width, ANALYSIS.height, { alpha: true });
     const foreground = createCanvas(OUTPUT.width, OUTPUT.height, {
       alpha: true,
@@ -944,6 +1150,8 @@ export async function backgroundLite(stream) {
     state = createRuntimeState(inputVideoTrack, video, outputTrack, {
       output,
       analysis,
+      pendingFrame,
+      pairedFrame,
       mask,
       foreground,
       blur,
@@ -953,7 +1161,7 @@ export async function backgroundLite(stream) {
     // 3. Prefer Worker inference; transparently retain the same-model fallback.
     await startSegmentationBackend(state);
 
-    // 4. Start independent segmentation and the 30 FPS compositor.
+    // 4. Camera ticks schedule work; completed masks publish matched frames.
     activeState = state;
     scheduleSegmentation(state);
     scheduleFrame(state);

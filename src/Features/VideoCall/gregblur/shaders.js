@@ -76,12 +76,9 @@ out vec4 fragColor;
 void main() {
   float current = texture(u_currentMask, texCoords).r;
   float previous = texture(u_previousMask, texCoords).r;
-
-  // Keep smoothing for small confidence noise, but stop dragging the previous
-  // silhouette through pixels whose foreground probability changed sharply.
-  float maskChange = abs(current - previous);
-  float motion = smoothstep(0.04, 0.28, maskChange);
-  float historyWeight = u_blendFactor * (1.0 - motion);
+  // Keep stationary edges stable; discard history where the person moved.
+  float historyWeight = u_blendFactor *
+    (1.0 - smoothstep(0.02, 0.12, abs(current - previous)));
   float blended = mix(current, previous, historyWeight);
   fragColor = vec4(blended, blended, blended, 1.0);
 }

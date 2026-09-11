@@ -1,12 +1,18 @@
+/**
+ * Dedicated Lite inference backend (one model per Worker).
+ * Main -> Worker: init {modelAssetPath}, segment {bitmap, timestampMs}.
+ * Worker -> Main: ready, mask {bitmap, width, height, timestampMs, inferenceMs},
+ * or error {message, inferenceMs?}. Bitmap ownership transfers with messages;
+ * each receiver closes what it consumes. The main thread enforces backpressure.
+ */
 const MEDIAPIPE_VERSION = "0.10.32";
 const VISION_BUNDLE_URL =
   `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_VERSION}/+esm`;
 const WASM_BASE_PATH =
   `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_VERSION}/wasm`;
 
-// Worker flow: initialise one model, segment one transferred frame, expand its
-// confidence-mask edge by one pixel, then transfer the mask bitmap back.
 let segmenter = null;
+let labels = [];
 let maskCanvas = null;
 let maskContext = null;
 let maskImage = null;
@@ -16,6 +22,9 @@ function smoothstep(edge0, edge1, value) {
   return x * x * (3 - 2 * x);
 }
 
+// Reuse the pixel buffer and canvas; expand foreground by one axial neighbour
+// before mapping confidence to alpha. This is spatial edge treatment, not
+// temporal smoothing. Keep the main-thread fallback conversion equivalent.
 function prepareMask(width, height, values) {
   if (!maskCanvas || maskCanvas.width !== width || maskCanvas.height !== height) {
     maskCanvas = new OffscreenCanvas(width, height);
@@ -41,7 +50,9 @@ function prepareMask(width, height, values) {
     pixels[offset + 3] = Math.round(alpha * 255);
   }
   maskContext.putImageData(maskImage, 0, 0);
-  return maskCanvas.transferToImageBitmap();
+  return {
+    bitmap: maskCanvas.transferToImageBitmap(),
+  };
 }
 
 async function initialise(modelAssetPath) {
@@ -55,23 +66,32 @@ async function initialise(modelAssetPath) {
     outputCategoryMask: false,
     outputConfidenceMasks: true,
   });
+  labels = segmenter.getLabels?.() ?? [];
   self.postMessage({
     type: "ready",
     model: "selfie-segmenter-landscape-float16",
     delegate: "CPU",
     mediaPipeVersion: MEDIAPIPE_VERSION,
+    labels,
   });
 }
 
+// Echo timestampMs unchanged so the caller can pair the mask with its source.
+// inferenceMs includes model execution and alpha-mask preparation, but excludes
+// main-thread capture, message delivery and final compositing.
 function segment(bitmap, timestampMs) {
   const startedAt = performance.now();
   let result;
   try {
     result = segmenter.segmentForVideo(bitmap, timestampMs);
-    const personMask = result?.confidenceMasks?.[0];
+    const personIndex = labels.findIndex((label) =>
+      String(label).toLowerCase().includes("person")
+    );
+    const masks = result?.confidenceMasks ?? [];
+    const personMask = masks[personIndex >= 0 ? personIndex : masks.length - 1];
     if (!personMask) throw new Error("MediaPipe returned no person mask.");
 
-    const maskBitmap = prepareMask(
+    const preparedMask = prepareMask(
       personMask.width,
       personMask.height,
       personMask.getAsFloat32Array(),
@@ -80,13 +100,13 @@ function segment(bitmap, timestampMs) {
     self.postMessage(
       {
         type: "mask",
-        bitmap: maskBitmap,
+        bitmap: preparedMask.bitmap,
         width: personMask.width,
         height: personMask.height,
         inferenceMs,
         timestampMs,
       },
-      [maskBitmap],
+      [preparedMask.bitmap],
     );
   } catch (error) {
     self.postMessage({

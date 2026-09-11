@@ -1,10 +1,14 @@
 /**
  * Squidly background processing.
- * Gregblur owns frame/track lifecycle and GPU compositing; Squidly provides
- * the shared MediaPipe runtime and Eye-gaze-aware segmentation scheduling.
+ * Owns startup measurement, fixed engine selection, public controls and cleanup.
+ * Gregblur owns GPU compositing; Lite owns Worker/Canvas same-frame compositing.
+ * Shared MediaPipe telemetry informs work budgets without rerouting a live call.
  */
 
+import { chooseStartupEngine, measureStartupEngine } from "./background-benchmark.js";
 import { createRawBackgroundProcessor } from "./gregblur/raw.js";
+import { createSegmentationClock } from "./gregblur/segmentation-clock.js";
+import { getHeadroomSegmentationFps } from "./gregblur/latency-policy.js";
 import {
   classifySessionPerformance,
   getLatestFaceLandmarks,
@@ -15,6 +19,7 @@ import {
   getVisionRuntimeState,
   noteVisionTaskRun,
   noteSessionFrame,
+  resetBackgroundPerformanceWindow,
   wasVisionTaskRecentlyActive,
 } from "../../Utilities/MediaPipe/vision-runtime.js";
 
@@ -36,7 +41,7 @@ const MODELS = Object.freeze({
   balanced: Object.freeze({
     name: "selfie-multiclass-256",
     url: MULTICLASS_MODEL_URL,
-    segmentationFps: 30,
+    segmentationFps: 20,
     gazeSegmentationFps: 12,
   }),
 });
@@ -44,7 +49,7 @@ const MODELS = Object.freeze({
 const BLUR_OPTIONS = Object.freeze({
   blurRadius: 25,
   downsampleFactor: 2,
-  temporalBlendFactor: 0.24,
+  temporalBlendFactor: 0.12,
   bilateralSigmaSpace: 4,
   bilateralSigmaColor: 0.1,
 });
@@ -81,18 +86,22 @@ const RESOURCE_LEVEL_ORDER = Object.freeze([
 const RESOURCE_CHECK_INTERVAL_MS = 1000;
 const RESOURCE_DOWNGRADE_COOLDOWN_MS = 2500;
 const RESOURCE_RECOVERY_MS = 10000;
-const RESOURCE_WARMUP_MS = 2000;
-const RESOURCE_WARMUP_MAX_FPS = 20;
+const RESOURCE_WARMUP_MS = 5000;
+// Versioned preference retires the old laptop-testing CPU override.
+const ENGINE_PREFERENCE_KEY = "squidly-background-engine-v2";
+const ENGINE_PREFERENCES = new Set(["auto", "lite-cpu"]);
 
 // -----------------------------------------------------------------------------
 // Router state
 // -----------------------------------------------------------------------------
 
 let activeEngine = null;
+let startupController = null;
+let startupQueue = Promise.resolve();
 let lifecycleCleanupInstalled = false;
 
 // -----------------------------------------------------------------------------
-// Hardware and quality profile resolution
+// Hardware, quality profile, and stored/explicit preference resolution
 // -----------------------------------------------------------------------------
 
 function inspectRenderer() {
@@ -146,6 +155,44 @@ function chooseProfile(requestedQuality) {
 }
 
 // -----------------------------------------------------------------------------
+// Reversible engine preference used for laptop A/B testing
+// -----------------------------------------------------------------------------
+
+function readEnginePreference(options = {}) {
+  if (ENGINE_PREFERENCES.has(options.engine)) return options.engine;
+  try {
+    const stored = globalThis.localStorage?.getItem(ENGINE_PREFERENCE_KEY);
+    if (ENGINE_PREFERENCES.has(stored)) return stored;
+  } catch {
+    // Storage may be unavailable in private or embedded browser contexts.
+  }
+  return "auto";
+}
+
+function setEnginePreference(engine) {
+  if (!ENGINE_PREFERENCES.has(engine)) {
+    throw new RangeError('Background engine must be "auto" or "lite-cpu".');
+  }
+  globalThis.squidlyBackgroundOptions = {
+    ...(globalThis.squidlyBackgroundOptions ?? {}),
+    engine,
+  };
+  try {
+    if (engine === "auto") {
+      globalThis.localStorage?.removeItem(ENGINE_PREFERENCE_KEY);
+    } else {
+      globalThis.localStorage?.setItem(ENGINE_PREFERENCE_KEY, engine);
+    }
+  } catch {
+    // The in-memory preference still applies to the next call on this page.
+  }
+  console.info(
+    `[Background Router] Next call will use ${engine}. Re-enter the call to apply.`,
+  );
+  return { engine, appliesOnNextCall: true };
+}
+
+// -----------------------------------------------------------------------------
 // Camera setup and shared MediaPipe segmentation provider
 // -----------------------------------------------------------------------------
 
@@ -162,6 +209,8 @@ async function applyCameraConstraints(track) {
   return track.getSettings?.() ?? {};
 }
 
+// GPU-only budget: startup warmup, rolling pressure and gradual recovery.
+// Lite has its own Worker-aware allocator; do not apply these caps to it.
 function createAdaptiveResourceAllocator(profile) {
   const startedAt = performance.now();
   let level = "normal";
@@ -257,27 +306,28 @@ function createAdaptiveResourceAllocator(profile) {
     const baseFps = eyeGazeActive
       ? profile.gazeSegmentationFps
       : profile.segmentationFps;
+    const headroomFps = getHeadroomSegmentationFps(
+      baseFps, performanceState,
+      !warmingUp && level === "normal" && measuredPressure.level === "normal",
+    );
     const levelFps = level === "hidden"
       ? 1
-      : Math.max(3, Math.round(baseFps * RESOURCE_LEVELS[level].multiplier));
+      : Math.max(3, Math.round(headroomFps * RESOURCE_LEVELS[level].multiplier));
     const backgroundInferenceMs =
       performanceState.tasks["background-segmenter"]?.averageDurationMs ?? 0;
     const sustainableFps = backgroundInferenceMs > 0
       ? Math.max(2, Math.floor(700 / backgroundInferenceMs))
       : baseFps;
-    // Shader/model startup still gets a short safety window, but capable GPUs
-    // no longer spend five seconds reusing a 12 FPS mask.
-    const startupFps = warmingUp
-      ? Math.min(RESOURCE_WARMUP_MAX_FPS, baseFps)
-      : baseFps;
+    const startupFps = warmingUp ? 12 : headroomFps;
     const targetFps = Math.min(levelFps, sustainableFps, startupFps);
     snapshot = {
-      policy: "adaptive-session-budget-v2",
+      policy: "adaptive-session-budget-v3",
       level,
       desiredLevel: desired.level,
       reasons: desired.reasons,
       eyeGazeActive,
       baseFps,
+      headroomFps,
       targetFps,
       sustainableFps,
       backgroundInferenceMs: Number(backgroundInferenceMs.toFixed(1)),
@@ -304,12 +354,18 @@ function createAdaptiveResourceAllocator(profile) {
   };
 }
 
+/**
+ * Adapter between MediaPipe and Gregblur. Retain the MediaPipe result while
+ * its borrowed WebGL texture is used, then close it on replacement/destroy.
+ * Skipped inference slots reuse the last mask with current camera video;
+ * the Lite same-source-frame pairing contract does not apply to this path.
+ */
 function createSharedSegmentationProvider(profile) {
   const allocator = createAdaptiveResourceAllocator(profile);
+  const clock = createSegmentationClock();
   let segmenter = null;
   let cachedResult = null;
   let lastTimestamp = -1;
-  let lastSegmentationAt = -Infinity;
   let lastMaskUpdatedAt = 0;
   let segmentationRuns = 0;
   let reusedMasks = 0;
@@ -317,6 +373,7 @@ function createSharedSegmentationProvider(profile) {
   const frameResult = {
     confidenceTexture: null,
     updated: false,
+    moving: false,
     close() {},
   };
 
@@ -337,9 +394,9 @@ function createSharedSegmentationProvider(profile) {
   const runSegmentation = (source, timestampMs) => {
     if (!segmenter) return false;
     allocator.noteFrame();
-    const mayReuse =
-      frameResult.confidenceTexture &&
-      timestampMs - lastSegmentationAt < 1000 / targetFps();
+    const mayReuse = !clock.shouldRun(
+      timestampMs, targetFps(), Boolean(frameResult.confidenceTexture),
+    );
     if (mayReuse) {
       reusedMasks += 1;
       frameResult.updated = false;
@@ -370,8 +427,7 @@ function createSharedSegmentationProvider(profile) {
       result.close?.();
       throw error;
     }
-    lastSegmentationAt = timestampMs;
-    lastMaskUpdatedAt = performance.now();
+    lastMaskUpdatedAt = startedAt; // Capture/processing start, matching Lite mask-age semantics.
     segmentationRuns += 1;
     return true;
   };
@@ -381,7 +437,7 @@ function createSharedSegmentationProvider(profile) {
       closeCachedResult();
       segmenter?.close?.();
       lastTimestamp = -1;
-      lastSegmentationAt = -Infinity;
+      clock.reset();
       const fileset = await getVisionFileset();
       segmenter = await getVisionModule().ImageSegmenter.createFromOptions(fileset, {
         baseOptions: { modelAssetPath: profile.url, delegate: "GPU" },
@@ -409,6 +465,7 @@ function createSharedSegmentationProvider(profile) {
         eyeGazeActive: allocation.eyeGazeActive,
         segmentationRuns,
         reusedMasks,
+        motion: { enabled: false, reason: "CPU readback removed after measured overhead" },
         maskAgeMs: segmentationRuns
           ? Math.round(performance.now() - lastMaskUpdatedAt)
           : null,
@@ -586,7 +643,8 @@ async function startGregblur(stream, rendererInfo, requestedQuality) {
 // Engine registration, lifecycle, and diagnostics
 // -----------------------------------------------------------------------------
 
-async function destroyActiveEngine() {
+async function destroyActiveEngine(cancelStartup = true) {
+  if (cancelStartup) startupController?.abort();
   const engine = activeEngine;
   activeEngine = null;
   if (!engine) return;
@@ -601,6 +659,8 @@ export async function setBackgroundBlurEnabled(enabled) {
   return await setBackgroundEffect(enabled ? "blur" : "none");
 }
 
+// Update the existing engine/track. A supplied decoded background becomes an
+// engine-owned resource and may be closed when replaced or during destruction.
 export async function setBackgroundEffect(mode, options = {}) {
   if (!["none", "blur", "image"].includes(mode)) {
     return {
@@ -754,6 +814,10 @@ function installDiagnostics(selection) {
     setEnabled: setBackgroundBlurEnabled,
     setEffect: setBackgroundEffect,
     setBeautyStrength,
+    getEnginePreference: () => readEnginePreference(
+      globalThis.squidlyBackgroundOptions ?? {},
+    ),
+    setEnginePreference,
     report: () => reportDiagnostics(selection),
     destroy: destroyActiveEngine,
   };
@@ -789,75 +853,134 @@ function recordAttempt(selection, engine, result) {
 }
 
 // -----------------------------------------------------------------------------
-// Public routing pipeline: Gregblur -> Lite -> original stream
+// Public routing: sequential startup comparison -> locked winner or original video
 // -----------------------------------------------------------------------------
 
-export async function background(stream, requestedOptions = {}) {
-  if (!(stream instanceof MediaStream)) {
-    console.warn("[Background Router] Invalid MediaStream; using original value.");
-    return stream;
-  }
+// Serialize startup probes: Lite has a single active backend, and simultaneous
+// calls must never destroy each other's workers or compete for measurements.
+export function background(stream, requestedOptions = {}) {
+  if (!(stream instanceof MediaStream)) return Promise.resolve(stream);
+  startupController?.abort();
+  const controller = new AbortController();
+  startupController = controller;
+  const pending = startupQueue.catch(() => {}).then(() =>
+    startMeasuredBackground(stream, requestedOptions, controller));
+  startupQueue = pending;
+  return pending.finally(() => {
+    if (startupController === controller) startupController = null;
+  });
+}
 
+// The router owns camera clones; original audio tracks are borrowed. Engine
+// identity is selected here once per startup, never by runtime budget updates.
+async function startMeasuredBackground(stream, requestedOptions, controller) {
+  const signal = controller.signal;
+  if (signal.aborted) return stream;
   installLifecycleCleanup();
-  await destroyActiveEngine();
+  await destroyActiveEngine(false);
+  const input = stream.getVideoTracks()[0];
+  if (!input || input.readyState !== "live") return stream;
+  const ended = () => controller.abort();
+  input.addEventListener("ended", ended, {once:true});
   const rendererInfo = inspectRenderer();
-  const options = {
-    ...(globalThis.squidlyBackgroundOptions ?? {}),
-    ...requestedOptions,
-  };
+  const options = {...(globalThis.squidlyBackgroundOptions ?? {}), ...requestedOptions};
+  const requestedEngine = readEnginePreference(options);
   const selection = {
-    engine: "pending",
-    policy: "automatic-webgl2-gregblur-lite-fallback",
-    reason: "Selecting a background engine",
-    rendererInfo,
-    mediaPipeRuntime: getVisionRuntimeState(),
-    attempts: [],
+    engine: "pending", requestedEngine,
+    reason: "Measuring startup candidates",
+    rendererInfo, mediaPipeRuntime: getVisionRuntimeState(), attempts: [],
+    benchmark: {
+      policy: "startup-short-measured-and-locked-v2", locked: false,
+      latencyMetric: "mask-age-at-output-probe-p95",
+      results: [], ranking: [], restartFailures: [], winner: null,
+    },
   };
   installDiagnostics(selection);
 
-  // Stage 1: normal hardware path using Gregblur + shared MediaPipe.
-  if (rendererInfo.supported && !rendererInfo.softwareRenderer) {
+  // Probe/selected engines own camera clones; disposing a trial must never
+  // cancel the original camera or stop the shared audio tracks.
+  const startCandidate = async (name) => {
+    signal.throwIfAborted();
+    resetBackgroundPerformanceWindow();
+    const camera = input.clone();
+    let engine;
+    const stopCamera = () => {
+      if (engine?.destroy) void engine.destroy();
+      else camera.stop();
+    };
+    input.addEventListener("ended", stopCamera, {once:true});
+    const candidateStream = new MediaStream([camera, ...stream.getAudioTracks()]);
+    const release = () => {input.removeEventListener("ended", stopCamera);camera.stop();};
     try {
-      const result = await startGregblur(stream, rendererInfo, options.quality);
-      recordAttempt(selection, "gregblur", result);
-      if (result.ok) {
-        selection.engine = "gregblur";
-        selection.reason = result.reason;
-        return activateEngine(result, selection);
+      if (name === "gregblur") {
+        engine = await startGregblur(candidateStream, rendererInfo, options.quality);
+      } else {
+        const { backgroundLite } = await import("./background-lite.js");
+        engine = await backgroundLite(candidateStream);
       }
+      if (!engine?.ok) {
+        await engine?.destroy?.();
+        release();
+        return engine;
+      }
+      // Discard loading/probe history before the next candidate starts sampling.
+      resetBackgroundPerformanceWindow();
+      const destroy = engine.destroy;
+      let disposed = false;
+      engine.destroy = async () => {
+        if (disposed) return;
+        disposed = true;
+        try {await destroy();} finally {release();}
+      };
+      if (signal.aborted) {
+        await engine.destroy();
+        signal.throwIfAborted();
+      }
+      return engine;
     } catch (error) {
-      recordAttempt(selection, "gregblur", {
-        ok: false,
-        reason: error instanceof Error ? error.message : String(error),
-      });
+      await engine?.destroy?.();
+      release();
+      throw error;
     }
-  } else {
-    recordAttempt(selection, "gregblur", {
-      ok: false,
-      skipped: true,
-      reason: "Hardware WebGL2 is unavailable or software-rendered",
-    });
-  }
+  };
 
-  // Stage 2: lazy CPU fallback for devices without a usable GPU path.
+  let selected;
   try {
-    const { backgroundLite } = await import("./background-lite.js");
-    const result = await backgroundLite(stream, { rendererInfo });
-    recordAttempt(selection, "lite-cpu", result);
-    if (result.ok) {
-      selection.engine = "lite-cpu";
-      selection.reason = result.reason;
-      return activateEngine(result, selection);
+    if (requestedEngine === "lite-cpu") {
+      // Explicit new-version override remains available for diagnostics only.
+      selected = await startCandidate("lite-cpu");
+      recordAttempt(selection, "lite-cpu", selected);
+      selection.reason = "Explicit Lite override; fixed for this call";
+    } else {
+      const candidates = [];
+      if (rendererInfo.supported && !rendererInfo.softwareRenderer) {
+        candidates.push({name:"gregblur", start:()=>startCandidate("gregblur")});
+      } else {
+        recordAttempt(selection, "gregblur", {ok:false, skipped:true, reason:"Hardware WebGL2 unavailable"});
+      }
+      candidates.push({name:"lite-cpu", start:()=>startCandidate("lite-cpu")});
+      selected = await chooseStartupEngine(candidates, measureStartupEngine, signal, selection.benchmark);
+      selection.attempts.push(...selection.benchmark.results);
+      selection.reason = selected
+        ? "Selected by startup latency/FPS measurements; fixed for this call"
+        : "No candidate produced valid startup measurements; using original video";
+    }
+    signal.throwIfAborted();
+    if (selected?.ok) {
+      selection.engine = selected.mode;
+      selection.benchmark.locked = true;
+      return activateEngine(selected, selection);
     }
     selection.engine = "original";
-    selection.reason = result.reason ?? "Lightweight blur was unavailable";
+    selection.benchmark.locked = true;
+    return stream;
   } catch (error) {
+    await selected?.destroy?.();
+    if (activeEngine === selected) activeEngine = null;
     selection.engine = "original";
-    selection.reason = error instanceof Error ? error.message : String(error);
-    recordAttempt(selection, "lite-cpu", { ok: false, reason: selection.reason });
+    selection.reason = signal.aborted ? "Startup selection cancelled" : String(error.message ?? error);
+    return stream;
+  } finally {
+    input.removeEventListener("ended", ended);
   }
-
-  // Stage 3: preserve the call by returning the unprocessed input stream.
-  console.warn("[Background Router] Using original video.", selection);
-  return stream;
 }

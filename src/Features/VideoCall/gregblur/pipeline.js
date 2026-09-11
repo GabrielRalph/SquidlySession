@@ -22,6 +22,8 @@ import {
   createProgram,
 } from "./webgl-utils.js";
 
+import { getMaskHistoryWeight } from "./latency-policy.js";
+
 const EFFECT_MODES = new Set(["none", "blur", "image"]);
 
 function sanitisePositiveNumber(value, fallback, minimum) {
@@ -94,9 +96,10 @@ export function createGregblurBackgroundPipeline(provider, options = {}) {
     0.001,
   );
   const downsampleFactor = sanitiseInteger(options.downsampleFactor, 2, 1);
+  const maskMaxDimension = sanitiseInteger(options.maskMaxDimension, 320, 1);
   const temporalBlendFactor = sanitiseUnitInterval(
     options.temporalBlendFactor,
-    0.24,
+    0.12,
   );
 
   let canvas = null;
@@ -120,9 +123,12 @@ export function createGregblurBackgroundPipeline(provider, options = {}) {
   let backgroundBlurPingFbo = null;
   let backgroundBlurPongFbo = null;
   let hasPreviousMask = false;
+  let lastMaskTimestampMs = -Infinity;
 
   let width = 0;
   let height = 0;
+  let maskWidth = 0;
+  let maskHeight = 0;
   let backgroundWidth = 0;
   let backgroundHeight = 0;
   let effectMode = "blur";
@@ -211,6 +217,9 @@ export function createGregblurBackgroundPipeline(provider, options = {}) {
     if (!gl) return;
     width = nextWidth;
     height = nextHeight;
+    const maskScale = Math.min(1, maskMaxDimension / Math.max(width, height));
+    maskWidth = Math.max(1, Math.round(width * maskScale));
+    maskHeight = Math.max(1, Math.round(height * maskScale));
     backgroundWidth = Math.max(1, Math.floor(width / downsampleFactor));
     backgroundHeight = Math.max(1, Math.floor(height / downsampleFactor));
     deleteFrameResources();
@@ -240,9 +249,9 @@ export function createGregblurBackgroundPipeline(provider, options = {}) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
     frameOrientedFbo = createFboWithTexture(gl, width, height);
-    bilateralFbo = createFboWithTexture(gl, width, height);
-    temporalFbo = createFboWithTexture(gl, width, height);
-    previousMaskFbo = createFboWithTexture(gl, width, height);
+    bilateralFbo = createFboWithTexture(gl, maskWidth, maskHeight);
+    temporalFbo = createFboWithTexture(gl, maskWidth, maskHeight);
+    previousMaskFbo = createFboWithTexture(gl, maskWidth, maskHeight);
     backgroundDownsampleFbo = createFboWithTexture(
       gl,
       backgroundWidth,
@@ -476,6 +485,9 @@ export function createGregblurBackgroundPipeline(provider, options = {}) {
     backgroundUploaded = false;
   }
 
+  // Upload the current camera frame on every output update. Segmentation can
+  // return a cached mask, whose refinement passes are skipped. This GPU path
+  // intentionally differs from Lite, which retains each source until its mask.
   function processFrameInternal(source, timestampMs) {
     if (
       !gl ||
@@ -560,12 +572,13 @@ export function createGregblurBackgroundPipeline(provider, options = {}) {
       }
       const backgroundConfidenceTexture = segmentResult.confidenceTexture;
 
-      // The confidence texture is reused between MediaPipe runs. Its expensive
-      // 11x11 bilateral pass only needs to run when that texture changes.
-      if (segmentResult.updated !== false || !hasPreviousMask) {
+      // Refine at mask resolution while keeping the person at camera resolution.
+      // Cached masks need no refinement, temporal blend or history copy.
+      const maskUpdated = segmentResult.updated !== false || !hasPreviousMask;
+      if (maskUpdated) {
         gl.useProgram(bilateralProgram);
         gl.bindFramebuffer(gl.FRAMEBUFFER, bilateralFbo.fbo);
-        gl.viewport(0, 0, width, height);
+        gl.viewport(0, 0, maskWidth, maskHeight);
         gl.activeTexture(gl.TEXTURE2);
         gl.bindTexture(gl.TEXTURE_2D, backgroundConfidenceTexture);
         gl.uniform1i(gl.getUniformLocation(bilateralProgram, "u_mask"), 2);
@@ -591,11 +604,12 @@ export function createGregblurBackgroundPipeline(provider, options = {}) {
         drawQuad();
       }
 
-      let finalMaskTexture;
-      if (hasPreviousMask) {
+      const blendHistory = hasPreviousMask && !segmentResult.moving;
+      let finalMaskTexture = previousMaskFbo.texture;
+      if (maskUpdated && blendHistory) {
         gl.useProgram(temporalBlendProgram);
         gl.bindFramebuffer(gl.FRAMEBUFFER, temporalFbo.fbo);
-        gl.viewport(0, 0, width, height);
+        gl.viewport(0, 0, maskWidth, maskHeight);
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, bilateralFbo.texture);
         gl.uniform1i(
@@ -610,23 +624,26 @@ export function createGregblurBackgroundPipeline(provider, options = {}) {
         );
         gl.uniform1f(
           gl.getUniformLocation(temporalBlendProgram, "u_blendFactor"),
-          temporalBlendFactor,
+          getMaskHistoryWeight(temporalBlendFactor, timestampMs, lastMaskTimestampMs),
         );
         drawQuad();
         finalMaskTexture = temporalFbo.texture;
-      } else {
+      } else if (maskUpdated) {
         finalMaskTexture = bilateralFbo.texture;
       }
 
-      gl.useProgram(copyProgram);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, previousMaskFbo.fbo);
-      gl.viewport(0, 0, width, height);
-      gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, finalMaskTexture);
-      gl.uniform1i(gl.getUniformLocation(copyProgram, "u_texture"), 0);
-      drawQuad();
-      hasPreviousMask = true;
-      finalMaskTexture = previousMaskFbo.texture;
+      if (maskUpdated) {
+        // Retain the rendered texture by swapping ownership, avoiding a copy.
+        // All three targets stay distinct: no pass reads its own output.
+        if (blendHistory) {
+          [previousMaskFbo, temporalFbo] = [temporalFbo, previousMaskFbo];
+        } else {
+          [previousMaskFbo, bilateralFbo] = [bilateralFbo, previousMaskFbo];
+        }
+        hasPreviousMask = true;
+        lastMaskTimestampMs = timestampMs;
+        finalMaskTexture = previousMaskFbo.texture;
+      }
 
       const background = effectMode === "image"
         ? ensureBackgroundTexture()
@@ -779,6 +796,8 @@ export function createGregblurBackgroundPipeline(provider, options = {}) {
         beautySupported: Boolean(faceLandmarksProvider),
         beautyStrength: Math.round(beautyStrength * 100),
         outputSize: { width, height },
+        maskSize: { width: maskWidth, height: maskHeight },
+        temporalBlendFactor,
         composite: "gregblur-shared-gpu-matte",
       };
     },

@@ -28,10 +28,7 @@ function startInsertableStreamsPipeline(sourceTrack, signal, pipeline) {
     transform(frame, controller) {
       let forwardedInput = false;
       try {
-        if (signal.aborted) {
-          frame.close();
-          return;
-        }
+        if (signal.aborted) return;
         if (!pipeline.isProcessing()) {
           controller.enqueue(frame);
           forwardedInput = true;
@@ -55,8 +52,8 @@ function startInsertableStreamsPipeline(sourceTrack, signal, pipeline) {
   });
 
   processor.readable
-    .pipeThrough(transformer)
-    .pipeTo(generator.writable)
+    .pipeThrough(transformer, { signal })
+    .pipeTo(generator.writable, { signal })
     .catch((error) => {
       if (!isAbortError(error)) {
         console.warn("[Gregblur Image] Track pipeline failed.", error);
