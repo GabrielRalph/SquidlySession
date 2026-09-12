@@ -8,6 +8,7 @@ import {
   wasVisionTaskRecentlyActive,
 } from "../../Utilities/MediaPipe/vision-runtime.js";
 import { relURL } from "../../Utilities/usefull-funcs.js";
+import { createLiteBeauty } from "./beauty-lite.js";
 
 /**
  * Lite runtime flow
@@ -455,6 +456,16 @@ function acceptMainThreadMask(state, mask, timestampMs) {
 // The analysis bitmap and foreground always originate from the same snapshot.
 function commitPairedFrame(state, timestampMs) {
   if (!state.running || timestampMs !== state.pendingFrameTimestampMs) return;
+  // Drain a request from before re-enabling without publishing its old image.
+  // recordSegmentation has released backpressure; the caller schedules next work.
+  if (timestampMs <= state.discardPairsThroughTimestampMs) {
+    // This is expected cancellation of old visual output, not an inference
+    // error or late-pair failure. Do not trigger model fallback for it.
+    state.pendingFrameTimestampMs = null;
+    state.hasMask = false;
+    state.nextSegmentationAt = -Infinity;
+    return;
+  }
   // Never publish an old camera snapshot after a long delivery stall. Keep
   // the existing raw-video fallback until a fresh pair becomes available.
   if (performance.now() - timestampMs > PAIR_MAX_LATENCY_MS) {
@@ -765,7 +776,17 @@ async function runSegmentationTick(state) {
 
 function drawDirectVideo(state) {
   state.output.context.clearRect(0, 0, OUTPUT.width, OUTPUT.height);
-  drawCover(state.output.context, state.video, OUTPUT.width, OUTPUT.height);
+  drawCover(state.output.context, applyLiteBeauty(state, state.video), OUTPUT.width, OUTPUT.height);
+}
+
+// An optional beauty failure must never disable blur or image replacement.
+function applyLiteBeauty(state, source) {
+  try { return state.beauty.process(source); }
+  catch (error) {
+    state.lastBeautyError = String(error.message ?? error);
+    state.beauty.setStrength(0);
+    return source;
+  }
 }
 
 function drawBlurBackground(state, source) {
@@ -791,6 +812,7 @@ function drawBlurBackground(state, source) {
 }
 
 function drawForeground(state, source) {
+  source = applyLiteBeauty(state, source);
   state.foreground.context.save();
   state.foreground.context.clearRect(0, 0, OUTPUT.width, OUTPUT.height);
   state.foreground.context.globalCompositeOperation = "source-over";
@@ -938,6 +960,13 @@ function setEffect(state, options = {}) {
   if (options.mode === "none") {
     cancelSegmentationTimer(state);
   } else if (previousMode === "none") {
+    // Use request identity rather than wall-clock comparisons. Do not clear the
+    // busy flag: a pending Worker result must drain before we reuse its buffer.
+    state.discardPairsThroughTimestampMs = state.lastMediaPipeTimestamp;
+    state.hasMask = false;
+    state.pairedFrameTimestampMs = null;
+    state.waitingForCameraFrame = false;
+    state.nextSegmentationAt = -Infinity;
     scheduleSegmentation(state);
   }
 }
@@ -968,6 +997,10 @@ function getState(state) {
   };
   return {
     engine: "lite-cpu",
+    beautySupported: true,
+    beautyStrength: state.beauty.getState().strength,
+    beauty: state.beauty.getState(),
+    lastBeautyError: state.lastBeautyError,
     mode: state.executionMode,
     compositionMode: "same-source-frame",
     framePairing: {
@@ -1014,6 +1047,8 @@ function createRuntimeState(inputTrack, video, outputTrack, surfaces) {
   const state = {
     running: true,
     effectMode: "blur",
+    beauty: createLiteBeauty(OUTPUT.width, OUTPUT.height),
+    lastBeautyError: null,
     inputTrack,
     video,
     output: { ...surfaces.output, track: outputTrack },
@@ -1022,6 +1057,9 @@ function createRuntimeState(inputTrack, video, outputTrack, surfaces) {
     pairedFrame: surfaces.pairedFrame,
     pendingFrameTimestampMs: null,
     pairedFrameTimestampMs: null,
+    discardPairsThroughTimestampMs: -Infinity,
+    // The source buffers and uploaded image outlive effect toggles. Only their
+    // accepted-pair identity changes; destruction owns resource release.
     pairNeedsRender: false,
     pairedFrames: 0,
     droppedLatePairs: 0,
@@ -1050,7 +1088,8 @@ function createRuntimeState(inputTrack, video, outputTrack, surfaces) {
     lastMaskLatencyMs: 0,
     nextSegmentationAt: -Infinity,
     scheduledTargetFps: 0,
-    lastMediaPipeTimestamp: -1,
+    // Worker warmup reserves VIDEO timestamps 0 and 1; live frames follow them.
+    lastMediaPipeTimestamp: 1,
     lastSegmentedVideoTime: -1,
     lastRenderedVideoTime: -1,
     videoFrameCallbackId: null,
@@ -1094,6 +1133,7 @@ export async function destroyLiteBackground() {
   releaseWorkerObjectUrl(state);
   state.segmenter?.close?.();
   state.background.image?.close?.();
+  state.beauty.destroy();
   state.output.track?.stop?.();
   state.video.pause();
   state.video.srcObject = null;
@@ -1186,6 +1226,13 @@ export async function backgroundLite(stream) {
       nativeEffects: true,
       imageSupported: true,
       setEffect: (options) => setEffect(state, options),
+      beautySupported: true,
+      setBeautyStrength: (value) => {
+        if (!state.running) throw new Error("Lite is no longer running");
+        state.beauty.setStrength(value);
+        state.lastBeautyError = null;
+        state.pairNeedsRender = true;
+      },
       getState: () => getState(state),
       destroy: destroyLiteBackground,
     };

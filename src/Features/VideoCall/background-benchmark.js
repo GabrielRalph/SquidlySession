@@ -69,6 +69,14 @@ export async function chooseStartupEngine(candidates, measure, signal, report) {
         }
         check();
         if (!engine?.ok) throw new Error(engine?.reason ?? 'Winner failed to restart');
+        // A restarted winner lost the trial's warm model/renderer state. Give
+        // this instance its own short warmup before handing its track to the
+        // call. Retained trials are already warm; this is not a new benchmark.
+        report.winnerWarmupMs = report.reusedTrial ? 0 : 1000;
+        // Honor cancellation during this wait; the existing catch/finally path
+        // releases the instance. No extra sampling or ranking occurs here.
+        if (report.winnerWarmupMs) await pause(report.winnerWarmupMs, signal);
+        check();
         report.winner = result.engine;
         report.locked = true;
         return engine;

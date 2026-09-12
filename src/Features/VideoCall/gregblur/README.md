@@ -33,3 +33,16 @@ refinement and history-copy passes.
 
 See [`../README_Background.md`](../README_Background.md) for selection,
 resource scheduling, public diagnostics, ownership, and validation.
+
+## Initialization and resumption
+
+Shader compilation jobs yield to the browser between programs during init.
+Individual driver compilation calls remain synchronous; this reduces one long
+initialization task without promising a shorter total loading time.
+
+On none-to-blur or none-to-image transitions, pipeline.setEffect invokes the
+provider's optional resetMask hook. The provider closes the borrowed mask result
+and resets its scheduling clock, while preserving the loaded model and monotonic
+MediaPipe timestamp. The pipeline invalidates temporal history and retains the
+uploaded background and output track. Blur-to-image transitions keep the shared
+matte; they do not restart the model.

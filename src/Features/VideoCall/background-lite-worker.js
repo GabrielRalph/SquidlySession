@@ -67,11 +67,44 @@ async function initialise(modelAssetPath) {
     outputConfidenceMasks: true,
   });
   labels = segmenter.getLabels?.() ?? [];
+  // Warm the actual model and alpha conversion before announcing readiness.
+  // These synthetic frames are never sent to the compositor or measured as
+  // live inference. Failure here is diagnostic only; normal startup may proceed.
+  const warmupStartedAt = performance.now();
+  // Reserve VIDEO timestamps 0/1. background-lite.js starts its live counter
+  // after this range, including when optional warmup only partly completes.
+  let warmupRuns = 0;
+  let warmupError = null;
+  try {
+    const source = new OffscreenCanvas(256, 144);
+    source.getContext("2d").fillRect(0, 0, 256, 144);
+    for (let timestamp = 0; timestamp < 2; timestamp++) {
+      let result;
+      try {
+        result = segmenter.segmentForVideo(source, timestamp);
+        const masks = result?.confidenceMasks ?? [];
+        const mask = masks[masks.length - 1];
+        if (mask) {
+          // No receiver owns this synthetic bitmap: release it here, not via
+          // the normal mask message protocol. The reusable mask canvas remains.
+          prepareMask(mask.width, mask.height, mask.getAsFloat32Array()).bitmap.close();
+        }
+        warmupRuns++;
+      } finally {
+        result?.close?.();
+      }
+    }
+  } catch (error) {
+    warmupError = String(error.message ?? error);
+  }
+  // Readiness still means the model was created; optional preheating is not
+  // an admission benchmark and must not hide blur/image controls on failure.
   self.postMessage({
     type: "ready",
     model: "selfie-segmenter-landscape-float16",
     delegate: "CPU",
     mediaPipeVersion: MEDIAPIPE_VERSION,
+    warmup: { runs: warmupRuns, durationMs: Math.round(performance.now() - warmupStartedAt), error: warmupError },
     labels,
   });
 }

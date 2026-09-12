@@ -11,7 +11,7 @@ and validation.
 | `none` | Direct camera | Direct camera; segmentation paused |
 | `blur` | WebGL blur | Canvas blur |
 | `image` | WebGL replacement | Canvas replacement |
-| Beauty smoothing | Yes | No |
+| Beauty smoothing | Face-region GPU filter | Lightweight skin-tone Canvas filter |
 
 The router returns one processed video track and preserves input audio tracks.
 Effect changes update the existing engine without replacing its WebRTC track.
@@ -22,6 +22,7 @@ Effect changes update the existing engine without replacing its WebRTC track.
 | [`background-benchmark.js`](./background-benchmark.js) | Sequential measurement, ranking, and locked winner selection. |
 | [`background-lite.js`](./background-lite.js) | Lite scheduling, fixed buffers, same-source-frame composition, fallback, and cleanup. |
 | [`background-lite-worker.js`](./background-lite-worker.js) | MediaPipe CPU inference and mask conversion in a Worker. |
+| [`beauty-lite.js`](./beauty-lite.js) | Optional skin-tone softening with reusable Canvas buffers and no extra model. |
 | [`gregblur/`](./gregblur/) | WebGL2 refinement, composition, beauty, and track adapters. |
 | [`vision-runtime.js`](../../Utilities/MediaPipe/vision-runtime.js) | Shared MediaPipe loading, FaceLandmarker ownership, and telemetry. |
 | [`background-rvm.js`](./background-rvm.js), [`background-rvm-tfjs.js`](./background-rvm-tfjs.js) | Disconnected references; not imported by the active router. |
@@ -156,7 +157,7 @@ History decays with source time and rejects significant confidence changes. A
 250 ms gap or backwards timestamp clears it. Cached masks skip redundant
 refinement and copy passes.
 
-Beauty is Gregblur-only. It shares the FaceLandmarker used by Eye Gaze, protects
+Gregblur beauty shares the FaceLandmarker used by Eye Gaze, protects
 eyes and mouth, and updates shader strength without replacing the track. The
 earlier CPU motion-readback experiment is disabled because measured readback
 cost increased frame pressure.
@@ -179,7 +180,7 @@ transitions; there is no per-frame logging.
 
 ## Controls and diagnostics
 
-The toolbar supports no effect, blur, uploaded image, and Gregblur beauty.
+The toolbar supports no effect, blur, uploaded image, and beauty on both engines.
 PNG, JPEG, WebP, and GIF images up to 20 MB are decoded locally.
 
 ```js
@@ -200,6 +201,8 @@ await window.squidlyBackground.destroy();
 | `selection.engine` | Locked engine. |
 | `selection.reason` | Selection or fallback explanation. |
 | `selection.benchmark` | Measurements, ranking, failures, winner, and lock. |
+| `selection.benchmark.reusedTrial` | Whether the final measured instance was retained. Present after a measured winner is selected. |
+| `selection.benchmark.winnerWarmupMs` | Extra warmup for a restarted winner: 1000 ms, or 0 for a retained trial. Not set for the explicit Lite override. |
 | `engineState` | Current engine-specific state. |
 
 Important Lite diagnostics:
@@ -215,11 +218,33 @@ Important Lite diagnostics:
 | `maskProvider.averageMaskLatencyMs` | Snapshot-to-mask-return average. |
 | `maskProvider.measuredSegmentationFps` | Completions in the latest second. |
 | `allocator` | Target FPS, pressure level, reasons, and recovery. |
+| `workerInfo.warmup` | Worker startup warmup runs, durationMs, and error. Absent for main-thread fallback. |
 
 Gregblur reports `segmentationScheduler`, `gpuComposite`, `faceLandmarks`,
 and `mediaPipeRuntime`.
 
 ## Ownership and cleanup
+
+### Lite beauty
+
+The existing Beauty slider sets strength from 0 to 100; zero (the default) skips
+all beauty processing and allocation. Start around 30-40 for subtle softening.
+Lite samples colour at 160x90, estimates skin-like chroma and luminance, reduces
+the mask around strong local contrast, and blends a 1.2-pixel softened source
+with a maximum 45% contribution. There is no face reshaping or extra model.
+
+In blur/image modes, beauty uses the retained source before the person matte is
+applied. Uploaded backgrounds remain unchanged. With no background effect it
+processes live video. Colour matching is approximate: skin-coloured clothing or
+backgrounds can also be softened in raw mode, and unusual lighting can weaken
+the effect. It does not precisely identify anatomical skin or facial features.
+
+Four reusable canvases are allocated on first use and released with the engine.
+This adds one small pixel readback and a Canvas filter when enabled; performance
+on the laptop still needs measurement. engineState.beauty.lastDurationMs reports
+local processing time. Beauty failures fall back to the original source and
+disable the optional filter, preserving background effects; lastBeautyError
+contains the reason. Changing strength never replaces the video track.
 
 The router owns cancellation, camera clones, active-engine selection, and clone
 release. Engines own generated tracks and processing resources. Original audio
@@ -241,6 +266,45 @@ a longer call, tab hide/restore, Eye Gaze plus blur, image replacement, effect
 switching, and teardown. Check `window.squidlyBackground.getState()` during
 the call to confirm source/mask timestamp pairing, segmentation cadence, late
 pair drops, resource level, and the locked engine.
+
+For startup/resumption changes, check these sequences explicitly:
+
+1. Reload and enter a call; verify blur and upload-background-image controls.
+2. Change blur to none, wait briefly, then enable blur; repeat after a longer
+   pause. The first processed output must use a newly captured source.
+3. Upload an image, choose none, then re-enable image mode with the retained image
+   through the API; verify the image remains owned and available.
+4. Toggle while an inference is in flight. After its result drains, new requests
+   must resume without overlapping or leaving the scheduler waiting forever.
+5. Inspect workerInfo.warmup and selection.benchmark.winnerWarmupMs. Compare
+   steady-state cadence separately from model loading and startup waiting.
+
+## Startup warmup and effect resumption
+
+- Lite Worker runs two synthetic model/mask conversions before sending ready.
+  These frames are discarded and excluded from live FPS/latency statistics.
+  `workerInfo.warmup` reports `runs`, `durationMs`, and any optional warmup error.
+  VIDEO timestamps 0 and 1 are reserved for this work; live frame timestamps
+  must be strictly greater. Each synthetic result and converted bitmap is closed.
+  Warmup errors do not by themselves mark the engine unavailable. Worker/model
+  initialization still uses the existing timeout and compatibility fallback.
+- Gregblur yields between shader compilation jobs to give the browser chances
+  to handle input and paint; an individual compilation may still block.
+- A winner that must restart after its trial gets one second of warmup before
+  activation. A retained trial needs no extra warmup. This does not rerank the
+  winner, and startup selection remains fixed for the call.
+- Re-enabling Lite blur or image invalidates the old pair and scheduling wait.
+  A pre-transition in-flight request drains normally, but its source is not
+  displayed. The next eligible camera frame can be segmented immediately.
+  `discardPairsThroughTimestampMs` is an internal request-identity cutoff, not
+  elapsed wall-clock time. The busy flag stays set until the outstanding request
+  completes; while waiting for the new pair, the existing raw-video path is used.
+- Gregblur resets its cached mask and scheduling clock on resumption, keeping
+  the existing model, uploaded background, and output track.
+
+The original startup/toolbar sequence is retained. Loading and measurement still
+take time; these changes target concentrated startup work and stale resumption
+frames, not total elimination of camera/encoding latency.
 
 ## Maintenance rules
 

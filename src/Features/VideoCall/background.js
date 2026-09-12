@@ -453,6 +453,15 @@ function createSharedSegmentationProvider(profile) {
       return frameResult;
     },
 
+    // Reuse the loaded model, but force a fresh inference on effect resumption.
+    // Keep MediaPipe's VIDEO timestamp monotonic across pauses.
+    resetMask() {
+      // The pipeline also invalidates its refined history before its next frame.
+      // Do not reset lastTimestamp or destroy the model on an effect toggle.
+      closeCachedResult();
+      clock.reset();
+    },
+
     getState() {
       const allocation = allocator.getState();
       return {
@@ -722,7 +731,7 @@ export function setBeautyStrength(strength) {
     return {
       ok: false,
       strength: 0,
-      reason: "The active video engine does not support GPU beauty effects",
+      reason: "The active video engine does not support beauty effects",
     };
   }
 

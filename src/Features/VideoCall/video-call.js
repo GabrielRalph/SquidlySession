@@ -322,7 +322,7 @@ export default class VideoCall extends Features {
     _toggleBeautyControl() {
         if (!this._beautyEffectAvailable) {
             this._notifyBackground(
-                "Beauty requires the Gregblur WebGL2 video engine.",
+                "Beauty is unavailable with the current video engine.",
                 "error",
             );
             return;

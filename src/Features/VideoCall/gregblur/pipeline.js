@@ -699,23 +699,30 @@ export function createGregblurBackgroundPipeline(provider, options = {}) {
           VERTEX_SHADER,
           BILATERAL_FILTER_SHADER,
         );
+        // Yield between compilation jobs so startup is not one long JS task.
+        await new Promise(resolve => setTimeout(resolve, 0));
         temporalBlendProgram = createProgram(
           gl,
           VERTEX_SHADER_NO_FLIP,
           TEMPORAL_BLEND_SHADER,
         );
+        await new Promise(resolve => setTimeout(resolve, 0));
         beautyProgram = createProgram(gl, VERTEX_SHADER, BEAUTY_SHADER);
+        await new Promise(resolve => setTimeout(resolve, 0));
         copyProgram = createProgram(gl, VERTEX_SHADER_NO_FLIP, COPY_SHADER);
+        await new Promise(resolve => setTimeout(resolve, 0));
         maskedDownsampleProgram = createProgram(
           gl,
           VERTEX_SHADER_NO_FLIP,
           MASKED_DOWNSAMPLE_SHADER,
         );
+        await new Promise(resolve => setTimeout(resolve, 0));
         maskWeightedBlurProgram = createProgram(
           gl,
           VERTEX_SHADER_NO_FLIP,
           MASK_WEIGHTED_BLUR_SHADER,
         );
+        await new Promise(resolve => setTimeout(resolve, 0));
         compositeProgram = createProgram(
           gl,
           VERTEX_SHADER_NO_FLIP,
@@ -773,6 +780,9 @@ export function createGregblurBackgroundPipeline(provider, options = {}) {
 
       const wasProcessing = effectMode !== "none";
       const willProcess = mode !== "none";
+      // Clear only mask scheduling/history after a pause; keep uploaded images,
+      // shaders and track ownership. Blur <-> image can share the current matte.
+      if (!wasProcessing && willProcess) provider.resetMask?.();
       if (wasProcessing !== willProcess) hasPreviousMask = false;
       effectMode = mode;
     },
