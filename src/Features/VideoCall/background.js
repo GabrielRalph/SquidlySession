@@ -1,3 +1,5 @@
+// Read main's public processing state; do not alter EyeGaze or its model.
+import { isProcessing as isEyeGazeActive } from "../../Utilities/webcam.js";
 /**
  * Squidly background processing.
  * Owns startup measurement, fixed engine selection, public controls and cleanup.
@@ -14,14 +16,14 @@ import {
   getLatestFaceLandmarks,
   getSessionPerformanceState,
   getSharedFaceLandmarks,
+  releaseBeautyFaceLandmarker,
   getVisionFileset,
   getVisionModule,
   getVisionRuntimeState,
   noteVisionTaskRun,
   noteSessionFrame,
   resetBackgroundPerformanceWindow,
-  wasVisionTaskRecentlyActive,
-} from "../../Utilities/MediaPipe/vision-runtime.js";
+} from "./mediapipe/vision-runtime.js";
 
 // -----------------------------------------------------------------------------
 // Engine configuration
@@ -196,16 +198,10 @@ function setEnginePreference(engine) {
 // Camera setup and shared MediaPipe segmentation provider
 // -----------------------------------------------------------------------------
 
-async function applyCameraConstraints(track) {
-  try {
-    await track.applyConstraints({
-      width: { ideal: 640, max: 640 },
-      height: { ideal: 480, max: 480 },
-      frameRate: { ideal: 30, max: 30 },
-    });
-  } catch (error) {
-    console.warn("[Background] Camera constraints were not applied.", error);
-  }
+function getCameraSettings(track) {
+  // Candidate tracks clone one camera source. Reapplying constraints for every
+  // trial/restart can renegotiate that source and interrupt the live camera.
+  // Keep capture configuration owned by main; effects schedule their own work.
   return track.getSettings?.() ?? {};
 }
 
@@ -221,7 +217,7 @@ function createAdaptiveResourceAllocator(profile) {
   let snapshot = null;
 
   const classify = (performanceState, eyeGazeActive) => {
-    const faceTask = performanceState.tasks["face-landmarker"];
+    const faceTask = performanceState.tasks["beauty-face-landmarker"];
     const backgroundTask = performanceState.tasks["background-segmenter"];
     const sessionPressure = classifySessionPerformance(performanceState);
     if (sessionPressure.level === "hidden") return sessionPressure;
@@ -231,10 +227,10 @@ function createAdaptiveResourceAllocator(profile) {
     const constrainedReasons = sessionPressure.level === "constrained"
       ? [...sessionPressure.reasons]
       : [];
-    if (eyeGazeActive && (faceTask?.averageDurationMs ?? 0) >= 35) {
-      criticalReasons.push("EyeGaze inference >= 35 ms");
-    } else if (eyeGazeActive && (faceTask?.averageDurationMs ?? 0) >= 22) {
-      constrainedReasons.push("EyeGaze inference >= 22 ms");
+    if ((faceTask?.averageDurationMs ?? 0) >= 35) {
+      criticalReasons.push("beauty inference >= 35 ms");
+    } else if ((faceTask?.averageDurationMs ?? 0) >= 22) {
+      constrainedReasons.push("beauty inference >= 22 ms");
     }
     if ((backgroundTask?.averageDurationMs ?? 0) >= 45) {
       criticalReasons.push("background inference >= 45 ms");
@@ -261,7 +257,7 @@ function createAdaptiveResourceAllocator(profile) {
     }
     lastEvaluationAt = now;
     const performanceState = getSessionPerformanceState();
-    const eyeGazeActive = wasVisionTaskRecentlyActive("face-landmarker");
+    const eyeGazeActive = isEyeGazeActive();
     const measuredPressure = classify(performanceState, eyeGazeActive);
     const warmingUp = now - startedAt < RESOURCE_WARMUP_MS;
     const desired = warmingUp && measuredPressure.level !== "hidden"
@@ -512,7 +508,7 @@ function createSharedFaceLandmarksProvider() {
     },
     getState() {
       return {
-        type: "shared-face-landmarker",
+        type: "effects-owned-face-landmarker",
         requests,
         errors,
         lastError,
@@ -531,7 +527,7 @@ async function startGregblur(stream, rendererInfo, requestedQuality) {
 
   const profileName = chooseProfile(requestedQuality);
   const profile = MODELS[profileName];
-  const settings = await applyCameraConstraints(inputTrack);
+  const settings = getCameraSettings(inputTrack);
   const provider = createSharedSegmentationProvider(profile);
   const faceProvider = createSharedFaceLandmarksProvider();
   const processor = createRawBackgroundProcessor({
@@ -586,6 +582,7 @@ async function startGregblur(stream, rendererInfo, requestedQuality) {
       if (!running) return;
       running = false;
       await processor.destroy();
+      releaseBeautyFaceLandmarker();
       if (typeof backgroundImage?.close === "function") {
         backgroundImage.close();
       }

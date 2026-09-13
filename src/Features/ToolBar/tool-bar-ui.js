@@ -5,6 +5,7 @@ import { AccessButton, AccessEvent } from "../../Utilities/Buttons/access-button
 import { HideShowTransition } from "../../Utilities/hide-show.js";
 import { Menu, MenuItem } from "./menu.js";
 import { SquidlyFeatureWindow } from "../features-interface.js";
+import ToolBarFeature from "./tool-bar.js";
 
 
 class MenuItemSelectionEvent extends AccessEvent {
@@ -80,6 +81,7 @@ export class ToolBarRing extends SquidlyFeatureWindow {
     /** @type {ToolBarFeature} */
     tools = null
 
+    /** @param {ToolBarFeature} session*/
     constructor(session) {
         super("tool-bar-ring");
         this.tools = session;
@@ -88,8 +90,7 @@ export class ToolBarRing extends SquidlyFeatureWindow {
         this.ring = this.createChild(HideShowTransition, {
             style: { "pointer-events": "all" }
         }, "ring-selector");
-       
-     
+
 
         // Build ring icon svg element structure.
         this.ringIconSvg = this.ring.createChild("svg", {class: "ring-icon"});
@@ -323,7 +324,7 @@ export class ToolBarRing extends SquidlyFeatureWindow {
     }
 
     static get capturedWindowEvents() {
-        return ["mousemove", "mouseleve", "touchmove"];
+        return ["mousemove", "mouseleve", "touchmove", "touchend"];
     }
 }
 
@@ -382,7 +383,9 @@ export class GestureRecogniser {
     }
 
     get firstTouchPoints() {
-        return this.buffer.map(te => new Vector(te.touches[0].clientX, te.touches[0].clientY));
+        return  this.buffer
+                    .filter(te => te.touches && te.touches[0])
+                    .map(te => new Vector(te.touches[0].clientX, te.touches[0].clientY));
     }
 
     getAvgSize(){
@@ -391,6 +394,17 @@ export class GestureRecogniser {
         let xmean = points.reduce((a, b) => a.add(b)).div(n);
         let avgErr = points.map(p => p.sub(xmean).abs()).reduce((a, b) => a.add(b)).div(n);
         return [xmean, avgErr, points[0], points[n-1], n];
+    }
+
+    isSwipeUp() {
+        let [mean, gs, start, end, n] = this.getAvgSize();
+        let sratio = gs.x / gs.y;
+        return sratio < 0.5 && gs.y > 10 && start.y > end.y;
+    }
+    isSwipeDown() {
+        let [mean, gs, start, end, n] = this.getAvgSize();
+        let sratio = gs.x / gs.y;
+        return sratio < 0.5 && gs.y > 10 && start.y < end.y;
     }
 
     checkForGesture(){

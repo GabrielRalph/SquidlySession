@@ -1,3 +1,5 @@
+// Read main's public processing state; do not alter EyeGaze or its model.
+import { isProcessing as isEyeGazeActive } from "../../Utilities/webcam.js";
 import {
   classifySessionPerformance,
   getSessionPerformanceState,
@@ -5,8 +7,7 @@ import {
   getVisionModule,
   noteSessionFrame,
   noteVisionTaskRun,
-  wasVisionTaskRecentlyActive,
-} from "../../Utilities/MediaPipe/vision-runtime.js";
+} from "./mediapipe/vision-runtime.js";
 import { relURL } from "../../Utilities/usefull-funcs.js";
 import { createLiteBeauty } from "./beauty-lite.js";
 
@@ -24,11 +25,14 @@ const MODEL_URL =
   "https://storage.googleapis.com/mediapipe-models/image_segmenter/" +
   "selfie_segmenter_landscape/float16/latest/selfie_segmenter_landscape.tflite";
 // captureStream ceiling, not a promise of 30 distinct processed frames/second.
-const OUTPUT = Object.freeze({ width: 480, height: 270, fps: 30 });
+// Limit processing cost without imposing a display aspect ratio.
+const OUTPUT = Object.freeze({ maxWidth: 480, maxHeight: 360, fps: 30 });
 const ANALYSIS = Object.freeze({ width: 256, height: 144 });
-const BLUR = Object.freeze({ width: 240, height: 135, pixels: 5 });
+const BLUR = Object.freeze({ pixels: 5 });
 const EFFECT_MODES = new Set(["none", "blur", "image"]);
 const LEVELS = Object.freeze(["normal", "constrained", "critical", "hidden"]);
+// Scheduler ceilings, not measured output FPS. Camera supply and inference
+// delivery can lower actual FPS; the selected engine never changes here.
 const LEVEL_MAX_FPS = Object.freeze({
   normal: 30,
   constrained: 20,
@@ -63,11 +67,12 @@ function classifyWorkerPerformance(performanceState) {
     return { level: "hidden", reasons: ["Page is hidden"] };
   }
   const hasLateFrames = performanceState.frameSamples >= 10;
-  if (
-    performanceState.longTaskRatio >= 0.18 ||
-    (hasLateFrames && performanceState.slowFrameRatio >= 0.28)
-  ) {
-    return { level: "critical", reasons: ["Main-thread or video-frame pressure"] };
+  // Camera cadence alone cannot prove that this Worker is overloaded: capture
+  // may run at 15 FPS or callbacks may be delayed by unrelated work. Dropping
+  // healthy 15-ms inference to 6 FPS then makes same-frame output visibly choppy.
+  // Keep the severe cap for measured long tasks; cadence alone uses 20 FPS below.
+  if (performanceState.longTaskRatio >= 0.18) {
+    return { level: "critical", reasons: ["Main-thread long tasks >= 18%"] };
   }
   // Moderate unrelated main-thread tasks alone do not justify throttling a
   // separate Worker when the delivered camera cadence is still healthy.
@@ -246,7 +251,7 @@ function createScheduler(state) {
       );
     }
 
-    const eyeGazeActive = wasVisionTaskRecentlyActive("face-landmarker");
+    const eyeGazeActive = isEyeGazeActive();
     let maximumFps = state.executionMode === "main-thread"
       ? MAIN_THREAD_MAX_FPS[level]
       : LEVEL_MAX_FPS[level];
@@ -261,7 +266,7 @@ function createScheduler(state) {
       : Math.min(20, maximumFps);
     allocation = {
       policy: state.executionMode === "worker"
-        ? "lite-worker-stable-budget-v10"
+        ? "lite-worker-cadence-budget-v11"
         : "lite-main-thread-stall-resilient-v7",
       level,
       desiredLevel: desired.level,
@@ -726,13 +731,12 @@ async function runSegmentationTick(state) {
 
   state.segmentationBusy = true;
   try {
-    drawCover(state.pendingFrame.context, state.video, OUTPUT.width, OUTPUT.height);
+    drawCover(state.pendingFrame.context, state.video, state.outputSize.width, state.outputSize.height);
     state.analysis.context.clearRect(0, 0, ANALYSIS.width, ANALYSIS.height);
-    drawCover(
-      state.analysis.context,
-      state.pendingFrame.canvas,
-      ANALYSIS.width,
-      ANALYSIS.height,
+    // The model has fixed dimensions, but must see the entire camera image.
+    // Stretch only its private input; scale the mask back to the original ratio.
+    state.analysis.context.drawImage(
+      state.pendingFrame.canvas, 0, 0, ANALYSIS.width, ANALYSIS.height,
     );
     // Strictly increasing MediaPipe VIDEO time also identifies the retained frame.
     state.lastMediaPipeTimestamp = Math.max(
@@ -775,8 +779,8 @@ async function runSegmentationTick(state) {
 // -----------------------------------------------------------------------------
 
 function drawDirectVideo(state) {
-  state.output.context.clearRect(0, 0, OUTPUT.width, OUTPUT.height);
-  drawCover(state.output.context, applyLiteBeauty(state, state.video), OUTPUT.width, OUTPUT.height);
+  state.output.context.clearRect(0, 0, state.outputSize.width, state.outputSize.height);
+  drawCover(state.output.context, applyLiteBeauty(state, state.video), state.outputSize.width, state.outputSize.height);
 }
 
 // An optional beauty failure must never disable blur or image replacement.
@@ -791,37 +795,37 @@ function applyLiteBeauty(state, source) {
 
 function drawBlurBackground(state, source) {
   state.blur.context.save();
-  state.blur.context.clearRect(0, 0, BLUR.width, BLUR.height);
+  state.blur.context.clearRect(0, 0, state.blur.canvas.width, state.blur.canvas.height);
   state.blur.context.filter = `blur(${BLUR.pixels}px)`;
   drawCover(
     state.blur.context,
     source,
-    BLUR.width,
-    BLUR.height,
+    state.blur.canvas.width,
+    state.blur.canvas.height,
     BLUR.pixels * 2,
   );
   state.blur.context.restore();
-  state.output.context.clearRect(0, 0, OUTPUT.width, OUTPUT.height);
+  state.output.context.clearRect(0, 0, state.outputSize.width, state.outputSize.height);
   state.output.context.drawImage(
     state.blur.canvas,
     0,
     0,
-    OUTPUT.width,
-    OUTPUT.height,
+    state.outputSize.width,
+    state.outputSize.height,
   );
 }
 
 function drawForeground(state, source) {
   source = applyLiteBeauty(state, source);
   state.foreground.context.save();
-  state.foreground.context.clearRect(0, 0, OUTPUT.width, OUTPUT.height);
+  state.foreground.context.clearRect(0, 0, state.outputSize.width, state.outputSize.height);
   state.foreground.context.globalCompositeOperation = "source-over";
   state.foreground.context.filter = "none";
   drawCover(
     state.foreground.context,
     source,
-    OUTPUT.width,
-    OUTPUT.height,
+    state.outputSize.width,
+    state.outputSize.height,
   );
   state.foreground.context.globalCompositeOperation = "destination-in";
   state.foreground.context.filter = "blur(0.8px)";
@@ -829,8 +833,8 @@ function drawForeground(state, source) {
     state.mask.canvas,
     -MASK_RENDER_PADDING,
     -MASK_RENDER_PADDING,
-    OUTPUT.width + MASK_RENDER_PADDING * 2,
-    OUTPUT.height + MASK_RENDER_PADDING * 2,
+    state.outputSize.width + MASK_RENDER_PADDING * 2,
+    state.outputSize.height + MASK_RENDER_PADDING * 2,
   );
   state.foreground.context.restore();
   state.output.context.drawImage(state.foreground.canvas, 0, 0);
@@ -857,12 +861,13 @@ function renderFrame(state, now) {
   // Leave the completed output untouched while another camera frame is being
   // segmented. Redrawing the live video here would reintroduce contour lag.
   if (state.effectMode !== "none" && maskIsFresh && !state.pairNeedsRender) return;
+  const renderStartedAt = performance.now();
   try {
     if (state.effectMode === "none" || !maskIsFresh) {
       drawDirectVideo(state);
     } else {
       if (state.effectMode === "image") {
-        state.output.context.clearRect(0, 0, OUTPUT.width, OUTPUT.height);
+        state.output.context.clearRect(0, 0, state.outputSize.width, state.outputSize.height);
         state.output.context.drawImage(state.background.canvas, 0, 0);
       } else {
         drawBlurBackground(state, state.pairedFrame.canvas);
@@ -876,6 +881,11 @@ function renderFrame(state, now) {
     drawDirectVideo(state);
   }
 
+  // Synchronous Canvas submission only; GPU completion/encoding is not included.
+  state.lastRenderDurationMs = performance.now() - renderStartedAt;
+  state.averageRenderDurationMs = state.averageRenderDurationMs
+    ? state.averageRenderDurationMs * 0.8 + state.lastRenderDurationMs * 0.2
+    : state.lastRenderDurationMs;
   state.pairNeedsRender = false;
   state.renderedFrames += 1;
   const elapsed = now - state.renderWindowStartedAt;
@@ -947,8 +957,8 @@ function setEffect(state, options = {}) {
     if (image !== state.background.image) {
       const previousImage = state.background.image;
       state.background.context.fillStyle = "#202020";
-      state.background.context.fillRect(0, 0, OUTPUT.width, OUTPUT.height);
-      drawCover(state.background.context, image, OUTPUT.width, OUTPUT.height);
+      state.background.context.fillRect(0, 0, state.outputSize.width, state.outputSize.height);
+      drawCover(state.background.context, image, state.outputSize.width, state.outputSize.height);
       state.background.image = image;
       state.background.name = options.imageName ?? "uploaded image";
       previousImage?.close?.();
@@ -1021,11 +1031,16 @@ function getState(state) {
     model: MODEL_NAME,
     modelAssetPath: MODEL_URL,
     delegate: `CPU ${state.executionMode}`,
-    processingSize: OUTPUT,
+    processingSize: state.outputSize,
     analysisSize: ANALYSIS,
     analysisTransfer: typeof state.analysis.canvas.transferToImageBitmap === "function"
       ? "synchronous-offscreen" : "async-image-bitmap",
     measuredRenderFps: state.measuredRenderFps,
+    renderTiming: {
+      metric: "synchronous-canvas-submission",
+      lastMs: Number(state.lastRenderDurationMs.toFixed(1)),
+      averageMs: Number(state.averageRenderDurationMs.toFixed(1)),
+    },
     hasMask: state.hasMask,
     allocator,
     maskProvider,
@@ -1043,11 +1058,12 @@ function getState(state) {
  * source buffers exchange roles; they are not a growing frame queue. Timing
  * fields ending in Ms use the main-thread monotonic clock unless noted.
  */
-function createRuntimeState(inputTrack, video, outputTrack, surfaces) {
+function createRuntimeState(inputTrack, video, outputTrack, surfaces, outputSize) {
   const state = {
     running: true,
     effectMode: "blur",
-    beauty: createLiteBeauty(OUTPUT.width, OUTPUT.height),
+    outputSize,
+    beauty: createLiteBeauty(outputSize.width, outputSize.height),
     lastBeautyError: null,
     inputTrack,
     video,
@@ -1104,6 +1120,8 @@ function createRuntimeState(inputTrack, video, outputTrack, surfaces) {
     lastRenderError: null,
     renderedFrames: 0,
     measuredRenderFps: 0,
+    lastRenderDurationMs: 0,
+    averageRenderDurationMs: 0,
     renderWindowStartedAt: performance.now(),
     getAllocation: null,
   };
@@ -1151,37 +1169,40 @@ export async function backgroundLite(stream) {
   }
   await destroyLiteBackground();
   let state;
+  let video;
   try {
-    // 1. Keep camera and output sizes predictable for both rendering paths.
-    try {
-      await inputVideoTrack.applyConstraints({
-        width: { ideal: 640, max: 640 },
-        height: { ideal: 480, max: 480 },
-        frameRate: { ideal: OUTPUT.fps, max: OUTPUT.fps },
-      });
-    } catch {
-      // The renderer still works with the camera's current constraints.
-    }
-
-    // 2. Create the fixed canvases once; no canvas is allocated per frame.
-    const video = createHiddenVideo(inputVideoTrack);
-    const output = createCanvas(OUTPUT.width, OUTPUT.height, {
+    // Do not reconfigure the shared camera on each startup trial/restart.
+    // OUTPUT.fps and the scheduler limit effect work without applyConstraints.
+    // Use the actual camera ratio for every displayed and retained surface.
+    // These buffers remain fixed for this call, with no per-frame allocation.
+    video = createHiddenVideo(inputVideoTrack);
+    await waitForVideo(video);
+    // 4:3 -> 480x360; 16:9 -> 480x270. Keep full camera framing, never
+    // upscale a small source, and retain these dimensions across effect toggles.
+    const scale = Math.min(1, OUTPUT.maxWidth / video.videoWidth,
+      OUTPUT.maxHeight / video.videoHeight);
+    const outputSize = {
+      width: Math.max(1, Math.round(video.videoWidth * scale)),
+      height: Math.max(1, Math.round(video.videoHeight * scale)),
+      fps: OUTPUT.fps,
+    };
+    const output = createCanvas(outputSize.width, outputSize.height, {
       alpha: false,
       desynchronized: true,
     });
     const analysis = createAnalysisCanvas();
-    const pendingFrame = createCanvas(OUTPUT.width, OUTPUT.height, { alpha: false });
-    const pairedFrame = createCanvas(OUTPUT.width, OUTPUT.height, { alpha: false });
+    const pendingFrame = createCanvas(outputSize.width, outputSize.height, { alpha: false });
+    const pairedFrame = createCanvas(outputSize.width, outputSize.height, { alpha: false });
     const mask = createCanvas(ANALYSIS.width, ANALYSIS.height, { alpha: true });
-    const foreground = createCanvas(OUTPUT.width, OUTPUT.height, {
+    const foreground = createCanvas(outputSize.width, outputSize.height, {
       alpha: true,
       desynchronized: true,
     });
-    const blur = createCanvas(BLUR.width, BLUR.height, {
+    const blur = createCanvas(Math.max(1, Math.round(outputSize.width / 2)), Math.max(1, Math.round(outputSize.height / 2)), {
       alpha: false,
       desynchronized: true,
     });
-    const background = createCanvas(OUTPUT.width, OUTPUT.height, { alpha: false });
+    const background = createCanvas(outputSize.width, outputSize.height, { alpha: false });
     const outputTrack = output.canvas
       .captureStream(OUTPUT.fps)
       .getVideoTracks()[0];
@@ -1196,7 +1217,7 @@ export async function backgroundLite(stream) {
       foreground,
       blur,
       background,
-    });
+    }, outputSize);
 
     // 3. Prefer Worker inference; transparently retain the same-model fallback.
     await startSegmentationBackend(state);
@@ -1240,6 +1261,10 @@ export async function backgroundLite(stream) {
     if (state) {
       activeState = state;
       await destroyLiteBackground();
+    } else if (video) {
+      video.pause();
+      video.srcObject = null;
+      video.remove();
     }
     return {
       ok: false,

@@ -3,5 +3,11 @@
     "liveServer.settings.cors": true,
     "liveServer.settings.headers": {
         "Access-Control-Allow-Origin": "https://squidly.com.au"
+    },
+    "liveServer.settings.https": {
+        "enable": false,
+        "cert": "/Users/gabrielralph/Desktop/Commercial/SquidEye/SquidlySession/private/certificate/localhost.cert",
+        "key": "/Users/gabrielralph/Desktop/Commercial/SquidEye/SquidlySession/private/certificate/localhost.key",
+        "passphrase": "gabriel"
     }
 }

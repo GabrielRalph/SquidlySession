@@ -4,6 +4,22 @@ This is the maintenance reference for the current background-effects
 implementation: startup selection, frame processing, ownership, diagnostics,
 and validation.
 
+## Maintainer reading order
+
+1. `video-call.js`: annotated integration with main's existing call/audio flow.
+2. `video-call-effects.js`: menus, image preparation, beauty controls, and effect switches.
+3. `background.js` and `background-benchmark.js`: engine ownership and startup selection.
+4. `background-lite.js` / `background-lite-worker.js` or `gregblur/pipeline.js`: frame processing.
+5. `mediapipe/vision-runtime.js`: effects telemetry and the independent GPU beauty model.
+
+Keep changes inside the background/beauty feature. Changes to shared call code,
+EyeGaze, audio, general toolbar gestures or layout require a separate scope review.
+RVM reference files are intentionally retained and are not active candidates.
+
+Current behavior: selection is measured once and locked; Lite keeps camera aspect
+(4:3 -> 480x360, 16:9 -> 480x270); the v11 scheduler no longer treats camera delay
+alone as severe Worker overload. No extra pixel-budget reduction is enabled.
+
 ## Feature and file map
 
 | Mode | Gregblur GPU | Lite CPU |
@@ -18,16 +34,44 @@ Effect changes update the existing engine without replacing its WebRTC track.
 
 | File | Responsibility |
 | --- | --- |
+| [`background-image-worker.js`](./background-image-worker.js) | Decode and downsize uploaded backgrounds off the main thread; transfer the prepared bitmap to the active engine. |
+| [`video-call-effects.js`](./video-call-effects.js) | Call-facing controller: startup state, background/image menus, image decoding, beauty panel, and serialized effect switches. |
 | [`background.js`](./background.js) | Public API, startup selection, engine ownership, Gregblur integration, and diagnostics. |
 | [`background-benchmark.js`](./background-benchmark.js) | Sequential measurement, ranking, and locked winner selection. |
 | [`background-lite.js`](./background-lite.js) | Lite scheduling, fixed buffers, same-source-frame composition, fallback, and cleanup. |
 | [`background-lite-worker.js`](./background-lite-worker.js) | MediaPipe CPU inference and mask conversion in a Worker. |
 | [`beauty-lite.js`](./beauty-lite.js) | Optional skin-tone softening with reusable Canvas buffers and no extra model. |
 | [`gregblur/`](./gregblur/) | WebGL2 refinement, composition, beauty, and track adapters. |
-| [`vision-runtime.js`](../../Utilities/MediaPipe/vision-runtime.js) | Shared MediaPipe loading, FaceLandmarker ownership, and telemetry. |
+| [`mediapipe/vision-runtime.js`](./mediapipe/vision-runtime.js) | Effects-only MediaPipe loading, lazy GPU beauty model, and telemetry. |
 | [`background-rvm.js`](./background-rvm.js), [`background-rvm-tfjs.js`](./background-rvm-tfjs.js) | Disconnected references; not imported by the active router. |
 
+## Minimal call integration
+
+`video-call.js` follows the supplied main version's formatting and call logic.
+Each integration change has an adjacent `Background integration` comment:
+controller import/state, processed stream initialization, effect menu insertion,
+and the existing public effect methods. `video-call-effects.js` contains the
+previous UI and transition code without changing engine behavior or video sizes.
+
+Main's noise-suppression adapter runs first. Effects replace only video and
+preserve its processed microphone track. Main's audio modules, dependency and
+tests are retained unchanged.
+
+EyeGaze is restored to main, including its original file locations and model
+loader. Effects only read `webcam.isProcessing()` to reserve EyeGaze capacity;
+they do not intercept its inference or change timestamps. The effects runtime
+and beauty model asset live under this feature's `mediapipe/` directory.
+
+RVM modules are retained unchanged as requested; they remain disconnected from
+the active router. No UI layout, camera aspect ratio or toolbar gesture changes
+are part of this integration.
+
 ## Startup selection
+
+Engines read camera settings without reapplying capture constraints on each
+trial/restart. Output scheduling still controls effect frame rate. Auto selection
+retains one second of warmup and two seconds of sampling per candidate; model
+loading and a possible winner restart add time. It is not a zero-delay startup.
 
 ```text
 camera clone -> Gregblur trial --+
@@ -80,9 +124,14 @@ model on the main thread. This remains inside the locked Lite engine.
 
 ### Same-source-frame composition
 
+Background processing preserves camera width/height constraints. Lite scales the
+full camera image to fit within 480 x 360 while retaining its aspect ratio. Only
+the private model input uses 256 x 144; the complete image is mapped into it and
+the resulting mask is mapped back to output coordinates without cropping.
+
 ```text
 camera frame A
-    +-> fixed 480 x 270 pending source
+    +-> camera-aspect pending source (up to 480 x 360)
              +-> scaled 256 x 144 input -> mask A
              +--------------------------> frame A + mask A
 ```
@@ -109,6 +158,18 @@ Classification mistakes and spatial edge softness may still affect contours.
 The pump uses phase-locked deadlines and skips missed slots instead of queuing
 catch-up work. Duplicate decoded frames do not consume a slot.
 
+Worker policy `lite-worker-cadence-budget-v11` classifies visible sessions as:
+
+- `critical`: measured main-thread long-task ratio is at least 18%.
+- `constrained`: late camera frames reach 12% (at least 10 samples), or long tasks
+  reach 6% without healthy delivery. Camera lateness alone never selects `critical`.
+- `normal`: neither condition applies. A hidden page uses `hidden` instead.
+
+These are budgets, not promised output rates. A camera delivering 13 FPS cannot
+produce 20 distinct same-source processed frames per second. The main-thread
+fallback retains its separate pressure classifier.
+
+
 | Level | Worker maximum | Main-thread fallback maximum |
 | --- | ---: | ---: |
 | `normal` | 30 fps | 10 fps |
@@ -116,7 +177,7 @@ catch-up work. Duplicate decoded frames do not consume a slot.
 | `critical` | 6 fps | 4 fps |
 | `hidden` | 1 fps | 1 fps |
 
-Recent Eye Gaze caps the Worker at 15 FPS. Measured sustainable rate can lower
+Active EyeGaze, read through main's public `webcam.isProcessing()`, caps the Worker at 15 FPS. Measured sustainable rate can lower
 these maxima. Moderate pressure must persist for two seconds before downgrade;
 healthy state permits one recovery level after three seconds. Severe pressure
 reacts immediately.
@@ -127,8 +188,8 @@ repeated slow delivery still lowers it. Camera cadence telemetry is separate
 from completion cadence so reduced inference cannot recursively throttle itself.
 
 Worker and fallback mask conversion remain equivalent: one-neighbour foreground
-expansion followed by smoothstep alpha mapping. Blur is drawn at `240x135`
-with a 5-pixel blur and scaled to `480x270`. Foreground uses the paired
+expansion followed by smoothstep alpha mapping. Blur is drawn at half output resolution
+with a 5-pixel blur and scaled to the camera-aspect output size. Foreground uses the paired
 full-size source, small edge blur, and 2-pixel mask padding. Uploaded images are
 cover-fitted once and reused.
 
@@ -157,31 +218,46 @@ History decays with source time and rejects significant confidence changes. A
 250 ms gap or backwards timestamp clears it. Cached masks skip redundant
 refinement and copy passes.
 
-Gregblur beauty shares the FaceLandmarker used by Eye Gaze, protects
-eyes and mouth, and updates shader strength without replacing the track. The
+Gregblur beauty lazily loads its own FaceLandmarker, protects eyes and mouth,
+and updates shader strength without replacing the track. It does not depend on
+EyeGaze being enabled. Loading is asynchronous; beauty takes effect once the
+model is ready. Turning beauty off stops inference; ending the GPU engine closes
+the model, including any load that finishes after shutdown. Lite beauty does not
+load a face model. With EyeGaze and GPU beauty both enabled, two independent face
+models may be resident; this avoids modifying EyeGaze but needs device testing. The
 earlier CPU motion-readback experiment is disabled because measured readback
 cost increased frame pressure.
 
-## Shared telemetry
+## Effects telemetry
 
 `vision-runtime.js` keeps a silent five-second rolling window containing:
 
 - main-thread long-task time when supported;
 - delivered camera/video cadence and slow-frame ratio;
 - per-task duration and run frequency;
-- estimated combined Vision load;
+- estimated effects Vision load (not EyeGaze inference);
 - page visibility.
 
 Gregblur and Lite use separate policies because their costs differ. Transient
 background/frame/long-task telemetry resets between startup candidates so one
-does not bias the next. Shared FaceLandmarker ownership and Eye Gaze history
-remain intact. Automatic logging is limited to initialization and resource
+does not bias the next. The effects-owned beauty model remains intact; EyeGaze state is never changed. Automatic logging is limited to initialization and resource
 transitions; there is no per-frame logging.
 
 ## Controls and diagnostics
 
 The toolbar supports no effect, blur, uploaded image, and beauty on both engines.
 PNG, JPEG, WebP, and GIF images up to 20 MB are decoded locally.
+
+Image uploads are decoded/resized in a short-lived Worker before the existing
+engine switches its background. The longest image edge is capped to the output
+budget (480–2048 pixels), preserving image aspect. Only the prepared bitmap is
+transferred to the main thread; the previous effect remains active while loading.
+The original decoder remains a fallback when Workers/bitmap decoding are blocked.
+That fallback can still be expensive for large images.
+
+The image Worker is separate from the segmentation Worker. Only the uploaded
+background is resized; the camera/person framing is unchanged. Decoding does not
+restart the engine. The engine owns the bitmap after a successful switch.
 
 ```js
 await window.squidlyBackground.setEffect("none");
@@ -217,13 +293,23 @@ Important Lite diagnostics:
 | `maskProvider.averageInferenceMs` | Model plus mask preparation. |
 | `maskProvider.averageMaskLatencyMs` | Snapshot-to-mask-return average. |
 | `maskProvider.measuredSegmentationFps` | Completions in the latest second. |
-| `allocator` | Target FPS, pressure level, reasons, and recovery. |
+| `allocator` | Target FPS, pressure level, reasons, and recovery. v11 is the current Worker policy. |
+| `processingSize` | Fixed output dimensions and capture FPS ceiling; not measured FPS. |
+| `measuredRenderFps` | Actual locally submitted output cadence. |
+| `renderTiming.lastMs`, `averageMs` | Synchronous Canvas submission time; excludes deferred GPU work, encoding and display. |
 | `workerInfo.warmup` | Worker startup warmup runs, durationMs, and error. Absent for main-thread fallback. |
 
 Gregblur reports `segmentationScheduler`, `gpuComposite`, `faceLandmarks`,
 and `mediaPipeRuntime`.
 
-## Ownership and cleanup
+For a stall report, capture `JSON.stringify(window.squidlyBackground.getState(), null, 2)`
+while the tab is visible. Compare inference/delivery time with allocator target
+and actual render FPS before changing model or resolution. High mask age alone
+can mean infrequent scheduling; it does not prove slow inference. Record beauty
+strength and effect mode. `renderTiming` cannot measure remote-call latency.
+
+
+## Beauty and resource ownership
 
 ### Lite beauty
 
@@ -245,6 +331,8 @@ on the laptop still needs measurement. engineState.beauty.lastDurationMs reports
 local processing time. Beauty failures fall back to the original source and
 disable the optional filter, preserving background effects; lastBeautyError
 contains the reason. Changing strength never replaces the video track.
+
+### Cleanup
 
 The router owns cancellation, camera clones, active-engine selection, and clone
 release. Engines own generated tracks and processing resources. Original audio
@@ -317,3 +405,16 @@ frames, not total elimination of camera/encoding latency.
 - Preserve sequential trial ownership when changing startup scoring.
 - Treat blur as a visual effect rather than a privacy boundary; exceptional
   fallback paths can show unprocessed video.
+
+## Review scope against main
+
+Outside `src/Features/VideoCall/`, only the blur icon assets and their annotated
+registration differ in source code. EyeGaze, webcam, toolbar gestures, access
+buttons, feature registration, package.json and the audio implementation match
+the supplied main snapshot. Necessary `video-call.js` integration points are
+marked `Background integration`; newly added modules document their own scope.
+
+Validation: run main's `npm test`; compile the normal Rollup entry points; then
+check a real two-party call with blur/image/none, both beauty engines, EyeGaze
+calibration/tracking, microphone output and device changes. Automated checks do
+not prove camera quality or laptop performance.

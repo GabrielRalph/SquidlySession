@@ -1,11 +1,9 @@
 /**
- * Shared MediaPipe Tasks Vision loader.
- *
- * Eye gaze and background segmentation need different task models, but they
- * can still share one ESM module, one version, and one resolved WASM fileset.
- * Keeping this in a small neutral module also prevents the two features from
- * silently drifting to incompatible MediaPipe/WASM versions again.
+ * MediaPipe runtime owned by background and beauty effects.
+ * EyeGaze uses main's original loader, models and inference unchanged.
+ * GPU beauty loads its own model only when requested; Lite beauty needs none.
  */
+import { relURL } from "../../../Utilities/usefull-funcs.js";
 
 import * as vision from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/+esm";
 
@@ -24,6 +22,8 @@ const frameSamples = [];
 let performanceObserver = null;
 let lastSessionFrameAt = -Infinity;
 let backgroundWindowStartedAt = -Infinity;
+// "shared" means reused by this effects runtime across beauty frames only.
+// It is not EyeGaze's model and must never intercept EyeGaze inference.
 let sharedFaceLandmarker = null;
 let faceLandmarkerInfo = {
   model: "face_landmarker.task",
@@ -149,7 +149,7 @@ function instrumentFaceLandmarker(landmarker) {
         faceDetectionRuns += 1;
         return result;
       } finally {
-        noteVisionTaskRun("face-landmarker", performance.now() - startedAt);
+        noteVisionTaskRun("beauty-face-landmarker", performance.now() - startedAt);
       }
     },
   });
@@ -157,43 +157,55 @@ function instrumentFaceLandmarker(landmarker) {
   return landmarker;
 }
 
-// Compatibility facade for the original face-mesh.js. It lets that module
-// change only its import while this runtime owns Fileset sharing and timing.
-export const FilesetResolver = Object.freeze({
-  forVisionTasks() {
-    return getVisionFileset();
-  },
-});
+// This model is never injected into EyeGaze. A generation token closes a model
+// that finishes loading after its call has ended, without reviving old state.
+let beautyModelPromise = null;
+let beautyModelGeneration = 0;
+let beautyRetryAfter = 0;
+let beautyModelError = null;
+const BEAUTY_MODEL_URL = relURL("./face_landmarker.task", import.meta);
 
-export const FaceLandmarker = Object.freeze({
-  async createFromOptions(...args) {
-    const landmarker = await vision.FaceLandmarker.createFromOptions(...args);
-    const options = args[1] ?? {};
-    const modelAssetPath = String(options.baseOptions?.modelAssetPath ?? "");
-    faceLandmarkerInfo = {
-      model: modelAssetPath.split(/[\\/]/).pop() || "face_landmarker.task",
-      modelAssetPath,
-      delegate: options.baseOptions?.delegate ?? "CPU",
-    };
-    console.info(
-      `[Squidly Models] EyeGaze FaceLandmarker: ${faceLandmarkerInfo.model} ` +
-      `(${faceLandmarkerInfo.delegate}). ` +
-      "Run window.squidlyBackground.report() for the full model/resource report.",
-    );
-    sharedFaceLandmarker = instrumentFaceLandmarker(landmarker);
-    latestFaceDetection = {
-      detectedAt: -Infinity,
-      landmarks: null,
-      result: null,
-    };
-    lastFaceTimestamp = -1;
-    return sharedFaceLandmarker;
-  },
-});
+function ensureBeautyFaceLandmarker() {
+  if (sharedFaceLandmarker || beautyModelPromise || performance.now() < beautyRetryAfter) return;
+  const generation = beautyModelGeneration;
+  beautyModelPromise = getVisionFileset()
+    .then(fileset => vision.FaceLandmarker.createFromOptions(fileset, {
+      baseOptions: {modelAssetPath: BEAUTY_MODEL_URL, delegate: "GPU"},
+      runningMode: "VIDEO",
+      numFaces: 1,
+    }))
+    .then(model => {
+      if (generation !== beautyModelGeneration) { model.close(); return; }
+      sharedFaceLandmarker = instrumentFaceLandmarker(model);
+      faceLandmarkerInfo = {model: "face_landmarker.task", modelAssetPath: BEAUTY_MODEL_URL, delegate: "GPU", owner: "video-call-beauty"};
+      beautyModelError = null;
+    })
+    .catch(error => {
+      if (generation !== beautyModelGeneration) return;
+      beautyModelError = String(error.message ?? error);
+      beautyRetryAfter = performance.now() + 5000;
+      console.warn("[Beauty] Face model could not be loaded.", error);
+    })
+    .finally(() => {
+      if (generation === beautyModelGeneration) beautyModelPromise = null;
+    });
+}
+
+export function releaseBeautyFaceLandmarker() {
+  beautyModelGeneration += 1;
+  beautyModelPromise = null;
+  sharedFaceLandmarker?.close?.();
+  sharedFaceLandmarker = null;
+  latestFaceDetection = {detectedAt: -Infinity, landmarks: null, result: null};
+  lastFaceTimestamp = -1;
+  beautyRetryAfter = 0;
+  beautyModelError = null;
+  taskActivity.delete("beauty-face-landmarker");
+}
 
 /**
- * Returns the singleton FaceLandmarker result used by EyeGaze. A recent
- * EyeGaze/beauty result is reused; otherwise this call performs one inference.
+ * Returns the effects-owned beauty result. Model loading is lazy and never
+ * blocks the render loop; a recent result is reused between beauty frames.
  */
 export function getSharedFaceLandmarks(source, maxAgeMs = 50) {
   const cacheAge = Math.max(0, Number(maxAgeMs) || 0);
@@ -201,7 +213,7 @@ export function getSharedFaceLandmarks(source, maxAgeMs = 50) {
     faceDetectionReuses += 1;
     return latestFaceDetection.landmarks;
   }
-  if (!sharedFaceLandmarker) return null;
+  if (!sharedFaceLandmarker) { ensureBeautyFaceLandmarker(); return null; }
   return sharedFaceLandmarker.detectForVideo(
     source,
     performance.now(),
@@ -216,7 +228,7 @@ export function getLatestFaceLandmarks(maxAgeMs = 150) {
 
 /**
  * Startup-only isolation between sequential background candidates. Clear
- * transient background/frame/long-task pressure without discarding Eye Gaze
+ * transient background/frame/long-task pressure without discarding beauty
  * model ownership or its task history. Never use this to hide live-call load.
  */
 export function resetBackgroundPerformanceWindow() {
@@ -360,6 +372,8 @@ export function getVisionRuntimeState() {
     sharedWasmFileset: Boolean(filesetPromise),
     faceLandmarker: {
       ...faceLandmarkerInfo,
+      loading: Boolean(beautyModelPromise),
+      lastLoadError: beautyModelError,
       sharedInstances: sharedFaceLandmarker ? 1 : 0,
       detectionRuns: faceDetectionRuns,
       reusedResults: faceDetectionReuses,

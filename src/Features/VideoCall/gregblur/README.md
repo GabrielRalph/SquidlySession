@@ -12,7 +12,13 @@ read mask pixels back to the CPU.
 
 ## Squidly integration
 
-`background.js` supplies the MediaPipe segmentation provider, shared face
+The camera configuration belongs to main. This adapter reads its settings and
+does not reapply width/height/frame-rate constraints when a startup candidate
+starts. GPU beauty uses the effects-owned, lazily loaded face model, not EyeGaze's
+instance. Background-image decoding/resizing is prepared by the call effects
+controller before the pipeline performs its one-time texture upload.
+
+`background.js` supplies the MediaPipe segmentation provider, effects-owned beauty face
 landmarks, adaptive frame budget, and effect controls. `raw.js` converts an
 input `MediaStreamTrack` into frame callbacks and an output track;
 `pipeline.js` owns WebGL programs, textures, framebuffers, compositing, and

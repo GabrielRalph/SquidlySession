@@ -16,7 +16,6 @@ import { relURL } from '../Utilities/usefull-funcs.js';
 /** @typedef {import('./Chat/chat.js').default} ChatFeature */
 /** @typedef {import('./Quiz/quiz.js').default} QuizFeature */
 /** @typedef {import('./ShareContent/share-content.js').default} ShareContent */
-/** @typedef {import('./TemplateFeature/template.js').default} Template */
 
 export class SquildyFeatureProxy {
 
@@ -68,9 +67,6 @@ export class SquildyFeatureProxy {
 	/** @return {ShareContent} */
 	get shareContent() { return this.getFeature("shareContent"); }
 
-	/** @return {Template} */
-	get walkThrough() { return this.getFeature("walkThrough"); }
-
 	/** @override */
 	getFeature() { }
 
@@ -92,6 +88,5 @@ export const FeaturesList = [
 	[() => import("./Apps/apps.js"), "apps"],
 	[() => import("./Chat/chat.js"), "chat"],
 	[() => import("./Quiz/quiz.js"), "quiz"],
-	[() => import("./ShareContent/share-content.js"), "shareContent"],
-	[() => import("./TemplateFeature/template.js"), "walkThrough"]
+	[() => import("./ShareContent/share-content.js"), "shareContent"]
 ];
