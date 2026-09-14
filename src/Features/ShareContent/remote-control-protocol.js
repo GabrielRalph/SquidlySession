@@ -40,10 +40,10 @@ export function wheelToLines(delta) {
  */
 export function clientToNorm(clientX, clientY, rect) {
     if (!rect || rect.width <= 0 || rect.height <= 0) return null;
-    return {
-        nx: clamp01((clientX - rect.left) / rect.width),
-        ny: clamp01((clientY - rect.top) / rect.height),
-    };
+    const nx = (clientX - rect.left) / rect.width;
+    const ny = (clientY - rect.top) / rect.height;
+    if (nx < 0 || nx > 1 || ny < 0 || ny > 1) return null;
+    return { nx, ny };
 }
 
 export function parsePipes(value, minParts) {
@@ -284,7 +284,7 @@ export function toAgentCommand(parsed) {
 /**
  * Convert a normalized command to the WebSocket JSON RemoteAgent expects.
  * @param {object} command
- * @param {{x: number, y: number, width: number, height: number}|null} bounds
+ * @param {{x: number, y: number, width: number, height: number}|null} bounds captured surface, not the whole desktop
  */
 export function toAgentWire(command, bounds) {
     if (!command) return null;

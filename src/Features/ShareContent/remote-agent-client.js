@@ -3,6 +3,16 @@
 export const DEFAULT_AGENT_URL = "ws://127.0.0.1:8765";
 const RECONNECT_MS = 1500;
 
+function parseBounds(data) {
+  if (!data) return null;
+  const x = Number(data.x);
+  const y = Number(data.y);
+  const width = Number(data.width);
+  const height = Number(data.height);
+  if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) return null;
+  return { x, y, width, height };
+}
+
 export class RemoteAgentClient {
   /**
    * @param {{url?: string, onStatus?: (info: {connected: boolean, bounds: object|null, error?: string|null}) => void}} [opts]
@@ -11,6 +21,7 @@ export class RemoteAgentClient {
     this.url = opts.url || DEFAULT_AGENT_URL;
     this.onStatus = opts.onStatus || null;
     this.bounds = null;
+    this._matchReq = null;
     this._ws = null;
     this._wanted = false;
     this._reconnectTimer = 0;
@@ -33,6 +44,8 @@ export class RemoteAgentClient {
     this._clearReconnect();
     this._pending = [];
     this._loggedWaiting = false;
+    this.bounds = null;
+    this._matchReq = null;
     const ws = this._ws;
     this._ws = null;
     this._connecting = false;
@@ -47,6 +60,25 @@ export class RemoteAgentClient {
         /* ignore */
       }
     }
+    this._emitStatus();
+  }
+
+  /**
+   * Ask the agent to map normalized coords onto the captured window/display.
+   * Injection bounds are only set after a successful unique match.
+   * @param {{surface?: string|null, width: number, height: number}} info
+   */
+  matchSurface(info) {
+    const width = Number(info?.width);
+    const height = Number(info?.height);
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return;
+    this._matchReq = {
+      surface: info.surface || "window",
+      width,
+      height,
+    };
+    this.bounds = null;
+    if (this.connected) this._sendMatch();
     this._emitStatus();
   }
 
@@ -68,6 +100,17 @@ export class RemoteAgentClient {
     }
   }
 
+  _sendMatch() {
+    const req = this._matchReq;
+    if (!req) return;
+    this.send({
+      type: "surface.match",
+      surface: req.surface,
+      width: req.width,
+      height: req.height,
+    });
+  }
+
   _queue(command) {
     if (command.type === "mouse.move") {
       const last = this._pending[this._pending.length - 1];
@@ -81,6 +124,7 @@ export class RemoteAgentClient {
   }
 
   _flushPending() {
+    if (!this.bounds) return;
     const queued = this._pending;
     this._pending = [];
     for (const command of queued) this.send(command);
@@ -105,9 +149,10 @@ export class RemoteAgentClient {
     ws.onopen = () => {
       this._connecting = false;
       this._loggedWaiting = false;
+      this.bounds = null;
       console.log("%cremote-agent", "color:#3d9a6a", "connected", this.url);
       this._emitStatus();
-      this.send({ type: "screen.info" });
+      if (this._matchReq) this._sendMatch();
     };
     ws.onmessage = (ev) => this._onMessage(ev.data);
     ws.onerror = () => {
@@ -117,6 +162,7 @@ export class RemoteAgentClient {
       const wasOurs = this._ws === ws;
       this._connecting = false;
       if (wasOurs) this._ws = null;
+      this.bounds = null;
       if (!this._wanted) {
         this._emitStatus();
         return;
@@ -132,17 +178,26 @@ export class RemoteAgentClient {
     } catch {
       return;
     }
-    if (!data || data.type !== "screen.info" || !data.ok) return;
-    const x = Number(data.x);
-    const y = Number(data.y);
-    const width = Number(data.width);
-    const height = Number(data.height);
-    if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) return;
-    this.bounds = { x, y, width, height };
+    if (!data || data.type !== "surface.match") return;
+    if (!data.ok) {
+      this.bounds = null;
+      console.warn("%cremote-agent", "color:#e07a2f", "surface.match failed", data.error || "");
+      this._emitStatus(data.error || "no unique matching surface");
+      return;
+    }
+    const bounds = parseBounds(data);
+    if (!bounds) {
+      this.bounds = null;
+      this._emitStatus("invalid surface.match bounds");
+      return;
+    }
+    this.bounds = bounds;
+    const label = [data.kind, data.owner, data.name].filter(Boolean).join(" ");
     console.log(
       "%cremote-agent",
       "color:#3d9a6a",
-      `screen ${Math.round(width)}×${Math.round(height)} @ ${Math.round(x)},${Math.round(y)}`,
+      `surface ${Math.round(bounds.width)}×${Math.round(bounds.height)} @ ${Math.round(bounds.x)},${Math.round(bounds.y)}`,
+      label,
     );
     this._emitStatus();
     this._flushPending();

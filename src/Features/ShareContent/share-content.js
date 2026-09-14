@@ -145,6 +145,7 @@ export default class ShareContent extends Features {
 
             const track = stream.getVideoTracks()[0];
             this._displaySurface = track?.getSettings?.().displaySurface || null;
+            track?.addEventListener?.("configurationchange", () => this._matchAgentSurface());
 
             this.sdata.set("content-info", {
                 type: "stream",
@@ -270,6 +271,7 @@ export default class ShareContent extends Features {
             isReceiver,
             surface: state?.surface || this._displaySurface,
             agentConnected: !!(this._rcAgent && this._rcAgent.connected),
+            agentMapped: !!(this._rcAgent && this._rcAgent.bounds),
         });
 
         if (isReceiver) this._connectAgent();
@@ -288,11 +290,35 @@ export default class ShareContent extends Features {
                         isReceiver: s.enabled && s.sharer === this.sdata.me,
                         surface: s.surface || this._displaySurface,
                         agentConnected: !!(this._rcAgent && this._rcAgent.connected),
+                        agentMapped: !!(this._rcAgent && this._rcAgent.bounds),
                     });
                 },
             });
         }
         this._rcAgent.connect();
+        this._matchAgentSurface();
+        const video = this.contentView.content?.video;
+        if (video && !(video.videoWidth > 0)) {
+            video.addEventListener("loadedmetadata", () => this._matchAgentSurface(), { once: true });
+        }
+    }
+
+    _captureVideoSize() {
+        const stream = this._shareScreen?.stream;
+        const track = stream?.getVideoTracks?.()[0];
+        const settings = track?.getSettings?.() || {};
+        const video = this.contentView.content?.video;
+        const width = Number(video?.videoWidth || settings.width || 0);
+        const height = Number(video?.videoHeight || settings.height || 0);
+        const surface = this._displaySurface || settings.displaySurface || this._rcState?.surface || "window";
+        return { width, height, surface };
+    }
+
+    _matchAgentSurface() {
+        if (!this._rcAgent) return;
+        const info = this._captureVideoSize();
+        if (!(info.width > 0 && info.height > 0)) return;
+        this._rcAgent.matchSurface(info);
     }
 
     _disconnectAgent() {
