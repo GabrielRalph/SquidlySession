@@ -199,30 +199,6 @@ content-frame[remote-control] {
     cursor: crosshair;
 }
 
-content-frame .rc-preview {
-    position: absolute;
-    width: 14px;
-    height: 14px;
-    margin-left: -7px;
-    margin-top: -7px;
-    border-radius: 50%;
-    background: #3d9a6a;
-    box-shadow: 0 0 0 2px #fff, 0 0 8px rgba(0, 0, 0, 0.35);
-    pointer-events: none;
-    display: none;
-    z-index: 3;
-}
-
-content-frame[rc-preview] .rc-preview {
-    display: block;
-}
-
-content-frame .rc-preview[kind="click"],
-content-frame .rc-preview[kind="down"] {
-    transform: scale(1.35);
-    background: #e07a2f;
-}
-
 .tool-bar-area:not([open]) access-button[showable] {
     opacity: 0;
     pointer-events: none;

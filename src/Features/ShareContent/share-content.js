@@ -435,7 +435,6 @@ export default class ShareContent extends Features {
             this._previewRemoteCommand(toAgentCommand(parsed));
             return;
         }
-        this.contentView.setRemotePreview(parsed.nx, parsed.ny, parsed.kind);
         this._previewRemoteCommand(toAgentCommand(parsed));
     }
 

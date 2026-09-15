@@ -70,8 +70,6 @@ class ContentFrame extends SvgPlus {
 
     this.video = this.createChild("video", { playsinline: true, muted: true, autoplay: true });
 
-    this.rcPreview = this.createChild("div", { class: "rc-preview" });
-
     let icons = this.createChild("div", { class: "pdf-controls" });
     this.icons = icons;
     this.middle_icon = icons.createChild("div", { class: "bottom-middle" });
@@ -298,22 +296,6 @@ class ContentFrame extends SvgPlus {
     this.toggleAttribute("remote-control", next);
     if (next && !this._rcBound) this._bindRemoteInput();
     else if (!next && this._rcBound) this._unbindRemoteInput();
-  }
-
-  setPreviewVisible(on) {
-    this.toggleAttribute("rc-preview", !!on);
-    if (!on) this.rcPreview.removeAttribute("kind");
-  }
-
-  setPreviewNorm(nx, ny, kind) {
-    if (typeof nx !== "number" || typeof ny !== "number") return;
-    const canvasRect = this.streamCanvas.getBoundingClientRect();
-    const frameRect = this.getBoundingClientRect();
-    if (canvasRect.width <= 0 || canvasRect.height <= 0) return;
-    const left = canvasRect.left - frameRect.left + nx * canvasRect.width;
-    const top = canvasRect.top - frameRect.top + ny * canvasRect.height;
-    this.rcPreview.styles = { left: `${left}px`, top: `${top}px` };
-    if (kind) this.rcPreview.setAttribute("kind", kind);
   }
 
   _eventNorm(e) {
@@ -584,7 +566,6 @@ export class ContentViewer extends OccupiableWindow {
     else this.root.removeAttribute("rc-surface");
 
     this.content.setRemoteInput(isController);
-    this.content.setPreviewVisible(isReceiver);
 
     if (this.remoteControlButton) {
       this.remoteControlButton.toggleAttribute("on", enabled);
@@ -594,11 +575,6 @@ export class ContentViewer extends OccupiableWindow {
       else this.remoteControlButton.displayValue = "remote control";
     }
   }
-
-  setRemotePreview(nx, ny, kind) {
-    this.content.setPreviewNorm(nx, ny, kind);
-  }
-
 
   set page(value) {
     if (value < 1) value = 1;
