@@ -1,10 +1,8 @@
 /** Firebase keys under share-content/remote-control/ */
-export const RC_MOVE_KEY = "move";
-export const RC_KEY_KEY = "key";
 export const RC_STATE_KEY = "state";
+/** videoCall.sendData path for all remote-control input. */
+export const RC_DATA_PATH = "RC";
 
-export const FIREBASE_MIN_INTERVAL_MS = 50;
-export const HOVER_SUPPRESS_AFTER_DISCRETE_MS = 120;
 export const CLICK_SLOP_NORM = 0.04;
 
 export function clamp01(v) {
@@ -121,40 +119,19 @@ export function parseStreamPayload(value) {
     return null;
 }
 
-/** Drop the first Firebase snapshot so leftover session values are not replayed. */
-export class FirstValueGuard {
-    constructor() {
-        this.primed = new Set();
-    }
-
-    shouldIgnore(key, value) {
-        if (!this.primed.has(key)) {
-            this.primed.add(key);
-            return true;
-        }
-        return value == null || value === "";
-    }
-
-    reset() {
-        this.primed.clear();
-    }
-}
-
 export class RemoteControlPublisher {
     /**
-     * @param {(key: string, payload: string) => void} publish
+     * @param {(payload: string) => void} send WebRTC RC payload
      */
-    constructor(publish) {
-        this.publish = publish;
+    constructor(send) {
+        this.send = send;
         this.moveSeq = 0;
         this.eventSeq = 0;
-        this.lastFirebaseAt = 0;
         this.lastMovePayload = "";
-        this.suppressHoverUntil = 0;
-        this.lastScrollAt = 0;
         this.pressed = false;
         this.sentButtonDown = false;
         this.pendingMove = null;
+        this.pendingScroll = null;
         this._raf = 0;
     }
 
@@ -183,31 +160,32 @@ export class RemoteControlPublisher {
         return [this.nextEventSeq(), kind, safeCode, safeKey, mods].join("|");
     }
 
-    holdMoveAfterDiscrete() {
-        this.pendingMove = null;
-        this.lastMovePayload = "";
-        this.suppressHoverUntil = performance.now() + HOVER_SUPPRESS_AFTER_DISCRETE_MS;
+    _ensureTick() {
+        if (!this._raf) {
+            this._raf = requestAnimationFrame(() => this._tick());
+        }
+    }
+
+    _flushScroll() {
+        const scroll = this.pendingScroll;
+        this.pendingScroll = null;
+        if (!scroll || (!scroll.dx && !scroll.dy)) return;
+        this.send(this.formatTyped("scroll", scroll.mapped, [scroll.dx, scroll.dy]));
     }
 
     emitMove(mapped) {
         if (!mapped) return false;
         if (this.pressed && !this.sentButtonDown) return false;
-        const now = performance.now();
-        if (now < this.suppressHoverUntil) return false;
-        if (now - this.lastFirebaseAt < FIREBASE_MIN_INTERVAL_MS) return false;
         const coordsKey = `${mapped.nx.toFixed(4)}|${mapped.ny.toFixed(4)}`;
         if (coordsKey === this.lastMovePayload) return false;
-        this.lastFirebaseAt = now;
         this.lastMovePayload = coordsKey;
-        this.publish(RC_MOVE_KEY, this.formatMove(mapped.nx, mapped.ny));
+        this.send(this.formatMove(mapped.nx, mapped.ny));
         return true;
     }
 
     queueMove(mapped) {
         this.pendingMove = mapped;
-        if (!this._raf) {
-            this._raf = requestAnimationFrame(() => this._tick());
-        }
+        this._ensureTick();
     }
 
     _tick() {
@@ -215,48 +193,54 @@ export class RemoteControlPublisher {
         if (this.pendingMove && this.emitMove(this.pendingMove)) {
             this.pendingMove = null;
         }
+        this._flushScroll();
         if (this.pendingMove) {
             this._raf = requestAnimationFrame(() => this._tick());
         }
     }
 
     emitButton(mapped, action, button) {
-        this.holdMoveAfterDiscrete();
-        this.publish(RC_MOVE_KEY, this.formatTyped(action, mapped, [button]));
+        this.pendingMove = null;
+        this.lastMovePayload = "";
+        this._flushScroll();
+        this.send(this.formatTyped(action, mapped, [button]));
         return true;
     }
 
     emitClick(mapped, button) {
-        this.holdMoveAfterDiscrete();
-        this.publish(RC_MOVE_KEY, this.formatTyped("click", mapped, [button]));
+        this.pendingMove = null;
+        this.lastMovePayload = "";
+        this._flushScroll();
+        this.send(this.formatTyped("click", mapped, [button]));
         return true;
     }
 
     emitScroll(mapped, dx, dy) {
-        const now = performance.now();
-        if (now - this.lastScrollAt < FIREBASE_MIN_INTERVAL_MS) {
-            this.holdMoveAfterDiscrete();
-            return false;
+        if (!this.pendingScroll) {
+            this.pendingScroll = { mapped, dx: 0, dy: 0 };
+        } else {
+            this.pendingScroll.mapped = mapped;
         }
-        this.lastScrollAt = now;
-        this.holdMoveAfterDiscrete();
-        this.publish(RC_MOVE_KEY, this.formatTyped("scroll", mapped, [dx, dy]));
+        this.pendingScroll.dx += dx;
+        this.pendingScroll.dy += dy;
+        this._ensureTick();
         return true;
     }
 
     emitKey(action, ev) {
-        this.publish(RC_KEY_KEY, this.formatKey(action, ev.code, ev.key, eventModifiers(ev)));
+        this.send(this.formatKey(action, ev.code, ev.key, eventModifiers(ev)));
         return true;
     }
 
     emitReleaseAll() {
-        this.publish(RC_KEY_KEY, this.formatKey("key.releaseAll"));
+        this.send(this.formatKey("key.releaseAll"));
     }
 
     stop() {
         if (this._raf) cancelAnimationFrame(this._raf);
         this._raf = 0;
         this.pendingMove = null;
+        this.pendingScroll = null;
         this.pressed = false;
         this.sentButtonDown = false;
     }

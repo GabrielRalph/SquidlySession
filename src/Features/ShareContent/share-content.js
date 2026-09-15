@@ -4,12 +4,9 @@ import { ContentViewer } from "./content-view.js";
 import { RTCSignaler } from "../../Utilities/WebRTC/rtc-signaler.js";
 import { ConnectionManager } from "../../Utilities/WebRTC/webrtc-base.js";
 import {
-    FirstValueGuard,
-    RC_KEY_KEY,
-    RC_MOVE_KEY,
+    RC_DATA_PATH,
     RC_STATE_KEY,
     RemoteControlPublisher,
-    parseKeyPayload,
     parseStreamPayload,
     toAgentCommand,
     toAgentWire,
@@ -25,7 +22,6 @@ export default class ShareContent extends Features {
     _rcState = null;
     _rcKeysArmed = false;
     _rcHeldKeys = new Set();
-    _rcFbGuard = new FirstValueGuard();
     _rcAgent = null;
     _rcInjectCount = 0;
 
@@ -252,8 +248,8 @@ export default class ShareContent extends Features {
 
         if (isController) {
             if (!this._rcPublisher) {
-                this._rcPublisher = new RemoteControlPublisher((key, payload) => {
-                    this.sdata.set(`remote-control/${key}`, payload);
+                this._rcPublisher = new RemoteControlPublisher((payload) => {
+                    this.session.videoCall?.sendData(RC_DATA_PATH, payload);
                 });
             }
             this._setKeysArmed(true);
@@ -421,30 +417,17 @@ export default class ShareContent extends Features {
         this._rcHeldKeys.clear();
         if (!pub || !codes.length) return;
         for (const code of codes) {
-            pub.publish(RC_KEY_KEY, pub.formatKey("key.up", code, "", []));
+            pub.send(pub.formatKey("key.up", code, "", []));
         }
         pub.emitReleaseAll();
     }
 
-    _onRemoteMoveValue(value) {
-        if (this._rcFbGuard.shouldIgnore(RC_MOVE_KEY, value)) return;
+    _onRemoteRtc(value) {
         if (!this._rcState?.enabled || this._rcState.sharer !== this.sdata.me) return;
-        const parsed = parseStreamPayload(value);
-        if (!parsed) return;
-        if (parsed.kind === "kd" || parsed.kind === "ku" || parsed.kind === "kr") {
-            this._previewRemoteCommand(toAgentCommand(parsed));
-            return;
-        }
-        this._previewRemoteCommand(toAgentCommand(parsed));
+        this._injectRemoteCommand(toAgentCommand(parseStreamPayload(value)));
     }
 
-    _onRemoteKeyValue(value) {
-        if (this._rcFbGuard.shouldIgnore(RC_KEY_KEY, value)) return;
-        if (!this._rcState?.enabled || this._rcState.sharer !== this.sdata.me) return;
-        this._previewRemoteCommand(toAgentCommand(parseKeyPayload(value)));
-    }
-
-    _previewRemoteCommand(command) {
+    _injectRemoteCommand(command) {
         if (!command) return;
         const wire = toAgentWire(command, this._rcAgent?.bounds || null);
         const injected = !!(wire && this._rcAgent && this._rcAgent.send(wire));
@@ -537,11 +520,8 @@ export default class ShareContent extends Features {
         this.sdata.onValue(`remote-control/${RC_STATE_KEY}`, (state) => {
             this._applyRemoteControlState(state);
         });
-        this.sdata.onValue(`remote-control/${RC_MOVE_KEY}`, (value) => {
-            this._onRemoteMoveValue(value);
-        });
-        this.sdata.onValue(`remote-control/${RC_KEY_KEY}`, (value) => {
-            this._onRemoteKeyValue(value);
+        this.session.videoCall.addEventListener(RC_DATA_PATH, ({ data }) => {
+            this._onRemoteRtc(data);
         });
     }
 
