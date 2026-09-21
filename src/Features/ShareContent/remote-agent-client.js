@@ -2,6 +2,7 @@
 
 export const DEFAULT_AGENT_URL = "ws://127.0.0.1:8765";
 const RECONNECT_MS = 1500;
+const MATCH_REFRESH_MS = 300;
 
 function parseBounds(data) {
   if (!data) return null;
@@ -22,6 +23,8 @@ export class RemoteAgentClient {
     this.onStatus = opts.onStatus || null;
     this.bounds = null;
     this._matchReq = null;
+    this._surfaceId = null;
+    this._matchTimer = 0;
     this._ws = null;
     this._wanted = false;
     this._reconnectTimer = 0;
@@ -42,10 +45,12 @@ export class RemoteAgentClient {
   disconnect() {
     this._wanted = false;
     this._clearReconnect();
+    this._clearMatchTimer();
     this._pending = [];
     this._loggedWaiting = false;
     this.bounds = null;
     this._matchReq = null;
+    this._surfaceId = null;
     const ws = this._ws;
     this._ws = null;
     this._connecting = false;
@@ -72,13 +77,18 @@ export class RemoteAgentClient {
     const width = Number(info?.width);
     const height = Number(info?.height);
     if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return;
+    const surface = info.surface || "window";
+    if (this._matchReq && this._matchReq.surface !== surface) {
+      this._surfaceId = null;
+    }
     this._matchReq = {
-      surface: info.surface || "window",
+      surface,
       width,
       height,
     };
     this.bounds = null;
     if (this.connected) this._sendMatch();
+    this._startMatchTimer();
     this._emitStatus();
   }
 
@@ -108,6 +118,7 @@ export class RemoteAgentClient {
       surface: req.surface,
       width: req.width,
       height: req.height,
+      ...(this._surfaceId != null ? { id: this._surfaceId } : {}),
     });
   }
 
@@ -153,6 +164,7 @@ export class RemoteAgentClient {
       console.log("%cremote-agent", "color:#3d9a6a", "connected", this.url);
       this._emitStatus();
       if (this._matchReq) this._sendMatch();
+      this._startMatchTimer();
     };
     ws.onmessage = (ev) => this._onMessage(ev.data);
     ws.onerror = () => {
@@ -163,6 +175,7 @@ export class RemoteAgentClient {
       this._connecting = false;
       if (wasOurs) this._ws = null;
       this.bounds = null;
+      this._clearMatchTimer();
       if (!this._wanted) {
         this._emitStatus();
         return;
@@ -192,6 +205,7 @@ export class RemoteAgentClient {
       return;
     }
     this.bounds = bounds;
+    if (Number.isInteger(data.id) && data.id > 0) this._surfaceId = data.id;
     const label = [data.kind, data.owner, data.name].filter(Boolean).join(" ");
     console.log(
       "%cremote-agent",
@@ -221,6 +235,20 @@ export class RemoteAgentClient {
       clearTimeout(this._reconnectTimer);
       this._reconnectTimer = 0;
     }
+  }
+
+  _startMatchTimer() {
+    if (this._matchTimer || !this._wanted || !this._matchReq || !this.connected) return;
+    this._matchTimer = setInterval(() => {
+      // Suspend injection until the agent confirms the original surface still exists.
+      this.bounds = null;
+      this._sendMatch();
+    }, MATCH_REFRESH_MS);
+  }
+
+  _clearMatchTimer() {
+    if (this._matchTimer) clearInterval(this._matchTimer);
+    this._matchTimer = 0;
   }
 
   _emitStatus(error = null) {

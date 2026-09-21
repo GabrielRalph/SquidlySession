@@ -429,6 +429,7 @@ export default class ShareContent extends Features {
 
     _injectRemoteCommand(command) {
         if (!command) return;
+        if (!this._rcAgent?.bounds && command.type !== "key.releaseAll") return;
         const wire = toAgentWire(command, this._rcAgent?.bounds || null);
         const injected = !!(wire && this._rcAgent && this._rcAgent.send(wire));
         const discrete = command.type !== "mouse.move";
