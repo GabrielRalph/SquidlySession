@@ -12,6 +12,7 @@ import {
     toAgentWire,
 } from "./remote-control-protocol.js";
 import { RemoteAgentClient } from "./remote-agent-client.js";
+import { RC_STATUS_KEY } from "./remote-control-status.js";
 
 
 export default class ShareContent extends Features {
@@ -20,6 +21,8 @@ export default class ShareContent extends Features {
     _displaySurface = null;
     _rcPublisher = null;
     _rcState = null;
+    _rcStatus = null;
+    _rcPublishedStatus = null;
     _rcKeysArmed = false;
     _rcHeldKeys = new Set();
     _rcAgent = null;
@@ -222,6 +225,7 @@ export default class ShareContent extends Features {
             controller: enabled ? this.sdata.me : null,
             sharer,
             surface: this._displaySurface || this._rcState?.surface || null,
+            controlId: enabled ? `${Date.now()}-${Math.random()}` : null,
         });
     }
 
@@ -252,7 +256,6 @@ export default class ShareContent extends Features {
                     this.session.videoCall?.sendData(RC_DATA_PATH, payload);
                 });
             }
-            this._setKeysArmed(true);
         } else {
             this._setKeysArmed(false);
             if (this._rcPublisher) {
@@ -261,34 +264,56 @@ export default class ShareContent extends Features {
             }
         }
 
+        if (isReceiver) this._connectAgent();
+        else this._disconnectAgent();
+        if (!enabled) this._rcPublishedStatus = null;
+        this._renderRemoteControlState();
+    }
+
+    _currentRemoteStatusCode() {
+        const state = this._rcState;
+        const status = this._rcStatus;
+        if (!state?.enabled || !status || status.sharer !== state.sharer || status.controller !== state.controller || status.controlId !== state.controlId) {
+            return "checking";
+        }
+        return status.code || "checking";
+    }
+
+    _renderRemoteControlState() {
+        const state = this._rcState;
+        const enabled = !!(state?.enabled && this.contentView.displayType === "stream");
+        const isController = enabled && state.controller === this.sdata.me;
+        const isReceiver = enabled && state.sharer === this.sdata.me;
+        const statusCode = this._currentRemoteStatusCode();
+        if (isController && statusCode !== "ready") this._rcPublisher?.stop();
+        this._setKeysArmed(isController && statusCode === "ready");
         this.contentView.setRemoteControl({
             enabled,
             isController,
             isReceiver,
+            statusCode,
             surface: state?.surface || this._displaySurface,
             agentConnected: !!(this._rcAgent && this._rcAgent.connected),
             agentMapped: !!(this._rcAgent && this._rcAgent.bounds),
         });
+    }
 
-        if (isReceiver) this._connectAgent();
-        else this._disconnectAgent();
+    _publishRemoteStatus(info) {
+        const state = this._rcState;
+        if (!state?.enabled || state.sharer !== this.sdata.me) return;
+        const code = info.connected ? info.code || "checking" : "agent_offline";
+        const key = `${state.controlId}:${code}`;
+        if (this._rcPublishedStatus === key) return;
+        this._rcPublishedStatus = key;
+        this._rcStatus = { code, sharer: state.sharer, controller: state.controller, controlId: state.controlId };
+        this._renderRemoteControlState();
+        this.sdata.set(`remote-control/${RC_STATUS_KEY}`, this._rcStatus);
     }
 
     _connectAgent() {
         if (!this._rcAgent) {
             this._rcAgent = new RemoteAgentClient({
-                onStatus: () => {
-                    const s = this._rcState;
-                    if (!s) return;
-                    this.contentView.setRemoteControl({
-                        enabled: !!(s.enabled && this.contentView.displayType === "stream"),
-                        isController: s.enabled && s.controller === this.sdata.me,
-                        isReceiver: s.enabled && s.sharer === this.sdata.me,
-                        surface: s.surface || this._displaySurface,
-                        agentConnected: !!(this._rcAgent && this._rcAgent.connected),
-                        agentMapped: !!(this._rcAgent && this._rcAgent.bounds),
-                    });
-                },
+                onStatus: (info) => this._publishRemoteStatus(info),
             });
         }
         this._rcAgent.connect();
@@ -325,7 +350,7 @@ export default class ShareContent extends Features {
 
     _onRemoteInput(detail) {
         const pub = this._rcPublisher;
-        if (!pub || !detail) return;
+        if (!pub || !detail || this._currentRemoteStatusCode() !== "ready") return;
         const { type } = detail;
         if (type === "pointerdown") {
             pub.pressed = true;
@@ -431,6 +456,13 @@ export default class ShareContent extends Features {
         if (!command) return;
         if (!this._rcAgent?.bounds && command.type !== "key.releaseAll") return;
         const wire = toAgentWire(command, this._rcAgent?.bounds || null);
+        if (wire && command.type !== "key.releaseAll") {
+            wire.surfaceId = this._rcAgent.surfaceId;
+            if (command.type.startsWith("mouse.")) {
+                wire.nx = command.nx;
+                wire.ny = command.ny;
+            }
+        }
         const injected = !!(wire && this._rcAgent && this._rcAgent.send(wire));
         const discrete = command.type !== "mouse.move";
         this._rcInjectCount += 1;
@@ -520,6 +552,10 @@ export default class ShareContent extends Features {
 
         this.sdata.onValue(`remote-control/${RC_STATE_KEY}`, (state) => {
             this._applyRemoteControlState(state);
+        });
+        this.sdata.onValue(`remote-control/${RC_STATUS_KEY}`, (status) => {
+            this._rcStatus = status;
+            this._renderRemoteControlState();
         });
         this.session.videoCall.addEventListener(RC_DATA_PATH, ({ data }) => {
             this._onRemoteRtc(data);

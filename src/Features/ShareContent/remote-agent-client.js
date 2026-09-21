@@ -22,6 +22,7 @@ export class RemoteAgentClient {
     this.url = opts.url || DEFAULT_AGENT_URL;
     this.onStatus = opts.onStatus || null;
     this.bounds = null;
+    this.statusCode = "checking";
     this._matchReq = null;
     this._surfaceId = null;
     this._matchTimer = 0;
@@ -37,6 +38,10 @@ export class RemoteAgentClient {
     return !!this._ws && this._ws.readyState === WebSocket.OPEN;
   }
 
+  get surfaceId() {
+    return this._surfaceId;
+  }
+
   connect() {
     this._wanted = true;
     this._open();
@@ -49,6 +54,7 @@ export class RemoteAgentClient {
     this._pending = [];
     this._loggedWaiting = false;
     this.bounds = null;
+    this.statusCode = "checking";
     this._matchReq = null;
     this._surfaceId = null;
     const ws = this._ws;
@@ -87,6 +93,7 @@ export class RemoteAgentClient {
       height,
     };
     this.bounds = null;
+    this.statusCode = "checking";
     if (this.connected) this._sendMatch();
     this._startMatchTimer();
     this._emitStatus();
@@ -161,6 +168,7 @@ export class RemoteAgentClient {
       this._connecting = false;
       this._loggedWaiting = false;
       this.bounds = null;
+      this.statusCode = "checking";
       console.log("%cremote-agent", "color:#3d9a6a", "connected", this.url);
       this._emitStatus();
       if (this._matchReq) this._sendMatch();
@@ -175,6 +183,7 @@ export class RemoteAgentClient {
       this._connecting = false;
       if (wasOurs) this._ws = null;
       this.bounds = null;
+      this.statusCode = "agent_offline";
       this._clearMatchTimer();
       if (!this._wanted) {
         this._emitStatus();
@@ -191,21 +200,38 @@ export class RemoteAgentClient {
     } catch {
       return;
     }
-    if (!data || data.type !== "surface.match") return;
+    if (!data) return;
+    if (data.type !== "surface.match") {
+      if (data.pauseReason) {
+        this.bounds = null;
+        this.statusCode = data.pauseReason;
+        this._emitStatus();
+      }
+      return;
+    }
     if (!data.ok) {
       this.bounds = null;
+      this.statusCode = data.pauseReason || "surface_unmatched";
       console.warn("%cremote-agent", "color:#e07a2f", "surface.match failed", data.error || "");
       this._emitStatus(data.error || "no unique matching surface");
+      return;
+    }
+    if (data.guardedInput !== true || typeof data.controlAllowed !== "boolean") {
+      this.bounds = null;
+      this.statusCode = "agent_update_required";
+      this._emitStatus("RemoteAgent needs an update for safe window control");
       return;
     }
     const bounds = parseBounds(data);
     if (!bounds) {
       this.bounds = null;
+      this.statusCode = "surface_unmatched";
       this._emitStatus("invalid surface.match bounds");
       return;
     }
-    this.bounds = bounds;
     if (Number.isInteger(data.id) && data.id > 0) this._surfaceId = data.id;
+    this.statusCode = data.controlAllowed ? "ready" : data.pauseReason || "surface_unmatched";
+    this.bounds = data.controlAllowed ? bounds : null;
     const label = [data.kind, data.owner, data.name].filter(Boolean).join(" ");
     console.log(
       "%cremote-agent",
@@ -218,6 +244,7 @@ export class RemoteAgentClient {
   }
 
   _scheduleReconnect(error) {
+    this.statusCode = "agent_offline";
     this._emitStatus(error);
     if (!this._wanted || this._reconnectTimer) return;
     if (!this._loggedWaiting) {
@@ -256,6 +283,7 @@ export class RemoteAgentClient {
     this.onStatus({
       connected: this.connected,
       bounds: this.bounds,
+      code: this.statusCode,
       error,
     });
   }

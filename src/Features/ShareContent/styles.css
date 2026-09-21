@@ -195,6 +195,36 @@ content-viewer[rc-agent-on] access-button[name="remote-control"] {
     outline-offset: 2px;
 }
 
+content-viewer[rc-paused] access-button[name="remote-control"] {
+    outline: 3px solid #e07a2f;
+    outline-offset: 2px;
+}
+
+content-viewer .rc-status-notice:not([hidden]) {
+    position: absolute;
+    z-index: 5;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    gap: 0.4em;
+    width: min(26em, calc(100% - 2em));
+    box-sizing: border-box;
+    padding: 1em 1.25em;
+    border-radius: 0.8em;
+    background: rgba(28, 34, 40, 0.92);
+    color: white;
+    text-align: center;
+    line-height: 1.4;
+    box-shadow: 0 0.4em 1.5em rgba(0, 0, 0, 0.25);
+    pointer-events: none;
+}
+
+content-viewer .rc-status-notice[hidden] {
+    display: none;
+}
+
 content-frame[remote-control] {
     cursor: crosshair;
 }

@@ -8,6 +8,7 @@ import { Icon } from "../../Utilities/Icons/icons.js";
 import { HideShowTransition } from "../../Utilities/hide-show.js";
 import { GridIcon } from "../../Utilities/Buttons/grid-icon.js";
 import { CLICK_SLOP_NORM, buttonName, clientToNorm, wheelToLines } from "./remote-control-protocol.js";
+import { remoteControlStatusCopy } from "./remote-control-status.js";
 
 /**
  * @typedef {Object} ContentInfo
@@ -463,6 +464,12 @@ export class ContentViewer extends OccupiableWindow {
     };
     this.createChild("border-frame");
     this._make_tools();
+    this.remoteControlNotice = this.createChild("div", { class: "rc-status-notice" });
+    this.remoteControlNotice.setAttribute("role", "status");
+    this.remoteControlNotice.setAttribute("aria-live", "polite");
+    this.remoteControlNotice.hidden = true;
+    this.remoteControlNoticeTitle = this.remoteControlNotice.createChild("strong");
+    this.remoteControlNoticeDetail = this.remoteControlNotice.createChild("span");
     this.loader = this.createChild(Loader)
   }
 
@@ -550,7 +557,7 @@ export class ContentViewer extends OccupiableWindow {
   }
 
   /**
-   * @param {{enabled: boolean, isController: boolean, isReceiver: boolean, surface?: string|null, agentConnected?: boolean, agentMapped?: boolean}} state
+   * @param {{enabled: boolean, isController: boolean, isReceiver: boolean, surface?: string|null, agentConnected?: boolean, agentMapped?: boolean, statusCode?: string}} state
    */
   setRemoteControl(state = {}) {
     const enabled = !!state.enabled;
@@ -558,20 +565,28 @@ export class ContentViewer extends OccupiableWindow {
     const isReceiver = !!state.isReceiver;
     const agentConnected = !!state.agentConnected;
     const agentMapped = !!state.agentMapped;
+    const statusCode = state.statusCode || "checking";
     this.root.toggleAttribute("remote-control-on", enabled);
     this.root.toggleAttribute("remote-control-controller", isController);
     this.root.toggleAttribute("remote-control-receiver", isReceiver);
+    this.root.toggleAttribute("rc-paused", enabled && statusCode !== "ready");
     this.root.toggleAttribute("rc-agent-on", isReceiver && agentConnected && agentMapped);
     if (state.surface) this.root.setAttribute("rc-surface", state.surface);
     else this.root.removeAttribute("rc-surface");
 
-    this.content.setRemoteInput(isController);
+    this.content.setRemoteInput(isController && statusCode === "ready");
+    const showNotice = enabled && statusCode !== "ready";
+    this.remoteControlNotice.hidden = !showNotice;
+    if (showNotice) {
+      const copy = remoteControlStatusCopy(statusCode, isReceiver);
+      this.remoteControlNoticeTitle.textContent = copy.title;
+      this.remoteControlNoticeDetail.textContent = copy.detail;
+    }
 
     if (this.remoteControlButton) {
       this.remoteControlButton.toggleAttribute("on", enabled);
-      if (isController) this.remoteControlButton.displayValue = "controlling";
-      else if (isReceiver && !agentConnected) this.remoteControlButton.displayValue = "agent offline";
-      else if (isReceiver && !agentMapped) this.remoteControlButton.displayValue = "surface unmatched";
+      if (enabled && statusCode !== "ready") this.remoteControlButton.displayValue = "control paused";
+      else if (isController) this.remoteControlButton.displayValue = "controlling";
       else this.remoteControlButton.displayValue = "remote control";
     }
   }
