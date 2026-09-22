@@ -20,8 +20,11 @@ export function remoteControlStatusCopy(code, isSharer) {
       ? "Bring the shared window to the front to resume control."
       : "Waiting for the sharer to bring the shared window to the front."],
     window_obscured: ["Remote control paused", isSharer
-      ? "Move the window covering the shared window away to resume control."
-      : "Waiting for the sharer to move a covering window away."],
+      ? "The shared window cannot receive input at the current point. Uncover it to resume."
+      : "The shared window cannot receive input at the current point. Waiting for the sharer to uncover it."],
+    window_focus_unavailable: ["Keyboard control paused", isSharer
+      ? "Allow Accessibility access for RemoteAgent to use the keyboard."
+      : "Waiting for the sharer to allow RemoteAgent Accessibility access."],
   };
   const [title, detail] = action[code] || action.checking;
   return { title, detail };
