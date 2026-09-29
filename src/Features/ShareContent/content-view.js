@@ -313,6 +313,7 @@ class ContentFrame extends SvgPlus {
     this._rcButton = "left";
     this._rcPressed = false;
     this._rcSentDown = false;
+    this._rcLastClick = null;
 
     this._onRcPointerDown = (e) => {
       if (!this._remoteInput) return;
@@ -353,7 +354,15 @@ class ContentFrame extends SvgPlus {
       const mapped = this._eventNorm(e) || this._rcPressStart;
       this._rcPressed = false;
       if (mapped) {
-        this._emitRemote({ type: "pointerup", ...mapped, button: this._rcButton });
+        const now = performance.now();
+        const previous = this._rcLastClick;
+        const isDouble = !this._rcSentDown && previous
+          && previous.button === this._rcButton
+          && now - previous.time <= 500
+          && Math.hypot(mapped.nx - previous.nx, mapped.ny - previous.ny) <= CLICK_SLOP_NORM;
+        const clicks = isDouble ? 2 : 1;
+        this._emitRemote({ type: "pointerup", ...mapped, button: this._rcButton, clicks });
+        this._rcLastClick = this._rcSentDown ? null : { ...mapped, button: this._rcButton, time: now };
       }
       this._rcSentDown = false;
       this._rcPressStart = null;
@@ -752,4 +761,3 @@ export class ContentViewer extends OccupiableWindow {
 
   static get fixToolBarWhenOpen() {return true}
 }
-

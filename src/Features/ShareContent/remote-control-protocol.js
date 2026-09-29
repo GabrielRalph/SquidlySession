@@ -105,9 +105,15 @@ export function parseStreamPayload(value) {
     if (kind === "move" && parts.length === 4) {
         return { kind: "move", ...mapped };
     }
-    if ((kind === "click" || kind === "down" || kind === "up") && parts.length === 5) {
+    if ((kind === "click" || kind === "down" || kind === "up") && (parts.length === 5 || parts.length === 6)) {
         const button = parts[4];
         if (button !== "left" && button !== "right" && button !== "middle") return null;
+        if (kind === "click") {
+            const clicks = parts.length === 6 ? Number(parts[5]) : 1;
+            if (!Number.isInteger(clicks) || clicks < 1 || clicks > 3) return null;
+            return { kind, button, clicks, ...mapped };
+        }
+        if (parts.length !== 5) return null;
         return { kind, button, ...mapped };
     }
     if (kind === "scroll" && parts.length === 6) {
@@ -207,11 +213,11 @@ export class RemoteControlPublisher {
         return true;
     }
 
-    emitClick(mapped, button) {
+    emitClick(mapped, button, clicks = 1) {
         this.pendingMove = null;
         this.lastMovePayload = "";
         this._flushScroll();
-        this.send(this.formatTyped("click", mapped, [button]));
+        this.send(this.formatTyped("click", mapped, [button, clicks]));
         return true;
     }
 
@@ -253,7 +259,7 @@ export class RemoteControlPublisher {
 export function toAgentCommand(parsed) {
     if (!parsed) return null;
     if (parsed.kind === "move") return { type: "mouse.move", nx: parsed.nx, ny: parsed.ny };
-    if (parsed.kind === "click") return { type: "mouse.click", nx: parsed.nx, ny: parsed.ny, button: parsed.button };
+    if (parsed.kind === "click") return { type: "mouse.click", nx: parsed.nx, ny: parsed.ny, button: parsed.button, clicks: parsed.clicks || 1 };
     if (parsed.kind === "down") return { type: "mouse.down", nx: parsed.nx, ny: parsed.ny, button: parsed.button };
     if (parsed.kind === "up") return { type: "mouse.up", nx: parsed.nx, ny: parsed.ny, button: parsed.button };
     if (parsed.kind === "scroll") {
@@ -291,6 +297,7 @@ export function toAgentWire(command, bounds) {
         y: bounds.y + command.ny * bounds.height,
     };
     if (command.button) wire.button = command.button;
+    if (command.type === "mouse.click") wire.clicks = command.clicks || 1;
     if (command.type === "mouse.scroll") {
         wire.dx = command.dx || 0;
         wire.dy = command.dy || 0;

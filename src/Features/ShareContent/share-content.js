@@ -372,7 +372,7 @@ export default class ShareContent extends Features {
             if (pub.sentButtonDown) {
                 pub.emitButton(detail, "up", detail.button);
             } else {
-                pub.emitClick(detail, detail.button);
+                pub.emitClick(detail, detail.button, detail.clicks);
             }
             pub.sentButtonDown = false;
             return;
@@ -388,12 +388,12 @@ export default class ShareContent extends Features {
         if (!next) this._releaseHeldKeys();
         this._rcKeysArmed = next;
         if (next) {
-            window.addEventListener("keydown", this._onRcKeyDown);
-            window.addEventListener("keyup", this._onRcKeyUp);
+            window.addEventListener("keydown", this._onRcKeyDown, true);
+            window.addEventListener("keyup", this._onRcKeyUp, true);
             window.addEventListener("blur", this._onRcWindowBlur);
         } else {
-            window.removeEventListener("keydown", this._onRcKeyDown);
-            window.removeEventListener("keyup", this._onRcKeyUp);
+            window.removeEventListener("keydown", this._onRcKeyDown, true);
+            window.removeEventListener("keyup", this._onRcKeyUp, true);
             window.removeEventListener("blur", this._onRcWindowBlur);
         }
     }
@@ -411,14 +411,18 @@ export default class ShareContent extends Features {
         if (ev.isComposing || ev.key === "Process" || ev.key === "Dead" || ev.repeat || !ev.code) return;
         if (this._isEditableTarget(ev)) return;
         if (ev.code === "Escape") {
+            ev.preventDefault();
+            ev.stopImmediatePropagation();
             this._setKeysArmed(false);
             return;
         }
         if (ev.metaKey && (ev.code === "KeyQ" || ev.key === "q" || ev.key === "Q")) {
             ev.preventDefault();
+            ev.stopImmediatePropagation();
             return;
         }
         ev.preventDefault();
+        ev.stopImmediatePropagation();
         this._rcHeldKeys.add(ev.code);
         this._rcPublisher.emitKey("key.down", ev);
     };
@@ -428,6 +432,7 @@ export default class ShareContent extends Features {
         if (ev.isComposing || ev.key === "Process" || ev.key === "Dead" || !ev.code) return;
         if (this._isEditableTarget(ev)) return;
         ev.preventDefault();
+        ev.stopImmediatePropagation();
         this._rcHeldKeys.delete(ev.code);
         this._rcPublisher.emitKey("key.up", ev);
     };

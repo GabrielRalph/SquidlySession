@@ -20,8 +20,8 @@ export function remoteControlStatusCopy(code, isSharer) {
       ? "Bring the shared window to the front to resume control."
       : "Waiting for the sharer to bring the shared window to the front."],
     window_obscured: ["Remote control paused", isSharer
-      ? "The shared window cannot receive input at the current point. Uncover it to resume."
-      : "The shared window cannot receive input at the current point. Waiting for the sharer to uncover it."],
+      ? "Another window is covering this control point. Move it away to continue."
+      : "This part of the shared window is covered. Waiting for the sharer to uncover it."],
     window_focus_unavailable: ["Keyboard control paused", isSharer
       ? "Allow Accessibility access for RemoteAgent to use the keyboard."
       : "Waiting for the sharer to allow RemoteAgent Accessibility access."],
