@@ -5,7 +5,7 @@ import { delay, relURL } from "../../Utilities/usefull-funcs.js";
 import { addProcessListener } from "../../Utilities/webcam.js";
 import { OccupiableWindow } from "../features-interface.js";
 import { getHostPresets } from "../VideoCall/presets.js";
-import { FaceLandmarks } from "./Algorithm/Utils/face-mesh.js";
+import { FaceLandmarks } from "../../Utilities/MediaPipe/face-mesh.js";
 
 const used_points = [...new Set([152,10,389,162,473,468,33, 246, 161, 160, 159, 158, 157, 173, 133, 155, 154,153,145,144,163,7,362, 398, 384, 385, 386, 387, 388, 263, 249, 390,373, 374, 380, 381, 382,61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291, 375, 321, 405, 314, 17, 84, 181, 91, 146,10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109])]
 const MaxTimeTillFade = 3000;

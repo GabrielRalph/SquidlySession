@@ -1,4 +1,4 @@
-import {Vector} from "../../../../SvgPlus/vector.js"
+import {Vector} from "../../SvgPlus/vector.js"
 function round(v, dp) {
   return Math.round(Math.pow(10, dp) * v)/Math.pow(10, dp);
 }
