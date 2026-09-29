@@ -267,8 +267,8 @@ export class RemoteAgentClient {
   _startMatchTimer() {
     if (this._matchTimer || !this._wanted || !this._matchReq || !this.connected) return;
     this._matchTimer = setInterval(() => {
-      // Suspend injection until the agent confirms the original surface still exists.
-      this.bounds = null;
+      // Keep the last confirmed state while refreshing. Every input is guarded
+      // again by the agent immediately before OS injection.
       this._sendMatch();
     }, MATCH_REFRESH_MS);
   }
