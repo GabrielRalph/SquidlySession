@@ -201,21 +201,46 @@ function checkClickable(root, element, center){
 }
 
 function getElementFromPoint(x, y) {
-    let root = document.elementFromPoint(x, y);
-    while (root) {
-        if (root.shadowRoot != null) {
-            root = root.shadowRoot.elementFromPoint(x, y);
-        } else if (root.tagName === "IFRAME" && root.contentDocument) {
-            let rect = root.getBoundingClientRect();
-            x = x - rect.x;
-            y = y - rect.y;
-            root = root.contentDocument.elementFromPoint(x, y);
-        } else {
-            break;
-        }
+  let root = document.elementFromPoint(x, y);
+  const seen = new Set();
+
+  while (root) {
+    if (seen.has(root)) break;
+    seen.add(root);
+
+    if (root.shadowRoot != null) {
+      const next = root.shadowRoot.elementFromPoint(x, y);
+      if (!next || next === root) break;
+      root = next;
+    } else if (root.tagName === "IFRAME" && root.contentDocument) {
+      const rect = root.getBoundingClientRect();
+      x -= rect.x;
+      y -= rect.y;
+      root = root.contentDocument.elementFromPoint(x, y);
+    } else {
+      break;
     }
-    return root;
+  }
+
+  return root;
 }
+
+// function getElementFromPoint(x, y) {
+//     let root = document.elementFromPoint(x, y);
+//     while (root) {
+//         if (root.shadowRoot != null) {
+//             root = root.shadowRoot.elementFromPoint(x, y);
+//         } else if (root.tagName === "IFRAME" && root.contentDocument) {
+//             let rect = root.getBoundingClientRect();
+//             x = x - rect.x;
+//             y = y - rect.y;
+//             root = root.contentDocument.elementFromPoint(x, y);
+//         } else {
+//             break;
+//         }
+//     }
+//     return root;
+// }
 
 // Private variables
 const $ = new WeakMap();

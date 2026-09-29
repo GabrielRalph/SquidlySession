@@ -79,9 +79,8 @@ export default class ToolBarFeature extends Features {
         gestures.addGestureListener((res) => {
             let [mean, gs, start, end, n] = res;
             let sratio = gs.x / gs.y;
-
             if (sratio < 0.5 && gs.y > 10) {
-                session.togglePanel("toolBarArea", start.y > end.y);
+                this._gestureToggle = start.y > end.y;
             }
         })
 
@@ -90,8 +89,16 @@ export default class ToolBarFeature extends Features {
             "sv-mouseleave": (e) => this.mouseY = null,
             "item-select": this._onInteraction.bind(this),
             "sv-touchmove": (e) => {
-                if (!this.toolbarFixed)
+                if (!this.toolbarFixed) {
+                    console.log("touchmove");
                     gestures.addTouchEvent(e);
+                }
+            },
+            "sv-touchend": (e) => {
+                if (!this.toolbarFixed) {
+                    console.log("touchend");
+                    gestures.addTouchEvent(e);
+                }
             }
         }
         toolBar.events = {
@@ -250,6 +257,7 @@ export default class ToolBarFeature extends Features {
             this.setMenuItemProperty("control/lock-tools/symbol", locked ? "tools-locked" : "tools-unlocked");
             this.setMenuItemProperty("control/lock-tools/text", locked ? "unlock tools" : "lock tools");
         });
+        
         this.addSelectionListener("lock-tools", (e) => {
             this._locked = !this._locked;
             this.setMenuItemProperty("control/lock-tools/symbol", this._locked ? "tools-locked" : "tools-unlocked");
@@ -270,7 +278,7 @@ export default class ToolBarFeature extends Features {
                 let yMin = pos.add(size).sub(size2).y;
                 let isEye = this.eyeY == null ? false : this.eyeY > yMin;
                 let isMouse = this.mouseY == null ? false : this.mouseY > yMin;
-                let nextShow = isEye || isMouse || this._locked;
+                let nextShow = isEye || isMouse || this._locked || (!!this._gestureToggle);
 
                 if (!show && nextShow) {
                     delayTime = this.toolbarHideDelay;
