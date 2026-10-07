@@ -6,17 +6,37 @@ import {
 const WASM_URL =
   "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm";
 
-const MODEL_URL =
-  "https://storage.googleapis.com/mediapipe-models/image_segmenter/" +
-  "selfie_multiclass_256x256/float32/latest/selfie_multiclass_256x256.tflite";
+const MODEL_ROOT =
+  "https://storage.googleapis.com/mediapipe-models/image_segmenter/";
 
-// 1. 加载运行环境和模型。创建一次，后续检测重复使用。
-export async function createPersonSegmenter() {
+const MODELS = {
+  standard: {
+    path:
+      "selfie_multiclass_256x256/float32/latest/" +
+      "selfie_multiclass_256x256.tflite",
+    backgroundMask: true,
+  },
+
+  lightweight: {
+    path:
+      "selfie_segmenter_landscape/float16/latest/" +
+      "selfie_segmenter_landscape.tflite",
+    backgroundMask: false,
+  },
+};
+
+// 1. 每次只创建所选的一种模型。
+export async function createPersonSegmenter(modelName = "standard") {
+  if (!Object.hasOwn(MODELS, modelName)) {
+    throw new Error("Unknown background model.");
+  }
+
+  const config = MODELS[modelName];
   const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
 
   const model = await ImageSegmenter.createFromOptions(fileset, {
     baseOptions: {
-      modelAssetPath: MODEL_URL,
+      modelAssetPath: MODEL_ROOT + config.path,
       delegate: "GPU",
     },
     runningMode: "VIDEO",
@@ -24,30 +44,38 @@ export async function createPersonSegmenter() {
     outputCategoryMask: false,
   });
 
+  // 自己持有结果数组，长度不变时重复使用。
+  let person = null;
+
   return {
-    // 2. 输入一帧画面，输出每个位置属于人物的置信度。
+    // 2. 两种模型统一输出人物置信度。
+    // 返回的数组会在下一次 segment() 时更新，应立即用于绘图。
     segment(frame, timestampMs) {
       let output = null;
 
       model.segmentForVideo(frame, timestampMs, (result) => {
-        // 这个模型的第 0 类是背景。
-        const backgroundMask = result.confidenceMasks?.[0];
+        const mask = result.confidenceMasks?.[0];
 
-        if (!backgroundMask) {
-          throw new Error("模型没有返回背景蒙版。");
+        if (!mask) {
+          throw new Error("Model returned no confidence mask.");
         }
 
-        const background = backgroundMask.getAsFloat32Array();
-        const person = new Float32Array(background.length);
+        const confidence = mask.getAsFloat32Array();
 
-        for (let i = 0; i < background.length; i++) {
-          person[i] = 1 - background[i];
+        if (!person || person.length !== confidence.length) {
+          person = new Float32Array(confidence.length);
         }
 
-        // 复制到我们自己的数组，回调结束后仍可使用。
+        for (let i = 0; i < confidence.length; i++) {
+          // Multiclass 第 0 通道是背景；Landscape 的通道是人物。
+          person[i] = config.backgroundMask
+            ? 1 - confidence[i]
+            : confidence[i];
+        }
+
         output = {
-          width: backgroundMask.width,
-          height: backgroundMask.height,
+          width: mask.width,
+          height: mask.height,
           confidence: person,
         };
       });
@@ -55,9 +83,10 @@ export async function createPersonSegmenter() {
       return output;
     },
 
-    // 3. 页面退出时释放模型。
+    // 3. 释放模型和本模块持有的数组。
     close() {
       model.close();
+      person = null;
     },
   };
 }

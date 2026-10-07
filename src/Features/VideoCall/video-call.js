@@ -7,7 +7,7 @@ import { createNoiseSuppressionAdapter } from "./AudioUtils/NoiseSuppress/noise-
 import { setupVoiceDetection } from "./AudioUtils/voice-detector.js";
 import { getHostPresets } from "./presets.js";
 import { VideoPanelWidget } from "./widgets.js";
-import { createBackgroundEffect } from "./background.js";
+import { createBackgroundEffect } from "./background.js"
 
 function getDefaulIceServers() {
 	return {
@@ -418,7 +418,18 @@ export default class VideoCall extends Features {
           </select>
         </label>
       </p>
-
+      <p>
+        <label>Model
+          <select name="model">
+            <option value="standard" selected>
+                Standard (Multiclass)
+            </option>
+            <option value="lightweight">
+             Lightweight (Landscape)
+            </option>
+          </select>
+        </label>
+      </p>
       <p>
         <label>Background image
           <input type="file" accept="image/jpeg,image/png,image/webp">
@@ -432,9 +443,37 @@ export default class VideoCall extends Features {
 
   document.body.append(dialog);
 
-  const modeSelect = dialog.querySelector("select");
+  const modeSelect = dialog.querySelector('select[name="mode"]');
   const fileInput = dialog.querySelector("input");
   const status = dialog.querySelector("[role=status]");
+  const modelSelect = dialog.querySelector('select[name="model"]');
+  modelSelect.value = effect.getState().model;
+
+// 加载期间暂时禁止操作，避免模型切换与图片加载交叉进行。
+function setBusy(busy) {
+  const disabled = busy || !effect.getState().running;
+
+  modeSelect.disabled = disabled;
+  modelSelect.disabled = disabled;
+  fileInput.disabled = disabled;
+}
+
+// 只调用背景模块的接口，不改变通话连接。
+modelSelect.addEventListener("change", async () => {
+  setBusy(true);
+  status.textContent = "Loading model...";
+
+  try {
+    await effect.setModel(modelSelect.value);
+    status.textContent = "Model ready.";
+  } catch (error) {
+    status.textContent = "Model switch failed: " + error.message;
+  } finally {
+    // 失败后也显示实际保留的模型。
+    modelSelect.value = effect.getState().model;
+    setBusy(false);
+  }
+});
 
   // 切换模式只修改背景模块的状态，不重新创建模型。
   modeSelect.addEventListener("change", () => {
@@ -452,8 +491,7 @@ export default class VideoCall extends Features {
     if (!file) return;
 
     const url = URL.createObjectURL(file);
-    modeSelect.disabled = true;
-    fileInput.disabled = true;
+    setBusy(true);
     status.textContent = "Loading image...";
 
     try {
@@ -469,8 +507,7 @@ export default class VideoCall extends Features {
       status.textContent = "Image failed: " + error.message;
     } finally {
       URL.revokeObjectURL(url);
-      modeSelect.disabled = false;
-      fileInput.disabled = false;
+      setBusy(false);
       fileInput.value = "";
     }
   });

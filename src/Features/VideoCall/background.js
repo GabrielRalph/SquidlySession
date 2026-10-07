@@ -26,6 +26,9 @@ export async function createBackgroundEffect(inputStream, onError) {
   let sourceVersion = 0;
   let mode = "blur";
   let backgroundImage = null;
+  let modelName = "standard";
+  let switching = false;
+  
 
   // 2. 绘制一帧：原图直接画；背景效果先分割，再合成。
   function drawFrame() {
@@ -46,17 +49,25 @@ export async function createBackgroundEffect(inputStream, onError) {
   }
 
   // 3. 只保留一个待执行回调；收到下一帧后继续。
-  function processFrame() {
-    callbackId = null;
-    if (stopped) return;
-
-    try {
-      drawFrame();
-      callbackId = video.requestVideoFrameCallback(processFrame);
-    } catch (error) {
-      fail(error);
-    }
+  // 所有恢复入口都从这里申请下一帧，确保只有一套循环。
+function scheduleFrame() {
+  if (!stopped && !switching && callbackId === null) {
+    callbackId = video.requestVideoFrameCallback(processFrame);
   }
+}
+
+function processFrame() {
+  callbackId = null;
+
+  if (stopped || switching) return;
+
+  try {
+    drawFrame();
+    scheduleFrame();
+  } catch (error) {
+    fail(error);
+  }
+}
 
   function cancelFrame() {
     if (callbackId !== null) {
@@ -74,7 +85,7 @@ export async function createBackgroundEffect(inputStream, onError) {
     video.srcObject = inputStream;
 
     video.play().then(() => {
-      if (!stopped && version === sourceVersion) processFrame();
+      if (!stopped && version === sourceVersion) scheduleFrame();
     }).catch(error => {
       if (!stopped && version === sourceVersion) fail(error);
     });
@@ -103,6 +114,64 @@ export async function createBackgroundEffect(inputStream, onError) {
     stop();
     onError(error);
   }
+  // 创建完成后再使用；加载期间退出时，释放迟到的模型。
+async function loadSegmenter(name) {
+  const next = await createPersonSegmenter(name);
+
+  if (stopped) {
+    next.close();
+    throw new Error("Background processing has stopped.");
+  }
+
+  segmenter = next;
+  modelName = name;
+}
+
+// 暂停处理 → 释放旧模型 → 加载新模型 → 恢复处理。
+async function setModel(name) {
+  if (stopped) {
+    throw new Error("Background processing has stopped.");
+  }
+
+  if (switching) {
+    throw new Error("A model switch is already in progress.");
+  }
+
+  if (!["standard", "lightweight"].includes(name)) {
+    throw new Error("Unknown background model.");
+  }
+
+  if (name === modelName) return;
+
+  const previousName = modelName;
+
+  switching = true;
+  cancelFrame();
+
+  try {
+    // 先关闭旧模型，不同时保留两个背景模型。
+    segmenter.close();
+    segmenter = null;
+
+    try {
+      await loadSegmenter(name);
+    } catch (error) {
+      // 新模型失败时，尝试恢复旧模型。
+      if (!stopped) {
+        try {
+          await loadSegmenter(previousName);
+        } catch (recoveryError) {
+          fail(recoveryError);
+        }
+      }
+
+      throw error;
+    }
+  } finally {
+    switching = false;
+    scheduleFrame();
+  }
+}
 
   // 6. 启动一次模型和输出流；初始化失败时释放已创建的资源。
   window.addEventListener("pagehide", stop);
@@ -110,17 +179,12 @@ export async function createBackgroundEffect(inputStream, onError) {
   try {
     video.srcObject = inputStream;
     await video.play();
-    if (stopped) throw new Error("Background start cancelled.");
 
-    
-    if (stopped) throw new Error("Background start cancelled.");
+  if (stopped) {
+  throw new Error("Background start cancelled.");
+  }  
 
-    const model = await createPersonSegmenter();
-    if (stopped) {
-      model.close();
-      throw new Error("Background start cancelled.");
-    }
-    segmenter = model;
+  await loadSegmenter(modelName);
 
     drawFrame();
     outputTrack = output.captureStream().getVideoTracks()[0];
@@ -133,7 +197,7 @@ export async function createBackgroundEffect(inputStream, onError) {
     ]);
 
     inputStream.addEventListener("trackchanged", onTrackChanged);
-    callbackId = video.requestVideoFrameCallback(processFrame);
+    scheduleFrame();
 
     return {
       stream,
@@ -155,6 +219,11 @@ export async function createBackgroundEffect(inputStream, onError) {
         mode = "image";
       },
 
+      setModel,
+      getState: () => ({
+        model: modelName,
+        running: !stopped,
+      }),
       stop,
     };
   } catch (error) {
