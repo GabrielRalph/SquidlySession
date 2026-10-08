@@ -1,5 +1,5 @@
-import { createBackgroundRenderer } from "./background-renderer.js";
-import { createPersonSegmenter } from "./background-segmenter.js";
+import { BackgroundRenderer } from "./background-renderer.js";
+import { Segmenter } from "./background-segmenter.js";
 
 // 借用 Squidly 的输入流；只创建和管理自己的背景处理资源。
 export async function createBackgroundEffect(inputStream, onError) {
@@ -16,9 +16,10 @@ export async function createBackgroundEffect(inputStream, onError) {
   const frameContext = frame.getContext("2d");
   const output = document.createElement("canvas");
   const outputContext = output.getContext("2d");
-  const renderer = createBackgroundRenderer(output);
-  frame.width = 480;
 
+
+  frame.width = 480;
+  let renderer = null;
   let segmenter = null;
   let outputTrack = null;
   let callbackId = null;
@@ -116,7 +117,10 @@ function processFrame() {
   }
   // 创建完成后再使用；加载期间退出时，释放迟到的模型。
 async function loadSegmenter(name) {
-  const next = await createPersonSegmenter(name);
+  const next = new Segmenter(name); 
+  await next.load();
+
+  renderer = new BackgroundRenderer(output, next.webglContext, next.invertMask);
 
   if (stopped) {
     next.close();
