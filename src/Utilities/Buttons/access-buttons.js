@@ -225,23 +225,6 @@ function getElementFromPoint(x, y) {
   return root;
 }
 
-// function getElementFromPoint(x, y) {
-//     let root = document.elementFromPoint(x, y);
-//     while (root) {
-//         if (root.shadowRoot != null) {
-//             root = root.shadowRoot.elementFromPoint(x, y);
-//         } else if (root.tagName === "IFRAME" && root.contentDocument) {
-//             let rect = root.getBoundingClientRect();
-//             x = x - rect.x;
-//             y = y - rect.y;
-//             root = root.contentDocument.elementFromPoint(x, y);
-//         } else {
-//             break;
-//         }
-//     }
-//     return root;
-// }
-
 // Private variables
 const $ = new WeakMap();
 const ButtonsLookup = new AccessButtonsLookupTable();

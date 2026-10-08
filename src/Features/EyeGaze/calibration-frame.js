@@ -1,7 +1,7 @@
 import { SvgPlus, Vector } from "../../SvgPlus/4.js";
 import { HideShowTransition } from "../../Utilities/hide-show.js";
 import { BasePointer, SvgResize } from "../../Utilities/svg-resize.js";
-import { delay, relURL } from "../../Utilities/usefull-funcs.js";
+import { delay } from "../../Utilities/usefull-funcs.js";
 import * as Algorithm from "./Algorithm/index.js"
 import ImageAssets from "../../Utilities/ImageAssets/image-library.js";
 
@@ -517,13 +517,6 @@ export class CalibrationFrame extends HideShowTransition {
 	}
 
 
-	// applyShownState() {
-	// 	super.applyShownState();
-	// 	this.styles = {
-	// 		"pointer-events": "all"
-	// 	}
-	// }
-
 	onconnect() {
 		this.styles = {
 			position: "absolute",
@@ -645,22 +638,6 @@ export class CalibrationFrame extends HideShowTransition {
 		await this.hideMessage();
 	}
 
-
-	// async show(duration, hide) {
-	// 	if (!hide) {
-	// 		this.styles = {
-	// 			"cursor": "none",
-	// 			display: null,
-	// 		}
-	// 	}
-	// 	await super.show(duration, hide);
-	// 	if (hide) {
-	// 		this.styles = {
-	// 			"cursor": null,
-	// 			display: "none"
-	// 		}
-	// 	}
-	// }
 
 	async loadGuides(){
 		let guides = {};
