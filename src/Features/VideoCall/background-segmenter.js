@@ -55,14 +55,13 @@ export class Segmenter {
   }
 
 
-  segment(frame, timestampMs) {
-    let output = null;
-      this.model.segmentForVideo(frame, timestampMs, (result) => {
-        const mask = result.confidenceMasks?.[0];
-        output = mask;
-      });
-
-      return output;
+  segment(frame, timestampMs, drawResult) {
+    // GPU 蒙版只保证在回调内有效，因此也在回调内完成背景合成。
+    this.model.segmentForVideo(frame, timestampMs, (result) => {
+      const mask = result.confidenceMasks?.[0];
+      if (!mask) throw new Error("Model returned no confidence mask.");
+      drawResult(mask);
+    });
   }
 
   close() {

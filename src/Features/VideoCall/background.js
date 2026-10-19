@@ -1,5 +1,6 @@
 import { BackgroundRenderer } from "./background-renderer.js";
 import { Segmenter } from "./background-segmenter.js";
+import { FaceSoftener } from "./face-softener.js";
 
 // 借用 Squidly 的输入流；只创建和管理自己的背景处理资源。
 export async function createBackgroundEffect(inputStream, onError) {
@@ -29,6 +30,12 @@ export async function createBackgroundEffect(inputStream, onError) {
   let backgroundImage = null;
   let modelName = "standard";
   let switching = false;
+  // 脸部柔焦与背景模型独立，默认关闭，首次开启才加载定位模型。
+  let faceSoftener = null;
+  let faceLoading = null;
+  let faceSoftening = 0;
+  let faceRequest = 0;
+  let onFaceSofteningError = () => {};
   
 
   // 2. 绘制一帧：原图直接画；背景效果先分割，再合成。
@@ -40,13 +47,61 @@ export async function createBackgroundEffect(inputStream, onError) {
     if (output.width !== 480) output.width = 480;
     if (output.height !== height) output.height = height;
 
-    if (mode === "none") {
+    if (mode === "none" && faceSoftening === 0) {
       outputContext.drawImage(video, 0, 0, output.width, output.height);
     } else {
       frameContext.drawImage(video, 0, 0, frame.width, frame.height);
-      const mask = segmenter.segment(frame, performance.now());
-      renderer.draw(frame, mask, mode === "image" ? backgroundImage : null);
+      const timestamp = performance.now();
+      let foreground = frame;
+      if (faceSoftening > 0 && faceSoftener) {
+        try {
+          foreground = faceSoftener.apply(frame, faceSoftening, timestamp);
+        } catch (error) {
+          // 柔焦失败只关闭柔焦，不中断摄像头或通话。
+          faceSoftening = 0;
+          faceRequest++;
+          faceSoftener.close();
+          faceSoftener = null;
+          console.warn("[Face softening] Disabled:", error);
+          onFaceSofteningError(error);
+        }
+      }
+      if (mode === "none") {
+        outputContext.drawImage(foreground, 0, 0, output.width, output.height);
+      } else {
+        // 分割始终读取原始图像，柔焦不改变模型的输入。
+        segmenter.segment(frame, timestamp, mask => {
+          renderer.draw(frame, mask, mode === "image" ? backgroundImage : null, foreground);
+        });
+      }
     }
+  }
+
+  async function setFaceSoftening(value) {
+    if (stopped) throw new Error("Background processing has stopped.");
+    if (!Number.isFinite(value) || value < 0 || value > 100) {
+      throw new Error("Face softening must be between 0 and 100.");
+    }
+    const request = ++faceRequest;
+    if (value === 0) {
+      faceSoftening = 0;
+      faceSoftener?.reset();
+      return;
+    }
+    if (!faceSoftener) {
+      if (!faceLoading) {
+        faceLoading = FaceSoftener.create().then(loaded => {
+          if (stopped) {
+            loaded.close();
+            throw new Error("Face softening start cancelled.");
+          }
+          faceSoftener = loaded;
+        }).finally(() => { faceLoading = null; });
+      }
+      await faceLoading;
+    }
+    if (stopped) throw new Error("Background processing has stopped.");
+    if (request === faceRequest) faceSoftening = value;
   }
 
   // 3. 只保留一个待执行回调；收到下一帧后继续。
@@ -82,6 +137,7 @@ function processFrame() {
     if (stopped || event.newTrack?.kind !== "video") return;
 
     const version = ++sourceVersion;
+    faceSoftener?.reset();
     cancelFrame();
     video.srcObject = inputStream;
 
@@ -102,6 +158,11 @@ function processFrame() {
     window.removeEventListener("pagehide", stop);
 
     outputTrack?.stop();
+    faceRequest++;
+    faceSoftening = 0;
+    faceSoftener?.close();
+    faceSoftener = null;
+    onFaceSofteningError = () => {};
     segmenter?.close();
     segmenter = null;
     backgroundImage = null;
@@ -224,9 +285,15 @@ async function setModel(name) {
       },
 
       setModel,
+      setFaceSoftening,
+      onFaceSofteningError(listener) {
+        onFaceSofteningError = listener;
+      },
       getState: () => ({
         model: modelName,
         running: !stopped,
+        faceSoftening,
+        faceSofteningReady: faceSoftener !== null,
       }),
       stop,
     };

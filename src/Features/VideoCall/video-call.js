@@ -7,7 +7,9 @@ import { createNoiseSuppressionAdapter } from "./AudioUtils/NoiseSuppress/noise-
 import { setupVoiceDetection } from "./AudioUtils/voice-detector.js";
 import { getHostPresets } from "./presets.js";
 import { VideoPanelWidget } from "./widgets.js";
-import { createBackgroundEffect } from "./background.js"
+import { BACKGROUND_PRESETS } from "./background-presets.js";
+import { createBackgroundEffect } from "./background.js";
+
 
 function getDefaulIceServers() {
 	return {
@@ -430,12 +432,24 @@ export default class VideoCall extends Features {
           </select>
         </label>
       </p>
+      <!-- 脸部柔焦：独立于背景模式，0 表示关闭。 -->
+      <p>
+        <label>Face softening
+          <input type="range" name="faceSoftening" min="0" max="100" step="5" value="0">
+          <output name="faceSofteningValue">0%</output>
+        </label>
+        <br><small>Face only. Extra processing when enabled; 0 = off.</small>
+      </p>
       <p>
         <label>Background image
           <input type="file" accept="image/jpeg,image/png,image/webp">
         </label>
       </p>
-
+      <p>Preset backgrounds</p>
+      <div
+       data-background-presets
+       style="display:flex;flex-wrap:wrap;gap:8px;"
+      ></div>
       <p role="status"></p>
       <button type="submit">Close</button>
     </form>
@@ -444,10 +458,25 @@ export default class VideoCall extends Features {
   document.body.append(dialog);
 
   const modeSelect = dialog.querySelector('select[name="mode"]');
-  const fileInput = dialog.querySelector("input");
+  // 现在有滑杆和文件两种 input，必须明确选中文件上传控件。
+  const fileInput = dialog.querySelector('input[type="file"]');
+  const faceSofteningInput = dialog.querySelector('[name="faceSoftening"]');
+  const faceSofteningValue = dialog.querySelector('[name="faceSofteningValue"]');
   const status = dialog.querySelector("[role=status]");
+  const presetContainer =dialog.querySelector("[data-background-presets]");
   const modelSelect = dialog.querySelector('select[name="model"]');
   modelSelect.value = effect.getState().model;
+
+  function syncFaceSoftening() {
+    const value = effect.getState().faceSoftening;
+    faceSofteningInput.value = String(value);
+    faceSofteningValue.value = `${value}%`;
+  }
+  syncFaceSoftening();
+  effect.onFaceSofteningError(error => {
+    syncFaceSoftening();
+    status.textContent = "Face softening disabled: " + error.message;
+  });
 
 // 加载期间暂时禁止操作，避免模型切换与图片加载交叉进行。
 function setBusy(busy) {
@@ -456,8 +485,31 @@ function setBusy(busy) {
   modeSelect.disabled = disabled;
   modelSelect.disabled = disabled;
   fileInput.disabled = disabled;
-}
+  faceSofteningInput.disabled = disabled;
 
+  for (const button of presetContainer.querySelectorAll("button")) {
+    button.disabled = disabled;
+  }
+}
+// 只更新柔焦强度，不切换 Standard / Lightweight，也不重建通话流。
+faceSofteningInput.addEventListener("input", async () => {
+  const value = Number(faceSofteningInput.value);
+  faceSofteningValue.value = `${value}%`;
+  const loading = value > 0 && !effect.getState().faceSofteningReady;
+  // 首次加载才锁定控件；模型就绪后可连续拖动滑杆。
+  if (loading) setBusy(true);
+  status.textContent = loading
+    ? "Loading face model..." : "Updating face softening...";
+  try {
+    await effect.setFaceSoftening(value);
+    status.textContent = value === 0 ? "Face softening off." : "Face softening ready.";
+  } catch (error) {
+    status.textContent = "Face softening failed: " + error.message;
+  } finally {
+    syncFaceSoftening();
+    if (loading) setBusy(false);
+  }
+});
 // 只调用背景模块的接口，不改变通话连接。
 modelSelect.addEventListener("change", async () => {
   setBusy(true);
@@ -485,32 +537,69 @@ modelSelect.addEventListener("change", async () => {
     }
   });
 
-  // 图片只在用户选择文件时读取一次。
-  fileInput.addEventListener("change", async () => {
-    const file = fileInput.files[0];
-    if (!file) return;
+  // 预设和上传共用同一个图片加载函数。
+async function applyBackgroundImage(url) {
+  setBusy(true);
+  status.textContent = "Loading image...";
 
-    const url = URL.createObjectURL(file);
-    setBusy(true);
-    status.textContent = "Loading image...";
+  try {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.src = url;
+    await image.decode();
 
-    try {
-      const image = new Image();
-      image.src = url;
-      await image.decode();
+    effect.setImage(image);
 
-      effect.setImage(image);
-      modeSelect.querySelector('[value="image"]').disabled = false;
-      modeSelect.value = "image";
-      status.textContent = "Image ready.";
-    } catch (error) {
-      status.textContent = "Image failed: " + error.message;
-    } finally {
-      URL.revokeObjectURL(url);
-      setBusy(false);
-      fileInput.value = "";
-    }
+    modeSelect.querySelector('[value="image"]').disabled = false;
+    modeSelect.value = "image";
+    status.textContent = "Image ready.";
+  } catch (error) {
+    status.textContent = "Image failed: " + error.message;
+  } finally {
+    setBusy(false);
+  }
+}
+
+// 初始化时就创建预设按钮，不需要用户先上传。
+for (const preset of BACKGROUND_PRESETS) {
+  const button = document.createElement("button");
+  button.type = "button";
+
+  const thumbnail = new Image();
+  thumbnail.crossOrigin = "anonymous";
+  thumbnail.src = preset.url;
+  thumbnail.alt = "";
+  thumbnail.width = 96;
+  thumbnail.height = 54;
+  thumbnail.style.cssText = "display:block;object-fit:cover;";
+
+  button.append(
+    thumbnail,
+    document.createTextNode(preset.name)
+  );
+
+  button.addEventListener("click", () => {
+    return applyBackgroundImage(preset.url);
   });
+
+  presetContainer.append(button);
+}
+
+// 用户选择自己的图片时，才执行这一部分。
+fileInput.addEventListener("change", async () => {
+  const file = fileInput.files[0];
+  if (!file) return;
+
+  const url = URL.createObjectURL(file);
+
+  try {
+    await applyBackgroundImage(url);
+  } finally {
+    URL.revokeObjectURL(url);
+    fileInput.value = "";
+  }
+});
+ 
 
   // 使用 Squidly 已有工具栏，新增一个背景设置入口。
   this.session.toolBar.addMenuItems("control", [{
