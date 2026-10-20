@@ -314,6 +314,12 @@ export default class ShareContent extends Features {
         if (!this._rcAgent) {
             this._rcAgent = new RemoteAgentClient({
                 onStatus: (info) => this._publishRemoteStatus(info),
+                getSessionInfo: () => {
+                    const ua = navigator.userAgent;
+                    const browser = /Edg\//.test(ua) ? "Edge" : /Firefox\//.test(ua) ? "Firefox"
+                        : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "Browser";
+                    return { meeting: this.sdata.sid || "", browser, tab: document.title };
+                },
             });
         }
         this._rcAgent.connect();

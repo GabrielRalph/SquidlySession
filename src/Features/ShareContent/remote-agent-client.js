@@ -16,9 +16,10 @@ function parseBounds(data) {
 
 export class RemoteAgentClient {
   /**
-   * @param {{url?: string, onStatus?: (info: {connected: boolean, bounds: object|null, error?: string|null}) => void}} [opts]
+   * @param {{url?: string, getSessionInfo?: () => {meeting?: string, browser?: string, tab?: string}, onStatus?: (info: {connected: boolean, bounds: object|null, error?: string|null}) => void}} [opts]
    */
   constructor(opts = {}) {
+    this.getSessionInfo = opts.getSessionInfo || (() => ({}));
     this.url = opts.url || DEFAULT_AGENT_URL;
     this.onStatus = opts.onStatus || null;
     this.bounds = null;
@@ -117,7 +118,14 @@ export class RemoteAgentClient {
     }
   }
 
+  _identifySession() {
+    const info = { type: "session.identify", ...this.getSessionInfo() };
+    const key = JSON.stringify(info);
+    if (key !== this._sessionInfoSent && this.send(info)) this._sessionInfoSent = key;
+  }
+
   _sendMatch() {
+    this._identifySession();
     const req = this._matchReq;
     if (!req) return;
     this.send({
@@ -170,6 +178,8 @@ export class RemoteAgentClient {
       this.bounds = null;
       this.statusCode = "checking";
       console.log("%cremote-agent", "color:#3d9a6a", "connected", this.url);
+      this._sessionInfoSent = null;
+      this._identifySession();
       this._emitStatus();
       if (this._matchReq) this._sendMatch();
       this._startMatchTimer();
@@ -178,7 +188,8 @@ export class RemoteAgentClient {
     ws.onerror = () => {
       /* onclose handles retry */
     };
-    ws.onclose = () => {
+    ws.onclose = (event) => {
+      if (event?.code === 4000) this._wanted = false;
       const wasOurs = this._ws === ws;
       this._connecting = false;
       if (wasOurs) this._ws = null;

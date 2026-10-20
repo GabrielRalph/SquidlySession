@@ -5,8 +5,8 @@ export function remoteControlStatusCopy(code, isSharer) {
   const action = {
     checking: ["Checking remote control", "Waiting for the shared window to be ready."],
     agent_offline: ["Remote control paused", isSharer
-      ? "Open RemoteAgent on this Mac to resume control."
-      : "Waiting for the sharer to open RemoteAgent."],
+      ? "Cannot connect to RemoteAgent. If it is already open, check your browser connection and try again."
+      : "Waiting for the sharer to connect to RemoteAgent."],
     agent_update_required: ["Remote control paused", isSharer
       ? "Update and restart RemoteAgent to resume control."
       : "The sharer needs to update RemoteAgent."],
