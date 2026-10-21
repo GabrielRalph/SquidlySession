@@ -7,10 +7,10 @@ import { relURL } from '../Utilities/usefull-funcs.js';
 /** @typedef {import('./EyeGaze/eye-gaze.js').default} EyeGazeFeature */
 /** @typedef {import('./Keyboard/keyboard.js').default} KeyboardFeature */
 /** @typedef {import('./AccessControl/access-control.js').default} AccessControl */
-/** @typedef {import('./Text2Speech/text2speech.js').default} Text2Speech */
 /** @typedef {import('./Notifications/notifications.js').default} Notifications */
+/** @typedef {import('./Text2Speech/text2speech.js').default} Text2Speech */
 /** @typedef {import('./Heatmap/heatmap-feature.js').default} HeatmapFeature */
-/** @typedef {import('./AAC/grid.js').default} AACGrid */
+/** @typedef {import('./AAC/aac.js').default} AACFeature */
 /** @typedef {import('./AccessSetup/access-setup.js').default} AccessSetup */
 /** @typedef {import('./Apps/apps.js').default} Apps */
 /** @typedef {import('./Chat/chat.js').default} ChatFeature */
@@ -40,16 +40,16 @@ export class SquildyFeatureProxy {
 	/** @return {AccessControl} */
 	get accessControl() { return this.getFeature("accessControl"); }
 
-	/** @return {Text2Speech} */
-	get text2speech() { return this.getFeature("text2speech"); }
-
 	/** @return {Notifications} */
 	get notifications() { return this.getFeature("notifications"); }
+
+	/** @return {Text2Speech} */
+	get text2speech() { return this.getFeature("text2speech"); }
 
 	/** @return {HeatmapFeature} */
 	get heatmaps() { return this.getFeature("heatmaps"); }
 
-	/** @return {AACGrid} */
+	/** @return {AACFeature} */
 	get aacGrid() { return this.getFeature("aacGrid"); }
 
 	/** @return {AccessSetup} */
@@ -80,10 +80,10 @@ export const FeaturesList = [
 	[() => import("./EyeGaze/eye-gaze.js"), "eyeGaze"],
 	[() => import("./Keyboard/keyboard.js"), "keyboard"],
 	[() => import("./AccessControl/access-control.js"), "accessControl"],
-	[() => import("./Text2Speech/text2speech.js"), "text2speech"],
 	[() => import("./Notifications/notifications.js"), "notifications"],
+	[() => import("./Text2Speech/text2speech.js"), "text2speech"],
 	[() => import("./Heatmap/heatmap-feature.js"), "heatmaps"],
-	[() => import("./AAC/grid.js"), "aacGrid"],
+	[() => import("./AAC/aac.js"), "aacGrid"],
 	[() => import("./AccessSetup/access-setup.js"), "accessSetup"],
 	[() => import("./Apps/apps.js"), "apps"],
 	[() => import("./Chat/chat.js"), "chat"],

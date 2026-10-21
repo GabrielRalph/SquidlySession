@@ -1,4 +1,11 @@
-import {initializeApp} from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js'
+let location = window.location.origin;
+let LOC = "LOCAL"
+if (!import.meta.url.startsWith(location)) {
+    LOC = "REMOTE"
+}
+
+
+import {initializeApp} from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js'
 
 import {
         getAuth, 
@@ -9,11 +16,16 @@ import {
         signInWithEmailAndPassword as signInEandP, 
         reauthenticateWithCredential, 
         updatePassword, 
-        signInWithRedirect, 
+        OAuthProvider,
+        linkWithCredential,
+        signInWithRedirect as signInWithRedir, 
+        signInWithPopup as signInWithPop,
         GoogleAuthProvider, 
         EmailAuthProvider,
+        signInWithCustomToken as signInWithToken,
         onAuthStateChanged, 
-        sendEmailVerification as _sendEmailVerification} from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js'
+        getAdditionalUserInfo,
+        sendEmailVerification as _sendEmailVerification} from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js'
 
 import {
         update, 
@@ -37,27 +49,37 @@ import {
         orderByValue, 
         orderByChild, 
         limitToFirst, 
-        limitToLast } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js'
+        limitToLast } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-database.js'
+
 import { getFunctions, 
-         httpsCallable  } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js'
+         httpsCallable  } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-functions.js'
+
 import { getStorage, 
          ref as sref, 
          uploadBytesResumable, 
          getDownloadURL, 
+         deleteObject,
          getBlob, 
-         getMetadata } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js'
+         getMetadata } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-storage.js'
 
+import {
+    getAnalytics,
+    logEvent as _logEvent
+} from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-analytics.js'
 
+import * as FS from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js'
 
 const firebaseConfig = {
     apiKey: "AIzaSyChiEAP1Rp1BDNFn7BQ8d0oGR65N3rXQkE",
-    authDomain: "eyesee-d0a42.firebaseapp.com",
+    authDomain: "verify.squidly.com.au",
     databaseURL: "https://eyesee-d0a42-default-rtdb.asia-southeast1.firebasedatabase.app",
     projectId: "eyesee-d0a42",
     storageBucket: "eyesee-d0a42.appspot.com",
     messagingSenderId: "56834287411",
-    appId: "1:56834287411:web:999340ed2fd5165fa68046"
+    appId: "1:56834287411:web:999340ed2fd5165fa68046",
+    measurementId: "G-HR5XCLC797"
 };
+
 const storageURL = "gs://eyesee-d0a42.appspot.com"
 
 let initialised = false;
@@ -66,15 +88,16 @@ let initialising = false;
 let App = null;
 let Database = null;
 const Functions = {
-    "asia-southeast1": null,
     "australia-southeast1": null,
+    "asia-southeast1": null,
 };
 let Storage = null;
 let Auth = null;
 let User;
+let Firestore = null;
 let StateListeners = [];
 let waitForUserProm = null;
-
+let Analytics = null;
 
 // Generates a random key to use as the device's unique identifier DUID.
 function makeRandomKey(){
@@ -91,9 +114,9 @@ if (DUID == null) {
 
 /* If the user has changed updates the new user and calls all listeners with the new user data.
    If a listener returns the string "remove" then the listener will be removed */
-function authChangeHandler(user){
+function authChangeHandler(user, force = false){
   // If the user has changed
-  if (user !== User) {
+  if (user !== User || force) {
     // Update the user object
     User = user;
     let newListeners = [];
@@ -108,30 +131,40 @@ function authChangeHandler(user){
   }
 }
 
+export async function forceAuthStateChange() {
+    await User.reload();
+    await User.getIdToken(true); // Force token refresh so updated claims (e.g. email_verified) are reflected in the JWT
+    authChangeHandler(User, true);
+}
+
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ PUBLIC FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /*  Initialize firebase, initializes the firebase app with the given configuration
     after initializing wait for an auth state change and return */
 export async function initialise(config = firebaseConfig) {
-  if (initialised || initialising) return await waitForUserProm;
-  initialising = true;
+    if (initialised || initialising) return await waitForUserProm;
+    initialising = true;
 
-  App = initializeApp(config);
-  Database = getDatabase(App);
-  Auth = getAuth();
+    App = initializeApp(config);
+    Database = getDatabase(App);
+    Auth = getAuth();
+    Firestore = FS.getFirestore(App);
+    Analytics = getAnalytics(App);
+  
+    Storage = getStorage(App, storageURL);
+    for (let key in Functions) Functions[key] = getFunctions(App, key);
+    waitForUserProm = new Promise((r) => {
+        onAuthStateChanged(Auth, async (userData) => {
+            authChangeHandler(userData);
 
-  Storage = getStorage(App, storageURL);
-  for (let key in Functions) Functions[key] = getFunctions(App, key);
-  waitForUserProm = new Promise((r) => {
-    onAuthStateChanged(Auth, async (userData) => {
-      authChangeHandler(userData);
-      initialising = false;
-      initialised = true;
-      r(userData);
+            initialising = false;
+            initialised = true;
+            r(userData);
+        });
     });
-  });
-  return await waitForUserProm;
+    return await waitForUserProm;
 }
+
 // Get App object
 export function getApp(){return App;}
 
@@ -193,11 +226,11 @@ export function getUID(){
 export function getUser(){return User;}
 
 
-export function signInWithEmailAndPassword(email, password){
-    signInEandP(Auth, email, password)
+export async function signInWithEmailAndPassword(email, password){
+    return await signInEandP(Auth, email, password)
 }
 
-export async function sendEmailVerification(url = window.location.origin){
+export async function sendEmailVerification(url = window.location + "") {
     // Send email verification
     if (User) {
         const actionCodeSettings = {
@@ -210,7 +243,7 @@ export async function sendEmailVerification(url = window.location.origin){
 
 export async function sendPasswordResetEmail(email){
     await sendPRE(Auth, email, {
-        url: window.location.origin,
+        url: window.location + "",
         handleCodeInApp: true
     })
 }
@@ -219,15 +252,27 @@ export async function createUserWithEmailAndPassword(email, password) {
     await createUserEandP(Auth, email, password);
 }
 
+export async function signInWithCustomToken(token) {
+    return await signInWithToken(Auth, token);
+}
+
 export async function signInAnonymously(){
-    await signInAnom(Auth);
+    return await signInAnom(Auth);
 }
 
 export async function signOut(){
     sOut(Auth);
+    logEvent("logout");
 }
-window.signOut = signOut
-window.signIn = signInWithEmailAndPassword
+
+export async function signInWithPopup(provider) {
+    return await signInWithPop(Auth, provider);
+}
+
+export async function signInWithRedirect(provider) {
+    return await signInWithRedir(Auth, provider);
+}
+
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ REALTIME DATABASE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 // Get Ref using database
@@ -251,43 +296,86 @@ export function storageRef(fileName){
     return sref(Storage, fileName);
 }
 
-// Upload file to firebase storage bucket
+/** Upload file to firebase storage bucket
+ * @param {File} file - The file to upload
+ * @param {string} path - The path in the storage bucket where the file will be uploaded
+ * @param {function} statusCallback - A callback function to track the upload progress
+ * @param {object} metadata - Metadata for the file being uploaded
+ * @param {boolean} getURL - Whether to return the download URL of the uploaded file
+ * @returns {Promise<string|null>} - The download URL of the uploaded file if getURL is true, otherwise null
+ */ 
 export async function uploadFileToCloud(file, path, statusCallback, metadata, getURL = true) {
-  console.log("uploading file of size", (file.size / 1e6) + "MB");
+    let url = null;  
+    if (file instanceof File && typeof path === 'string' && path.length > 0) {
+        if (!(statusCallback instanceof Function)) statusCallback = () => { };
 
-  if (!(file instanceof File) || typeof path !== 'string') {
-      console.log('invalid file');
-      return null;
-  }
+        let sr = storageRef(path);
+    
+        let uploadTask = uploadBytesResumable(sr, file, metadata);
+        uploadTask.on('next', statusCallback);
+        await uploadTask;
+    
+        if (getURL) url = await getDownloadURL(sr);
+    } 
+    return url;
+}
 
-  if (!(statusCallback instanceof Function))
-      statusCallback = () => { }
+export async function deleteFile(path) {
+    if (typeof path === 'string' && path.length > 0) {
+        let sr = storageRef(path);
+        await deleteObject(sr);
+    }
+}
 
-  let sr = storageRef(path)
-
-
-  let uploadTask = uploadBytesResumable(sr, file, metadata);
-  uploadTask.on('next', statusCallback)
-  await uploadTask;
-
-  if (getURL) {
-      let url = await getDownloadURL(sr);
-      return url;
-  }
-  return null
+const cache = new Map();
+export async function getFileURL(path) {
+    if (cache.has(path)) {
+        return cache.get(path);
+    }
+    const url = await getDownloadURL(storageRef(path));
+    cache.set(path, url);
+    return url;
 }
 
 export async function getFile(path) {
   return await getBlob(storageRef(path));
 }
 
+export async function updateMetrics(uid) {
+    let time = Date.now();
+    return await set(ref(`users/${uid}/metrics/lastSignInTime`), time);
+}
+
+const collection = FS.collection;
+const writeBatch = FS.writeBatch;
+
+const FStore = {...FS}
+FStore.collection = (...args) => {
+    return collection(Firestore, ...args);
+}
+FStore.writeBatch = (...args) => {
+    return writeBatch(Firestore, ...args);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Analytics ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+export function logEvent(eventName, eventParams, options) {
+    if (Analytics) {
+        _logEvent(Analytics, eventName, eventParams, options);
+    } else {
+        console.warn(`Analytics not initialized. Event "${eventName}" not logged.`);
+    }
+}
 export {
         reauthenticateWithCredential, 
         updatePassword, 
-        signInWithRedirect, 
         GoogleAuthProvider, 
+        OAuthProvider,
         EmailAuthProvider,
         getMetadata,
+        linkWithCredential,
+        getDownloadURL,
+        getAdditionalUserInfo,
 
         update,
         child,
@@ -307,5 +395,6 @@ export {
         orderByValue,
         orderByChild,
         limitToFirst,
-        limitToLast
+        limitToLast,
+        FStore
 }
