@@ -51,7 +51,7 @@ async function getAppDescriptor(url) {
         ]);
 
         if (info) {
-            const iconURL = new URL(info.icon, url)
+            const iconURL = new URL(info.icon, url.replace(/\/$/, "") + "/")
             info.icon = iconURL.href;
         }
     
