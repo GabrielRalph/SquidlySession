@@ -6,6 +6,7 @@ import { SharedBoardSetWatcher } from "./OpenBoard/shared-board-set-watcher.js";
 import { FirebaseFrame } from "../../Firebase/firebase-frame.js";
 import { AACExplore } from "./Search/index.js";
 
+const DEFAULT_BOARD_ID = "JLYix9KezJaosLusUhkl"
 class AACViewer extends OccupiableWindow {
     constructor() {
         super("aac-viewer");
@@ -87,7 +88,7 @@ export default class AACFeature extends Features {
      *                               was selected locally and its metadata decides whether
      *                               this user needs to share it.
      */
-    async setBoard(boardID = "JdfvRskx5EcpPpUudK5o", sharedBy) {
+    async setBoard(boardID = DEFAULT_BOARD_ID, sharedBy) {
         const main = this.board.main;
         main.toggleAttribute("loading", true);
 
@@ -130,7 +131,7 @@ export default class AACFeature extends Features {
         this.sdata.onValue("state", (value) => {
             // console.log("State updated:", value);
             const state = value?.state ?? {};
-            const boardID = value?.boardID ?? "JdfvRskx5EcpPpUudK5o";
+            const boardID = value?.boardID ?? DEFAULT_BOARD_ID;
             const sharedBy = value?.sharedBy ?? null;
 
             if (Array.isArray(state.history) && (state.history.length == 0 || state.history[0] !== boardID)) {
