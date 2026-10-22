@@ -1,4 +1,5 @@
 import { SvgPlus } from "../../../SvgPlus/4.js";
+import { relURL } from "../../../Utilities/usefull-funcs.js";
 
 /**
  * Splits a sing word into multiple lines if it exceeds the max width.
@@ -438,7 +439,7 @@ class AccessTextarea extends SvgPlus {
 
     static get usedStyleSheets() {
         return [
-            import.meta.resolve("./textarea.css")
+            relURL("./textarea.css", import.meta)
         ]
     }
 }

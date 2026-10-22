@@ -4,7 +4,7 @@ import { GridCard, GridIcon, GridLayout } from "./GridLayout/grid-icons.js";
 import { AccessTextarea } from "./Textarea/textarea.js";
 
 
-import { Debugger, delay } from "../../Utilities/usefull-funcs.js";
+import { Debugger, delay, relURL } from "../../Utilities/usefull-funcs.js";
 import { AccessEvent } from "../../Utilities/Buttons/access-buttons.js";
 import { loadUtterances, speak } from "../../Utilities/text2speach-proxy.js";
 
@@ -655,8 +655,8 @@ class AACBoardSetViewer extends GridLayout {
     
     static get usedStyleSheets() {
         return [
-            import.meta.resolve("./icons.css"),
-            import.meta.resolve("./aac-style.css"),
+            relURL("./icons.css", import.meta),
+            relURL("./aac-style.css", import.meta),
             ...GridIcon.usedStyleSheets,
             ...AccessTextarea.usedStyleSheets,
         ];

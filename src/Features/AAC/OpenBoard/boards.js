@@ -4,7 +4,7 @@ import { FirestoreFrame } from "./firestore-frame.js";
 import { DataClass } from "./dataclass.js";
 import { copy,  isEqual } from "../shared.js";
 import { Path } from "./Path.js";
-import { Debugger } from "../../../Utilities/usefull-funcs.js";
+import { Debugger, relURL } from "../../../Utilities/usefull-funcs.js";
 const {FStore: {where}} = FB;
 const timerLogger = new Debugger("T", "background: #1a73e8; color: white; padding: 5px; border-radius: 5px;");
 
@@ -33,7 +33,7 @@ const USER_NAME_CACHE = {
     squidly: Promise.resolve({
         name: "Squidly", 
         pronouns: "they/them", 
-        displayPhoto: import.meta.resolve("../../Assets/logo.svg")
+        displayPhoto: relURL("../../Assets/logo.svg", import.meta)
     })
 };
 

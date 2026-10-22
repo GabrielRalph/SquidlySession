@@ -7,6 +7,7 @@ import { GridCard, GridIcon, GridLayout } from "../GridLayout/grid-icons.js";
 import { RoundedTabs } from "../RoundedTabs/rounded-tabs.js";
 import { AccessTextarea } from "../Textarea/textarea.js";
 import { AccessEvent } from "../../../Utilities/Buttons/access-buttons.js";
+import { relURL } from "../../../Utilities/usefull-funcs.js";
 
 function toRows(array, cols) {
     const rows = [];
@@ -27,7 +28,7 @@ const BR = 20;
 const FEATURED_BOARDS = [
     {
         title: "Keyboards",
-        img: import.meta.resolve("../Assets/logo.svg"),
+        img: relURL("../Assets/logo.svg", import.meta),
         boards: [
             // "PkNtxxwUyntPbXalmdJB",
             // "gfxpGyVxp54ZUAmwr2Lg",
@@ -49,7 +50,7 @@ const FEATURED_BOARDS = [
     },
     {
         title: "PRC Saltillo",
-        img: import.meta.resolve("./prc.svg"),
+        // img: import.meta.resolve("./prc.svg"),
         boards: [
             "tVO399IgcEuTW6FLTDZP",
             "rTezEUKTUzcOGAdleZkh",
@@ -59,7 +60,7 @@ const FEATURED_BOARDS = [
     },
     {   
         title: "Quick Core",
-        img: import.meta.resolve("./quick-core.svg"),
+        // img: import.meta.resolve("./quick-core.svg"),
         boards: [
             "U03vkiTufZO9gYzuTiZX",
             "7Sss73pXR7Vj9ZImTrev",
@@ -139,7 +140,7 @@ class BoardGridIcon extends GridIcon {
     async load(id) {
         const metadata = await getBoardMetadata(id);
         this.displayValue = metadata.path.name;
-        this.symbol = metadata.thumbnail || import.meta.resolve("./grid.svg");
+        this.symbol = metadata.thumbnail || relURL("./grid.svg", import.meta);
         const creator = await metadata.getOwnerName()
         this.subtitle = "By " + creator.name;
     }
@@ -431,8 +432,8 @@ class AACExplore extends ShadowElement {
             ...AccessTextarea.usedStyleSheets,
             ...RoundedTabs.usedStyleSheets,
             ...GridIcon.usedStyleSheets,
-            import.meta.resolve("../icons.css"),
-            import.meta.resolve("./index.css"),
+            relURL("../icons.css", import.meta),
+            relURL("./index.css", import.meta),
         ]
     }
 }

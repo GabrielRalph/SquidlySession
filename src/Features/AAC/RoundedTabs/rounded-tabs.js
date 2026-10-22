@@ -1,4 +1,5 @@
 import { SvgPlus, Vector } from "../../../SvgPlus/4.js";
+import { relURL } from "../../../Utilities/usefull-funcs.js";
 
 /**
  * Given the points of a polygon and a maximum corner radius, 
@@ -165,7 +166,7 @@ class RoundedTabs extends SvgPlus {
 
     static get usedStyleSheets() {
         return [
-            import.meta.resolve("./rounded-tabs.css")
+            relURL("./rounded-tabs.css", import.meta)
         ]
     }
 }
