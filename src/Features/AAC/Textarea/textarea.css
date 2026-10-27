@@ -1,0 +1,39 @@
+
+access-textarea {
+    overflow: hidden;
+    display: flex;
+    position: relative;
+    --caret-width: 3px;
+    --caret-height: 1.5em;
+}
+
+access-textarea textarea {
+    font: inherit;
+    line-height: 1.5;
+    caret-color: transparent;
+
+    width: 100%;
+    height: 100%;
+
+    border: none;
+    resize: none;
+    outline: none;
+    
+    margin: 0;
+    padding: 0;
+
+    background-color: transparent;
+}
+
+access-textarea::after {
+    content: " ";
+    position: absolute;
+    top: calc(var(--caret-y, 1.5em));
+    left: calc(var(--caret-x, 0px));
+    right: 0;
+    bottom: 0;
+    width: var(--caret-width);
+    background-color: var(--caret-color);
+    height: var(--caret-height);
+    transform: translate(0.5px, -50%);
+}

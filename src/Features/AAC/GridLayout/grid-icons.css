@@ -1,0 +1,272 @@
+
+
+
+grid-layout {
+    --_W: var(--width, 100vw);
+    --_H: var(--height, 100vh);
+    --_grid-icon-border: var(--grid-icon-border, 4px);
+    
+    
+    --_min: min(var(--_W), var(--_H));
+    --_cpad-top: calc( 1.25 * var(--grid-icon-border));
+    --_cpad-side: var(--grid-icon-border-radius, var(--_p1));
+
+    --_cell-width: calc( (var(--_W) - (var(--cols) - 1) * var(--_grid-layout-gap) ) / var(--cols) - 2 * var(--_cpad-side) );
+    --_cell-height: calc( (var(--_H) - (var(--rows) - 1) * var(--_grid-layout-gap) ) / var(--rows) - 2 * var(--_cpad-top) );
+    --_grid-layout-gap: var(--grid-layout-gap, calc(0.5 * var(--grid-icon-border)));
+    
+    display: grid;
+    gap: var(--_grid-layout-gap);
+
+}
+
+grid-layout[scale-font] {
+    --columns-min: 2;
+    --columns-max: 16;
+    --max-font-to-height-ratio: 0.2;
+    --min-font-to-width-ratio: 0.080;
+    --max-font-to-width-ratio: 0.147;
+
+    --_capped_cols: clamp(var(--columns-min), var(--cols), var(--columns-max));
+    --_cols-scaler: calc((var(--_capped_cols) - var(--columns-min)) / (var(--columns-max) - var(--columns-min)));
+    --_fs-w-ratio: calc( var(--min-font-to-width-ratio) + (var(--max-font-to-width-ratio) - var(--min-font-to-width-ratio)) * var(--_cols-scaler) );
+
+    --_font-size-w: calc( var(--_cell-width) * var(--_fs-w-ratio) );
+    --_font-size-h: calc( var(--_cell-height) * var(--max-font-to-height-ratio));
+    font-size: min( var(--_font-size-w), var(--_font-size-h) );
+}
+
+
+
+.grid-icon {
+    --outline: var(--color-danger);
+    --icon-color: rgb(245, 244, 244);
+    --icon-color-hover: white;
+    --text: white;
+    --main: rgb(250, 70, 199);
+    --tab: rgb(200, 50, 150);
+    --main-hover: rgb(220, 66, 184);
+    --tab-hover: rgb(169, 22, 120);
+    --main-active: rgb(180, 54, 150);
+    --tab-active: rgb(150, 10, 100);
+
+    --tab-color: var(--tab);
+    --main-color: var(--main);
+
+    --outline-color: transparent;
+    --transition-time: 0.2s;
+
+    width: 100%;
+    height: 100%;
+    position: relative;
+
+	-webkit-user-drag: none;
+
+    cursor: pointer;
+    color: var(--text);
+
+    transition: transform var(--transition-time) ease;
+}
+
+.grid-icon[i-hidden] {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.grid-icon[i-disabled] {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+.grid-icon[i-display-only] {
+    pointer-events: none;
+}
+
+.grid-icon .content {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    box-sizing: border-box;
+    user-select: none;
+    gap: 0.3em;
+
+    padding: var(--_cpad-top) var(--_cpad-side);
+}
+
+.grid-icon[card="folder"] .content {
+    padding-top: calc(var(--_cpad-top) + var(--top-padding, 0));
+}
+
+.grid-icon:not([label-at-bottom]) .content {
+    flex-direction: column-reverse !important;
+}
+
+/* Grid icon images and symbols */
+
+
+.grid-icon .symbol {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--icon-color);
+}
+
+
+
+.grid-icon .symbol > * {
+    height: 100%;
+    width: 100%;
+}
+
+.grid-icon .symbol bg-img {
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    position: relative;
+}
+
+.grid-icon .symbol bg-img::after {
+    content: " ";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 1em;
+    pointer-events: none;
+
+    opacity: 1;
+    transition: opacity 0.2s ease-in-out;
+
+    background: var(--tab-color);
+}
+
+.grid-icon .symbol bg-img[loaded]::after {
+    opacity: 0;
+}
+
+/* Grid icon display values */
+
+.grid-icon .content .display-value:empty {
+    display: none;
+}
+
+.grid-icon .content .display-value {
+    font-size: 1.2em;
+    font-weight: 300;
+    text-align: center;
+    word-wrap: break-word;
+}
+
+.grid-icon .content .subtitle {
+    font-weight: 300;
+    text-align: center;
+    word-wrap: break-word;
+    font-size: 0.85em;
+    font-style: italic;
+    opacity: 0.9;
+    width: 90%;
+}
+
+/* Grid icon background card icon */
+
+.grid-icon .card-icon {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0px 0px 10px var(--shadow-color));
+}
+
+.grid-icon .card-icon .outline {
+    fill: none;
+    stroke: var(--outline);
+}
+
+.grid-icon .card-icon .outline.for-active {
+    stroke: var(--outline-active, var(--outline));
+}
+
+.grid-icon .card-icon .card {
+    fill: var(--main-color);
+}
+
+.grid-icon .card-icon .card.for-hover {
+    fill: var(--main-hover);
+}
+
+.grid-icon .card-icon .card.for-active {
+    fill: var(--main-active);
+}
+
+.grid-icon .card-icon .tab {
+    fill: var(--tab-color);
+}
+
+.grid-icon .card-icon .tab.for-hover {
+    fill: var(--tab-hover);
+}
+
+.grid-icon .card-icon .tab.for-active {
+    fill: var(--tab-active);
+}
+
+.grid-icon .for-hover, .grid-icon .for-active, .grid-icon .outline {
+    opacity: 0;
+    transition: opacity var(--transition-time) ease;
+}
+
+/* Hover state */
+
+.grid-icon:not([i-disable-hover])[hover] .for-hover,
+.grid-icon:not([i-disable-hover]):hover .for-hover{
+    opacity: 1;
+} 
+
+.grid-icon:not([i-disable-hover]):hover .symbol,
+.grid-icon:not([i-disable-hover])[hover] .symbol {
+    color: var(--icon-color-hover);
+}
+
+/* Active state */
+
+.grid-icon:not([i-disable-active]):active,
+.grid-icon:not([i-disable-active])[active] {
+    transform: scale(0.97);
+}
+
+.grid-icon:not([i-disable-active]):active .for-active,
+.grid-icon:not([i-disable-active])[active] .for-active {
+    opacity: 1;
+}
+
+.grid-icon[type = "image"] .card-icon {
+    display: none;
+}
+
+/* Action buttons */
+
+.grid-icon[color-theme="action"] .symbol {
+    height: 75%;
+    width: 75%;
+}
+.grid-icon[color-theme="action"] .content {
+    padding: var(--_cpad-top);
+}
+
+.grid-icon[color-theme="textarea"] {
+    font-size: calc((var(--height) - 2 * var(--_cpad-top)) / 2.35 / var(--lines, 3));
+}

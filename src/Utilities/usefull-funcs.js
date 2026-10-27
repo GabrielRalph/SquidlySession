@@ -476,3 +476,63 @@ export function rgb2hsl(r, g, b) {
 
   return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
 }
+
+const DEBUG = false;
+
+export class Debugger {
+    constructor(name, style = "background: #b43113; color: white; padding: 5px; border-radius: 5px;") {
+        this.name = name;
+        this.style = style;
+        this.times = {}
+    }
+
+    get isLogOn() {
+        return (DEBUG && !this.disable) || this.forced;
+    }
+
+    tic(log) {
+        this.times[log] = performance.now();
+    }
+
+    toc(log, extraInfo = "") {
+        const end = performance.now();
+        const duration = end - (this.times[log] || end);
+        extraInfo = extraInfo ? ` ${extraInfo}` : "";
+        this.logBasic(`${log}${extraInfo}: ${Debugger.fTime(duration)}`);
+        return duration;
+    }
+
+    logStart(mode, info, ...args) {
+        if (this.isLogOn) {
+            console.groupCollapsed(`%c${this.name}: ${mode}`, this.style, info);
+            if (args.length > 0) {
+                console.log(...args);
+            }
+        }
+    }
+
+    logBasic(...args) {
+        if (this.isLogOn) {
+            console.log(`%c${this.name}:`, this.style, ...args);
+        }
+    }
+
+    logEnd() {
+        if (this.isLogOn) console.groupEnd();
+    }
+
+    log(mode, info, ...args) {
+        if (this.isLogOn) {
+            this.logStart(mode, info);
+            let error = new Error();
+            let stack = error.stack.split("\n").slice(2).join("\n");
+            args.forEach(arg => console.log(arg));
+            console.log(stack);
+            this.logEnd();
+        }
+    }
+
+    static fTime(n) {
+        return n < 1000 ? Math.round(n) + "ms" : (n/1000).toFixed(2) + "s";
+    }
+}
