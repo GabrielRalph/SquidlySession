@@ -225,6 +225,35 @@ content-viewer .rc-status-notice[hidden] {
     display: none;
 }
 
+content-viewer .rc-control-action {
+    pointer-events: auto;
+    align-self: center;
+    background: #ffffff;
+    color: #18222b;
+    border: 1px solid #8a969f;
+    border-radius: 0.5em;
+    padding: 0.6em 1em;
+    min-height: 44px;
+    font: inherit;
+    cursor: pointer;
+}
+
+content-viewer .rc-control-action:focus-visible {
+    outline: 3px solid #35bf65;
+    outline-offset: 3px;
+}
+
+content-viewer .rc-pause-control {
+    position: absolute;
+    z-index: 5;
+    right: 1em;
+    bottom: 1em;
+}
+
+content-viewer .rc-control-action[hidden] {
+    display: none;
+}
+
 content-frame[remote-control] {
     cursor: crosshair;
 }

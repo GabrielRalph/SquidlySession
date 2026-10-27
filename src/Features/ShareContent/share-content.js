@@ -40,6 +40,8 @@ export default class ShareContent extends Features {
             },
             screen: (e) => this.shareScreen(),
             "remote-control": (e) => e.waitFor(this.toggleRemoteControl(e)),
+            "rc-resume": () => this.resumeRemoteControl(),
+            "rc-pause": () => this.pauseRemoteControl(),
             "rc-input": (e) => this._onRemoteInput(e.detail),
         }
         this.session.toolBar.addMenuItems("share", [
@@ -107,6 +109,11 @@ export default class ShareContent extends Features {
         this._captureController = null;
         if (typeof CaptureController === "function") {
             this._captureController = new CaptureController();
+            try {
+                this._captureController.setFocusBehavior?.("focus-captured-surface");
+            } catch {
+                // Native activation remains available when Conditional Focus is unsupported.
+            }
             displayMediaOptions.controller = this._captureController;
         }
 
@@ -216,6 +223,16 @@ export default class ShareContent extends Features {
         return this.contentView.streamUser
             || this._rcState?.sharer
             || null;
+    }
+
+    resumeRemoteControl() {
+        if (!this._rcState?.enabled || this._rcState.sharer !== this.sdata.me) return;
+        if (!this._rcAgent?.resumeControl()) this._connectAgent();
+    }
+
+    pauseRemoteControl() {
+        if (!this._rcState?.enabled || this._rcState.sharer !== this.sdata.me) return;
+        this._rcAgent?.pauseControl();
     }
 
     async _writeRemoteControlState(enabled) {

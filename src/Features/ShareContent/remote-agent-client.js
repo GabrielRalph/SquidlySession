@@ -33,6 +33,8 @@ export class RemoteAgentClient {
     this._connecting = false;
     this._loggedWaiting = false;
     this._pending = [];
+    this._presentationAction = null;
+    this._resumeRequired = false;
   }
 
   get connected() {
@@ -58,6 +60,8 @@ export class RemoteAgentClient {
     this.statusCode = "checking";
     this._matchReq = null;
     this._surfaceId = null;
+    this._presentationAction = null;
+    this._resumeRequired = false;
     const ws = this._ws;
     this._ws = null;
     this._connecting = false;
@@ -133,8 +137,28 @@ export class RemoteAgentClient {
       surface: req.surface,
       width: req.width,
       height: req.height,
+      foregroundControl: req.surface === "window",
+      startPaused: this._resumeRequired,
       ...(this._surfaceId != null ? { id: this._surfaceId } : {}),
     });
+  }
+
+  resumeControl() {
+    return this._presentationCommand("surface.activate", "preparing_window");
+  }
+
+  pauseControl() {
+    return this._presentationCommand("surface.pause", "paused_by_sharer");
+  }
+
+  _presentationCommand(type, code) {
+    if (!this.connected || this._surfaceId == null || this._matchReq?.surface !== "window") return false;
+    this._presentationAction = type;
+    if (type === "surface.pause") this._resumeRequired = true;
+    this.bounds = null;
+    this.statusCode = code;
+    this._emitStatus();
+    return this.send({ type, surfaceId: this._surfaceId });
   }
 
   _queue(command) {
@@ -195,6 +219,7 @@ export class RemoteAgentClient {
       if (wasOurs) this._ws = null;
       this.bounds = null;
       this.statusCode = "agent_offline";
+      this._presentationAction = null;
       this._clearMatchTimer();
       if (!this._wanted) {
         this._emitStatus();
@@ -212,10 +237,14 @@ export class RemoteAgentClient {
       return;
     }
     if (!data) return;
-    if (data.type !== "surface.match") {
+    const surfaceReply = ["surface.match", "surface.activate", "surface.pause"].includes(data.type);
+    if (surfaceReply && this._presentationAction && data.type !== this._presentationAction) return;
+    if (data.type === this._presentationAction) this._presentationAction = null;
+    if (!surfaceReply) {
       if (data.pauseReason) {
         this.bounds = null;
         this.statusCode = data.pauseReason;
+        this._resumeRequired = true;
         this._emitStatus();
       }
       return;
@@ -223,6 +252,7 @@ export class RemoteAgentClient {
     if (!data.ok) {
       this.bounds = null;
       this.statusCode = data.pauseReason || "surface_unmatched";
+      this._resumeRequired = true;
       console.warn("%cremote-agent", "color:#e07a2f", "surface.match failed", data.error || "");
       this._emitStatus(data.error || "no unique matching surface");
       return;
@@ -231,6 +261,12 @@ export class RemoteAgentClient {
       this.bounds = null;
       this.statusCode = "agent_update_required";
       this._emitStatus("RemoteAgent needs an update for safe window control");
+      return;
+    }
+    if (this._matchReq?.surface === "window" && data.foregroundControl !== true) {
+      this.bounds = null;
+      this.statusCode = "agent_update_required";
+      this._emitStatus();
       return;
     }
     const bounds = parseBounds(data);
@@ -242,6 +278,7 @@ export class RemoteAgentClient {
     }
     if (Number.isInteger(data.id) && data.id > 0) this._surfaceId = data.id;
     this.statusCode = data.controlAllowed ? "ready" : data.pauseReason || "surface_unmatched";
+    this._resumeRequired = !data.controlAllowed;
     this.bounds = data.controlAllowed ? bounds : null;
     const label = [data.kind, data.owner, data.name].filter(Boolean).join(" ");
     console.log(

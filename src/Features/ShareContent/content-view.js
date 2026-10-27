@@ -479,6 +479,21 @@ export class ContentViewer extends OccupiableWindow {
     this.remoteControlNotice.hidden = true;
     this.remoteControlNoticeTitle = this.remoteControlNotice.createChild("strong");
     this.remoteControlNoticeDetail = this.remoteControlNotice.createChild("span");
+    this.remoteControlResume = this.remoteControlNotice.createChild("button", {
+      type: "button", class: "rc-control-action", content: "Resume control",
+      events: { click: (event) => {
+        event.stopPropagation();
+        this.root.dispatchEvent(new Event("rc-resume"));
+      } },
+    });
+    this.remoteControlPause = this.createChild("button", {
+      type: "button", class: "rc-control-action rc-pause-control", content: "Pause control",
+      events: { click: (event) => {
+        event.stopPropagation();
+        this.root.dispatchEvent(new Event("rc-pause"));
+      } },
+    });
+    this.remoteControlPause.hidden = true;
     this.loader = this.createChild(Loader)
   }
 
@@ -586,6 +601,10 @@ export class ContentViewer extends OccupiableWindow {
     this.content.setRemoteInput(isController && statusCode === "ready");
     const showNotice = enabled && statusCode !== "ready";
     this.remoteControlNotice.hidden = !showNotice;
+    const windowControl = isReceiver && state.surface === "window";
+    this.remoteControlPause.hidden = !(windowControl && statusCode === "ready");
+    this.remoteControlResume.hidden = !windowControl || ["checking", "preparing_window", "agent_update_required"].includes(statusCode);
+    this.remoteControlResume.textContent = statusCode === "agent_offline" ? "Reconnect" : "Resume control";
     if (showNotice) {
       const copy = remoteControlStatusCopy(statusCode, isReceiver);
       this.remoteControlNoticeTitle.textContent = copy.title;
