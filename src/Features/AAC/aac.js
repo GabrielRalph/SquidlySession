@@ -8,10 +8,12 @@ import { AACExplore } from "./Search/index.js";
 
 const DEFAULT_BOARD_ID = "JLYix9KezJaosLusUhkl"
 class AACViewer extends OccupiableWindow {
-    constructor() {
+    constructor(feature) {
         super("aac-viewer");
         this.main = this.createChild(AACBoardSetViewer);
         this.search = this.createChild(AACExplore, {}, "aac-explore"); 
+        
+
         this.search.close();
         this.main.onSearch = (e) => {
             this.search.open();
@@ -40,15 +42,27 @@ export default class AACFeature extends Features {
     /** Incremented on every setBoard call so stale loads can be discarded. */
     #loadCount = 0;
 
+    #init = true;
+
     constructor(sesh, sdata) {
         super(sesh, sdata);
         this.board = new AACViewer(this);
         const root = this.board.main; 
-      
+        
+        this.board.search.onClose = (e) => {
+            if (this.#init) {
+                e.waitFor(this.session.openWindow("default"));
+                return false;
+            } else {
+                return true;
+            }
+        }
+
         root.addEventListener("change", () => this.#pushState());
         root.onClose = (e) => {
             e.waitFor(this.session.openWindow("default"));
         }
+
         this.session.toolBar.addMenuItem("access", {
             name: "aac",
             index: 270,
@@ -96,7 +110,6 @@ export default class AACFeature extends Features {
 
         if (sharedBy === undefined) {
             const meta = await getBoardMetadata(boardID);
-            console.log("Metadata loaded:", meta);
             sharedBy = meta.public ? null : this.sdata.me;
         }
         if (loadCount !== this.#loadCount) return;
@@ -129,29 +142,40 @@ export default class AACFeature extends Features {
         main.toggleAttribute("loading", true);
 
         this.sdata.onValue("state", (value) => {
-            // console.log("State updated:", value);
-            const state = value?.state ?? {};
-            const boardID = value?.boardID ?? DEFAULT_BOARD_ID;
-            const sharedBy = value?.sharedBy ?? null;
-
-            if (Array.isArray(state.history) && (state.history.length == 0 || state.history[0] !== boardID)) {
-                state.history = [boardID];
-                state.text = "";
-                state.holdBoard = null;
-                state.caretPosition = 0;
-            }
-
-
-            this.lastState = state
-            if (this.#boardID !== boardID || this.#sharedBy !== sharedBy) {
-                this.setBoard(boardID, sharedBy);
-            } else {
-                main.state = value.state;
-                // console.log("State applied to main:", value.state);
+            if (!value) {
+                // open search
+                this.board.search.closeButton.symbol = "close";
+                this.board.search.open();
                 main.toggleAttribute("loading", false);
+
+            } else {
+                this.#init = false;
+                this.board.search.closeButton.symbol = "downArrow";
+
+                // console.log("State updated:", value);
+                const state = value?.state ?? {};
+                const boardID = value?.boardID ?? DEFAULT_BOARD_ID;
+                const sharedBy = value?.sharedBy ?? null;
+        
+                if (Array.isArray(state.history) && (state.history.length == 0 || state.history[0] !== boardID)) {
+                    state.history = [boardID];
+                    state.text = "";
+                    state.holdBoard = null;
+                    state.caretPosition = 0;
+                }
+        
+        
+                this.lastState = state
+                if (this.#boardID !== boardID || this.#sharedBy !== sharedBy) {
+                    this.setBoard(boardID, sharedBy);
+                } else {
+                    main.state = value.state;
+                    // console.log("State applied to main:", value.state);
+                    main.toggleAttribute("loading", false);
+                }
             }
         });
-
+        
         this.board.search.root.addEventListener("board-selection", (e) => {
             // console.log("Board selected:", e.boardID);
             this.lastState = {text: "", history: [], caretPosition: 0};

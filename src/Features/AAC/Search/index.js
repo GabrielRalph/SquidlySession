@@ -7,7 +7,7 @@ import { GridCard, GridIcon, GridLayout } from "../GridLayout/grid-icons.js";
 import { RoundedTabs } from "../RoundedTabs/rounded-tabs.js";
 import { AccessTextarea } from "../Textarea/textarea.js";
 import { AccessEvent } from "../../../Utilities/Buttons/access-buttons.js";
-import { relURL } from "../../../Utilities/usefull-funcs.js";
+import { delay, relURL } from "../../../Utilities/usefull-funcs.js";
 
 function toRows(array, cols) {
     const rows = [];
@@ -20,7 +20,7 @@ function toRows(array, cols) {
 
 const DROWS = 4;
 const DCOLS = 5;
-const FROWS = 2;
+const FROWS = 1;
 const GAP = 4;
 const SP = 3;
 const BR = 20;
@@ -48,16 +48,16 @@ const FEATURED_BOARDS = [
             "InZgWP9sywxFUwOJO0TQ"
         ]
     },
-    {
-        title: "PRC Saltillo",
-        // img: import.meta.resolve("./prc.svg"),
-        boards: [
-            "tVO399IgcEuTW6FLTDZP",
-            "rTezEUKTUzcOGAdleZkh",
-            "zmnKiAkXdSTdjCtB6WmV",
-            "HWRGaqWL8AjrRfAFW4ik"
-        ]
-    },
+    // {
+    //     title: "PRC Saltillo",
+    //     // img: import.meta.resolve("./prc.svg"),
+    //     boards: [
+    //         "tVO399IgcEuTW6FLTDZP",
+    //         "rTezEUKTUzcOGAdleZkh",
+    //         "zmnKiAkXdSTdjCtB6WmV",
+    //         "HWRGaqWL8AjrRfAFW4ik"
+    //     ]
+    // },
     {   
         title: "Quick Core",
         // img: import.meta.resolve("./quick-core.svg"),
@@ -101,13 +101,13 @@ const FEATURED_BOARDS = [
             "5MtHTgn0ukUt7u4Fs3yU"
         ]
     },
-    {   
-        title: "Proloquo",
-        boards: [
-            "s9xO1YfGtLdwM1YOgG1S",
-            "InZgWP9sywxFUwOJO0TQ"
-        ]
-    },
+    // {   
+    //     title: "Proloquo",
+    //     boards: [
+    //         "s9xO1YfGtLdwM1YOgG1S",
+    //         "InZgWP9sywxFUwOJO0TQ"
+    //     ]
+    // },
      
 ]
 
@@ -120,7 +120,7 @@ class BoardSelectionEvent extends AccessEvent {
     }
 }
 class BoardGridIcon extends GridIcon {
-    constructor(id) {
+    constructor(id, group) {
         super({
             displayValue: "...",          
             colorTheme: "white",
@@ -129,7 +129,7 @@ class BoardGridIcon extends GridIcon {
                     this.dispatchEvent(new BoardSelectionEvent(id, e));
                 }
             }
-        })
+        }, "b-"+group)
         this.classList.add("board-grid-icon");
         this.load(id);
         this.toggleAttribute("label-at-bottom", true)
@@ -215,6 +215,8 @@ class SearchableList extends FixedGridLayout {
 
         this.navigation = new GridLayout(1, DCOLS);
         this.textCard = new GridCard('access-button', "plain", "textarea")
+        this.textCard.group = "search";
+
         this.textInput = this.textCard.content.createChild(AccessTextarea, {
             events: {
                 "input": (e) => {
@@ -233,6 +235,7 @@ class SearchableList extends FixedGridLayout {
             // displayValue: "Search",
             colorTheme: "action",
             symbol: "leftArrow",
+            accessGroup: "search",
             events: {
                 "access-click": (e) => {
                     this.previousPage();
@@ -244,6 +247,7 @@ class SearchableList extends FixedGridLayout {
             // displayValue: "Search",
             symbol: "rightArrow",
             colorTheme: "action",
+            accessGroup: "search",
             events: {
                 "access-click": (e) => {
                     this.nextPage();
@@ -334,6 +338,15 @@ class AACExplore extends ShadowElement {
 
        
         class GI extends GridIcon {
+            constructor(args) {
+                super(args, "tabs");
+                this.addEventListener("access-click", (e) => {
+                    e.waitFor(delay(50))
+                    if (e.clickMode !== "click") {
+                        this.dispatchEvent(new CustomEvent("click", { bubbles: true }));
+                    }
+                })
+            }
             getCardBorderRadiusAndWidth() {
                 let old = super.getCardBorderRadiusAndWidth();
                 old[0] = BR - old[1] * 0.5 - SP;
@@ -367,23 +380,18 @@ class AACExplore extends ShadowElement {
         })
 
 
-
+        this.closeButton = new GI({
+            colorTheme: "action",
+            symbol: "close",
+            events: {
+                "access-click": (e) => {
+                    this.onCloseButton(e);
+                }
+            }
+        });
         this.tabs = this.createChild(RoundedTabs, {}, [
             {
-                title: new GI({
-                    displayValue: "Close", 
-                    colorTheme: "action",
-                    events: {
-                        click: () => {
-                            this.close();
-                            // console.log("Closing AAC Explore");
-                        },
-                        "access-click": () => {
-                            // console.log("Access-click closing AAC Explore");
-                            this.close();
-                        }
-                    }
-                }) ,
+                title: this.closeButton,
                 noSelect: true,
                 content: new SvgPlus("div"),
             },
@@ -418,12 +426,24 @@ class AACExplore extends ShadowElement {
         }
     }
 
-
-    close() {
-        this.root.style.transform = "translateY(100%)";
+    onCloseButton(e) {
+         let cont = true;
+        if (this.onClose instanceof Function) {
+            cont = this.onClose(e);
+        }
+        if (cont) {
+            e.waitFor(this.close());
+        }
     }
-    open() {
+
+    async close() {
+        this.root.style.transform = "translateY(100%)";
+        await delay(300);
+    }
+
+    async open() {
         this.root.style.transform = "translateY(0)";
+        await delay(300);
     }
 
 
