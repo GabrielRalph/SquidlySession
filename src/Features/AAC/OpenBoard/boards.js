@@ -381,7 +381,7 @@ async function _setupMetadataListener(id, callback = null) {
         // If the listener has already been resolved, and a callback 
         // is provided, call the provided callback immediately.
         if (BOARD_LISTENERS_RESOLVED[id] === true && callback instanceof Function) {
-            _callMetadataCallbacks(id);
+            callback(id);
 
         // Otherwise if the listener has not yet been resolved, 
         // wait for it to resolve. In this case the callback will 
@@ -391,6 +391,7 @@ async function _setupMetadataListener(id, callback = null) {
         }
 
     } catch (e) {
+        BOARD_LISTENERS_RESOLVED[id] = true;
         // If an error occurs while fetching the metadata the
         // default code is 500.
         let newError = new MetadataError(500, e);
