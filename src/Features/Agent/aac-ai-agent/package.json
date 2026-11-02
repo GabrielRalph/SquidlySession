@@ -6,6 +6,7 @@
   "private": true,
   "scripts": {
     "dev": "mastra dev",
+    "test": "node --experimental-strip-types --test tests/*.test.js",
     "build": "mastra build",
     "start": "mastra start"
   },
