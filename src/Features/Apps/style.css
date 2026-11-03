@@ -1,0 +1,85 @@
+
+.overlay-grid {
+    position: absolute;
+    top:0;
+    left:0;
+    right:0;
+    bottom:0;
+}
+
+.grid-icon .content {
+    font-size: 1em;
+}
+.categories-grid .grid-icon .content {
+    font-weight: bold;
+    font-size: 1.2em;
+}
+
+app-search {
+    background: linear-gradient(
+        120deg, 
+        rgb(81 214 72) 0%, 
+        rgb(234 230 49) 50%, 
+        rgb(255 153 44) 100%
+    );
+    z-index: 1000;
+    pointer-events: all;
+    padding: 4px;
+}
+
+.overlay-grid,
+app-search > grid-layout {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    padding: var(--_grid-layout-gap);
+}
+
+rounded-tabs.gen {
+    --fill-color: rgb(34 33 33);
+}
+
+
+.grid-icon[color-theme="app-icon"] {
+    --main: #fff2;
+    --main-hover: #fff3;
+    --main-active: #fff4;
+
+    --outline: #fff1;
+    --outline-hover: #fff2;
+    --outline-active: #fff3;
+
+    --text: white;
+}
+
+
+.grid-icon .info {
+    position: absolute;
+    top: calc(var(--_cpad-top) + var(--top-padding, 0));
+    right: calc(var(--_cpad-side) / 2);
+}
+.grid-icon .info .message {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    width: 20vw;
+    z-index: 10000000;
+    background: #fffc;
+    border-radius: 0.5em;
+    padding: 0.3em 0.5em;
+    content: attr(message);
+    transform: translateX(50%);
+    backdrop-filter: blur(5px);
+
+    pointer-events: none;
+    opacity: 0;
+    transition: 0.2s ease-in-out opacity;
+}
+.grid-icon .info:hover .message {
+    pointer-events: all;
+    opacity: 1;
+}
+
+.grid-icon:has(.info:hover) {
+    z-index: 1;
+}

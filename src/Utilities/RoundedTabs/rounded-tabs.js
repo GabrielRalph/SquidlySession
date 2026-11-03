@@ -1,5 +1,5 @@
-import { SvgPlus, Vector } from "../../../SvgPlus/4.js";
-import { relURL } from "../../../Utilities/usefull-funcs.js";
+import { SvgPlus, Vector } from "../../SvgPlus/4.js";
+import { relURL } from "../usefull-funcs.js";
 
 /**
  * Given the points of a polygon and a maximum corner radius, 

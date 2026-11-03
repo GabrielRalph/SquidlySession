@@ -939,9 +939,7 @@ class BoardSetWatcher extends BoardSetWatcherBaseClass {
     async _loadBoard(id) {
         try {
             if (!(id in this.#watchedBoardsPromises)) {
-                console.log(`Setting up metadata listener for board with ID ${id}`);
                 let callback = async (metadata) => {
-                    console.log(`Metadata received for board with ID ${id}:`, metadata);
                     if (metadata.error) {
                         this.#boardPromises[id] = Promise.resolve(
                             OBBoard.make(REPLACEMENT_BOARDS[metadata.error.code])
@@ -956,7 +954,6 @@ class BoardSetWatcher extends BoardSetWatcherBaseClass {
                     this.#watchedBoards[id] = unsubscribe;
                 })()
             } else {
-                console.log(`Board with ID ${id} is already being watched.`);
             }
             await this.#watchedBoardsPromises[id];
             await this.#boardPromises[id];

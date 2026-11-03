@@ -1,0 +1,144 @@
+
+
+
+
+rounded-tabs.gen .tabs-container {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+}
+rounded-tabs.gen .tabs-container > .tab {
+    height: 15vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px;
+}
+rounded-tabs.gen .main-content > grid-layout {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    padding: 4px;
+}
+
+
+.grid-icon[color-theme="textarea"] {
+    color: black;
+    --lines: 2;
+}
+
+.grid-icon[color-theme="textarea"] .content { 
+    display: grid;
+    grid-template-rows: 1fr auto;
+    justify-content: unset;
+}
+access-textarea {
+    --caret-color: #9b0000;
+    font-size: 1em;
+    height: 100%;
+    width: 100%;
+} 
+access-textarea textarea {
+    overflow: hidden;
+}
+
+
+
+  /* Container to stack both layers perfectly */
+.page-progress {
+    font-size: 0.6em;
+    --background: var(--main, white);
+    --active-color: var(--outline);
+    --inactive-color: #689bec;
+    --border: 5px;
+
+    position: relative;
+    width: 100%;
+    height: calc(1em + 2 * 0.2em + 2 * var(--border)); 
+    display: flex;
+    align-items: center;
+    padding-bottom: 0.3em;
+
+
+    --line: var(--border);
+    --text: "Page " attr(page-num) " / " attr(total-pages);
+}
+
+.page-progress[page-num="1"][total-pages="1"] {
+    display: none;
+}
+.page-progress[total-pages="0"] > * {
+    display: none;
+}
+.page-progress[total-pages="0"]::after {
+    content: "No results";
+}
+
+/* Base styles shared by both layers */
+.page-progress > div{
+    --_color: var(--inactive-color);
+    position: absolute;
+    width: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    height:     var(--line);
+    border-radius:  var(--line);
+    background-color: var(--_color)
+}
+.page-progress > div:last-of-type {
+    --_neg-line: calc(-1 * (var(--line) + 2em));
+    --_color: var(--active-color);
+    --_progress: calc(100% - var(--p) * 100%);
+    clip-path: inset(var(--_neg-line) var(--_progress) var(--_neg-line) var(--_neg-line));
+    transition: 0.2s ease-in-out clip-path;
+}
+
+.page-progress::after,
+.page-progress > div::after {
+    content: var(--text);
+    line-height: 1em;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: calc(var(--border) + 0.2em) calc(var(--border) + 0.4em);
+    border-radius: 2em;
+    white-space: nowrap;
+    background-color: var(--_color);
+}
+.page-progress::after {
+    padding: 0.2em 0.4em;
+    background-color: var(--background);
+}
+
+
+
+.grid-icon[color-theme="featured"] {
+    --main: hsl(211, 85%, 40%);
+    --main-hover: hsl(211, 85%, 30%);
+    --main-active: hsl(211, 85%, 20%);
+    --outline: hsl(211, 85%, 20%);
+
+    --tab: hsl(211, 87%, 29%);
+    --tab-hover: hsl(211, 66.5%, 49.6%);
+    --tab-active: hsl(211, 73.5%, 40.300000000000004%);
+
+    --icon-color: hsl(211, 100%, 24.9%);
+    --icon-color-hover: hsl(211, 100%, 12.45%);
+    --text: white;
+}
+.grid-icon[color-theme="search"] {
+    --main: hsl(271, 45%, 49%);
+    --main-hover: hsl(271, 45%, 39%);
+    --main-active: hsl(271, 45%, 29%);
+    --outline: hsl(271, 45%, 19%);
+
+    --tab: hsl(271, 50%, 35%);
+    --tab-hover: hsl(271, 40%, 45%);
+    --tab-active: hsl(271, 45%, 30%);
+
+    --icon-color: hsl(271, 60%, 40%);
+    --icon-color-hover: hsl(271, 60%, 30%); 
+
+    --text: white;
+}
+

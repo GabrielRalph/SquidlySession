@@ -1,3 +1,5 @@
+import { relURL } from "../usefull-funcs.js";
+
 const LOAD_CACHE = new Map();
 
 async function waitForImageLoad(src) {
@@ -60,3 +62,6 @@ class BackgroundImage extends HTMLElement {
 }
 
 customElements.define("bg-img", BackgroundImage);
+
+const StyleSheet = relURL("./bg-img.css", import.meta);
+export { StyleSheet}

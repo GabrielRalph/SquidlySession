@@ -1,4 +1,4 @@
-import { SvgPlus } from "../../../SvgPlus/4.js";
+import { SvgPlus } from "../../SvgPlus/4.js";
 
 export class Icon extends SvgPlus {
     #value = null;

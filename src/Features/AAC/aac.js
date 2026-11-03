@@ -3,7 +3,6 @@ import { Features, OccupiableWindow } from "../features-interface.js";
 import { AACBoardSetViewer } from "./aac-display.js";
 import { BoardSetWatcher, getBoardMetadata } from "./OpenBoard/boards.js";
 import { SharedBoardSetWatcher } from "./OpenBoard/shared-board-set-watcher.js";
-import { FirebaseFrame } from "../../Firebase/firebase-frame.js";
 import { AACExplore } from "./Search/index.js";
 
 const DEFAULT_BOARD_ID = "JLYix9KezJaosLusUhkl"

@@ -1,34 +1,13 @@
-import { filterAndSort, SearchWindow } from "../../Utilities/search.js";
 import { relURL } from "../../Utilities/usefull-funcs.js";
 import { Features, OccupiableWindow } from "../features-interface.js";
 import { Vector } from "../../SvgPlus/4.js";
-import { GridIcon, GridLayout } from "../../Utilities/Buttons/grid-icon.js";
+import { GridIcon, GridLayout } from "../../Utilities/GridLayout/grid-icons.js";
 import { AccessButton } from "../../Utilities/Buttons/access-buttons.js";
 import * as F from "../../Firebase/firebase.js";
 import { addDeviceChangeCallback, getDevices } from "../../Utilities/device-manager.js";
+import { AppsSearch } from "./apps-search.js";
+import { AppLibrary } from "./apps-library.js";
 
-/**
- * @typedef {Object} AppInfo
- * @property {string} name - The name of the app.
- * @property {string} title - The display title of the app.
- * @property {string} subtitle - A brief subtitle for the app.
- * @property {string} version - The current version of the app.
- * @property {string} description - A brief description of the app.
- * @property {string} icon - A URL to an icon representing the app.
- * @property {string} author - The URL where the app can be accessed.
- */
-
-/**
- * @typedef {Object} AppDescriptor
- * @property {AppInfo} info - The metadata information about the app.
- * @property {string} html - The HTML content of the app's index page.
- */
-
-/**
- * Fetches the app descriptor from the given URL, which includes both the app's metadata and its HTML content.
- * @param {string} url - The base URL where the app is hosted (e.g., "https://example.com/myapp").
- * @returns {Promise<AppDescriptor>} An object containing the app's metadata and HTML content.
- */
 
 const DEBUG = () => void 0
 // (...args) => {
@@ -37,66 +16,6 @@ const DEBUG = () => void 0
 
 const VOLUME_PATH = "/volume/level"
 
-async function getAppDescriptor(url) {
-    // Load index and info
-    try {
-        const [resInfo, resIndex] = await Promise.all([
-            fetch(url + "/info.json", { cache: "no-store" }),
-            fetch(url + "/index.html", { cache: "no-store" }),
-        ]);
-        
-        const [info, html] = await Promise.all([
-            resInfo.ok ? resInfo.json() : null,
-            resIndex.ok ? resIndex.text() : null,
-        ]);
-
-        if (info) {
-            const iconURL = new URL(info.icon, url.replace(/\/$/, "") + "/")
-            info.icon = iconURL.href;
-        }
-    
-        return {info, html};
-    } catch (error) {
-        console.error("Error fetching app descriptor:", error);
-        return {info: null, html: null};
-    }
-}
-
-class AppsSearch extends SearchWindow {
-  constructor(apps) {
-    super();
-    this.apps = apps;
-    this.styles = {
-      background: "white",
-    };
-  }
-
-  reset(imm) {
-    this.closeIcon = "close";
-    this.resetSearchItems(imm);
-  }
-
-  async getSearchResults(searchPhrase) {
-    let apps = this.apps;
-    /** @type {Answer[]} */
-    let items = Object.entries(apps).map(([appID, info]) => {
-      return {
-        appID: appID,
-        app: info,
-        icon: {
-          symbol: info.icon,
-          type: "normal",
-        },
-      };
-    });
-    items = filterAndSort(
-      items,
-      searchPhrase,
-      ({ app: { title, subtitle } }) => [title, subtitle],
-    );
-    return items;
-  }
-}
 
 class AppsFrame extends OccupiableWindow {
   constructor(feature, sdata) {
@@ -120,7 +39,6 @@ class AppsFrame extends OccupiableWindow {
       style: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
     });
   }
-
  
 
   setGridSize(rows, cols) {
@@ -131,27 +49,20 @@ class AppsFrame extends OccupiableWindow {
     this.nCols = cols;
 
     let grid = new GridLayout(rows, cols);
-    grid.styles = {
-      position: "absolute",
-      top: "var(--gap)",
-      left: "var(--gap)",
-      right: "var(--gap)",
-      bottom: "var(--gap)",
-    };
-    let closeIcon = grid.add(
-      new GridIcon(
+    grid.classList.add("overlay-grid");
+    let closeIcon = grid.addGridIcon(
         {
           symbol: "close",
           displayValue: "Exit",
-          type: "action",
+          type: "plain",
+          colorTheme: "action",
+          accessGroup: "app",
           events: {
             "access-click": async (e) => {
               e.waitFor(this.feature.enterSearchMode());
             },
           },
         },
-        "apps",
-      ),
       0,
       0,
     );
@@ -264,7 +175,7 @@ class AppsFrame extends OccupiableWindow {
   }
  
   static get usedStyleSheets() {
-    return [...SearchWindow.usedStyleSheets, GridIcon.styleSheet];
+    return [...AppsSearch.usedStyleSheets, ...GridIcon.usedStyleSheets];
   }
 
   static get fixToolBarWhenOpen() {
@@ -321,7 +232,7 @@ const APPS_API = {
     }
 
     // [Security] Verify app name
-    const currentApp = this.appDescriptors[this.currentAppID];
+    const currentApp = this.library.getApp(this.currentAppID);
     if (currentApp && currentApp.name !== appName) {
       console.warn(
         `[Security] Blocked attempt to write to app "${appName}" from app "${currentApp.name}"`,
@@ -372,32 +283,34 @@ const APPS_API = {
     const { x, y, options, key } = e.data;
     const { nRows, nCols } = this.appFrame;
     if (
-      typeof x === "number" &&
-      x < nCols &&
-      typeof y === "number" &&
-      y < nRows &&
+      typeof x === "number" && x < nCols &&
+      typeof y === "number" && y < nRows &&
       (x > 0 || y > 0)
     ) {
-      let icon = new GridIcon(options);
-      icon.styles = {
-        "--shadow-color": "transparent",
-        "pointer-events": "all",
-        ...(options.styles || {}),
-      };
-      this.appFrame.grid.add(icon, x, y);
-      icon.events = {
-        "access-click": (e) => {
-          this.sdata.logChange("app.interaction", {value: e.clickMode || "click"});
-          this.appFrame.sendMessage({
-            mode: "onIconClickCallback",
-            key: key,
-            value: { clickMode: e.clickMode },
-          });
-        },
-      };
 
-      // Track this icon so it can be cleared when switching apps or removed specifically
-      this._appIcons.set(key, icon);
+      if (options.type === "object") {
+        GridIcon.getCardRenderer
+        options.type = options.type || "card";
+        options.colorTheme = options.theme || "action";
+      }
+
+
+
+      this._appIcons.set(key, 
+        this.appFrame.grid.addGridIcon({
+          ...options,
+          events: {
+            "access-click": (e) => {
+              this.sdata.logChange("app.interaction", {value: e.clickMode || "click"});
+              this.appFrame.sendMessage({
+                mode: "onIconClickCallback",
+                key: key,
+                value: { clickMode: e.clickMode },
+              });
+            },
+          }
+        }, x, y)
+      );
     }
   },
 
@@ -677,13 +590,16 @@ const APPS_API = {
 }
 
 export default class Apps extends Features {
+
+  /** @type {AppLibrary} */
+  #library = null;
+
   constructor(session, sdata) {
     super(session, sdata);
     this.appFrame = new AppsFrame(this, sdata);
     this.appFrame.open = this.open.bind(this);
     this.appFrame.close = this.close.bind(this);
     this.currentAppID = null;
-    this.appDescriptors = {};
     this._cursorListenersInitialized = false;
 
     /** @type {Map<string, {proxy: AccessButton, state: Object}>} */
@@ -704,6 +620,10 @@ export default class Apps extends Features {
     this._writeCount = 0;
     this._listenerCount = 0;
     this._lastRateReset = Date.now();
+  }
+
+  get library() {
+    return this.#library;
   }
 
   async open() {
@@ -739,8 +659,7 @@ export default class Apps extends Features {
 
 
   async _setApp(appID) {
-    DEBUG("Setting app to:", appID);
-    appID = appID in this.appDescriptors ? appID : null;
+    appID = this.#library.hasApp(appID) ? appID : null;
     let isChanged = this.currentAppID !== appID;
 
     // If the app is changing, handle session finish and cleanup
@@ -755,8 +674,12 @@ export default class Apps extends Features {
       this.appFrame.setGridSize(4, 5);
       await this.appFrame.setSrc("about:blank");
       if (appID) {
-        const app = this.appDescriptors[appID];
-        await this.appFrame.setSrc(app.html, true);
+        await this.appFrame.setSrc(
+          this.#library.getApp(appID).injectAPI({
+            user: this.sdata.me,
+            participantActive: this.sdata.isUserActive("participant"),
+          }), true
+        );
         this._sendSessionInfoUpdate();
       }
     }
@@ -805,7 +728,7 @@ export default class Apps extends Features {
     if (heatmapMouse && heatmapMouse.sum > 0) {
       this.sdata.logChange("app.heatmap", {
         value: heatmapMouse.toString(),
-        note: this.appDescriptors[appID].name,
+        note: this.#library.getApp(appID)?.name,
       });
     }
 
@@ -813,7 +736,7 @@ export default class Apps extends Features {
     if (heatmapEyes && heatmapEyes.sum > 0) {
       this.sdata.logChange("app.heatmap", {
         value: heatmapEyes.toString(),
-        note: this.appDescriptors[appID].name,
+        note: this.#library.getApp(appID)?.name,
       });
     }
   }
@@ -943,58 +866,9 @@ export default class Apps extends Features {
    * @returns {Promise<boolean>} True if at least one app was loaded successfully, false otherwise.
    */
   async loadAppDescriptors() {
-    let apiURL = relURL("./app-base-api.js", import.meta);
-    let accessButtonsURL = relURL(
-      "../../Utilities/Buttons/access-buttons.js",
-      import.meta,
-    );
-    let gridIconStyles = relURL(
-      "../../Utilities/Buttons/grid-icon.css",
-      import.meta,
-    );
-
-    const snapshot = await F.get(F.ref("apps"))
-    const appsList = Object.entries(snapshot.val());
-    const appDescriptorList = await Promise.all(
-      appsList.map(async ([appID, {url}]) => {
-        const { info, html } = await getAppDescriptor(url);
-        let result = null;
-
-        // If both info and html are successfully loaded, prepare the descriptor
-        if (info && html) {
-          info.url = url;
-
-          const sessionInfo = {
-            user: this.sdata.me,
-            participantActive: this.sdata.isUserActive("participant"),
-            appName: info.name,
-          };
-
-            // Escape < to prevent </script> from terminating the injection prematurely.
-          const injection = [
-            `<script type="module" src="${accessButtonsURL}"></script>`,
-            `<script src="${apiURL}"></script>`,
-            `<base href="${url}/">`,
-            `<script>window.session_info = ${
-              JSON.stringify(sessionInfo).replace(/</g, "\\u003c")
-            };</script>`,
-            `<link rel="stylesheet" href="${gridIconStyles}">`
-          ].join("\n\t");
-          
-          info.html = html.replace(/<head\b[^>]*>/, `$& \n\t${injection}`);
-
-          result = [appID, info]
-        } else {
-          console.warn("Failed to load app descriptor from " + url);
-        }
-        return result;
-      })
-    );
-    this.appDescriptors = Object.fromEntries(appDescriptorList.filter(v => v !== null));
-    
-
-    this.appFrame.search.apps = this.appDescriptors;
-    return Object.keys(this.appDescriptors).length > 0;
+    this.#library = await AppLibrary.load();
+    this.appFrame.search.library = this.#library
+    return true
   }
 
 
@@ -1028,22 +902,25 @@ export default class Apps extends Features {
       // Listen for app selection from search window
       this.appFrame.search.addEventListener("value", (e) => {
         // If value is null then the user has closed apps.
-        if (e.value == null) {
+        const {value} = e;
+        console.log("Selected app value:", value);
+        if (value == null) {
           e.waitFor(this.session.openWindow("default"));
           
         // Otherwise, an app was selected
         } else {
+          const appID = this.#library.getAppID(value);
           this.sdata.set("selected_app", {
-            id: e.value.appID,
+            id: appID,
             timestamp: Date.now(),
           });
 
           // We are going to LOG the selected app to the logs which will be saved.
-          this.sdata.logChange("app.selected", { value: e.value.app.name });
+          this.sdata.logChange("app.selected", { value: value.name });
 
           // Wait for visual transition
           e.waitFor(Promise.all([
-            this._setApp(e.value.appID),
+            this._setApp(appID),
             this.appFrame.search.hide(),
           ]));
         }
@@ -1051,7 +928,7 @@ export default class Apps extends Features {
 
       // Listen for app changes from other users.
       this.sdata.onValue("selected_app", async (selectedApp) => {
-        if (selectedApp && selectedApp.id in this.appDescriptors) {
+        if (selectedApp && this.#library.hasApp(selectedApp.id)) {
           this.appFrame.search.hide();
           this._setApp(selectedApp.id);
         } else {

@@ -1,4 +1,4 @@
-import { Color } from "../shared.js";
+import { Color } from "../../../Utilities/usefull-funcs.js";
 import { DataClass, array2D } from "./dataclass.js";
 /**
  * @typedef {[number, number]} Range

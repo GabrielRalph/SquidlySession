@@ -1,7 +1,7 @@
 
 import { OBBoard, OBButton, OBImage } from "./OpenBoard/openboard.js";
-import { GridCard, GridIcon, GridLayout } from "./GridLayout/grid-icons.js";
-import { AccessTextarea } from "./Textarea/textarea.js";
+import { GridCard, GridIcon, GridLayout } from "../../Utilities/GridLayout/grid-icons.js";
+import { AccessTextarea } from "../../Utilities/Textarea/textarea.js";
 
 
 import { Debugger, delay, relURL } from "../../Utilities/usefull-funcs.js";

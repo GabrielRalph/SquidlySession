@@ -1,13 +1,13 @@
 import { Path } from "../OpenBoard/Path.js";
 import { BoardMetadata, getBoardMetadata, watchMyFavouriteBoards, watchPublicBoards } from "../OpenBoard/boards.js";
 import { addAuthChangeListener } from "../../../Firebase/firebase.js";
-import { SvgPlus } from "../../../SvgPlus/4.js";
-import { ShadowElement } from "../../../SvgPlus/shadow-element.js";
-import { GridCard, GridIcon, GridLayout } from "../GridLayout/grid-icons.js";
-import { RoundedTabs } from "../RoundedTabs/rounded-tabs.js";
-import { AccessTextarea } from "../Textarea/textarea.js";
-import { AccessEvent } from "../../../Utilities/Buttons/access-buttons.js";
-import { delay, relURL } from "../../../Utilities/usefull-funcs.js";
+import { SvgPlus } from         "../../../SvgPlus/4.js";
+import { ShadowElement } from   "../../../SvgPlus/shadow-element.js";
+import { GridCard, GridIcon, GridLayout } from "../../../Utilities/GridLayout/grid-icons.js";
+import { RoundedTabs } from     "../../../Utilities/RoundedTabs/rounded-tabs.js";
+import { AccessTextarea } from  "../../../Utilities/Textarea/textarea.js";
+import { AccessEvent } from     "../../../Utilities/Buttons/access-buttons.js";
+import { delay, relURL } from   "../../../Utilities/usefull-funcs.js";
 
 function toRows(array, cols) {
     const rows = [];
@@ -148,8 +148,8 @@ class BoardGridIcon extends GridIcon {
 
 class FixedGridLayout extends GridLayout {
     fixedBR = 15;
-    computeIconBorderRadiusAndWidth() {
-        let old = super.computeIconBorderRadiusAndWidth();
+    getBorderStyle() {
+        let old = super.getBorderStyle();
         old[0] = this.fixedBR;
         return old;
     }
@@ -347,8 +347,8 @@ class AACExplore extends ShadowElement {
                     }
                 })
             }
-            getCardBorderRadiusAndWidth() {
-                let old = super.getCardBorderRadiusAndWidth();
+            getBorderStyle() {
+                let old = super.getBorderStyle();
                 old[0] = BR - old[1] * 0.5 - SP;
                 return old;
             }
@@ -389,6 +389,7 @@ class AACExplore extends ShadowElement {
                 }
             }
         });
+        
         this.tabs = this.createChild(RoundedTabs, {}, [
             {
                 title: this.closeButton,
@@ -449,8 +450,8 @@ class AACExplore extends ShadowElement {
 
     static get usedStyleSheets() {
         return [
-            ...AccessTextarea.usedStyleSheets,
             ...RoundedTabs.usedStyleSheets,
+            ...AccessTextarea.usedStyleSheets,
             ...GridIcon.usedStyleSheets,
             relURL("../icons.css", import.meta),
             relURL("./index.css", import.meta),

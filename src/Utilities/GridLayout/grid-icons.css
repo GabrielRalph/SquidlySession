@@ -259,12 +259,15 @@ grid-layout[scale-font] {
 
 /* Action buttons */
 
+
 .grid-icon[color-theme="action"] .symbol {
     height: 75%;
     width: 75%;
 }
+
 .grid-icon[color-theme="action"] .content {
     padding: var(--_cpad-top);
+    flex-direction: column-reverse !important;
 }
 
 .grid-icon[color-theme="textarea"] {
