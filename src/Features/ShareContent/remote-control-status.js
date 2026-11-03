@@ -5,7 +5,7 @@ export function remoteControlStatusCopy(code, isSharer) {
   const action = {
     checking: ["Checking remote control", "Waiting for the shared window to be ready."],
     preparing_window: ["Bringing shared window to front", isSharer
-      ? "Control will continue automatically. Pause control to use other windows."
+      ? "Control will continue automatically. You can keep using the meeting controls."
       : "Waiting for the shared window to come forward. Control will continue automatically."],
     paused_by_sharer: ["Remote control paused", isSharer
       ? "Select Resume control when you are ready to continue."
