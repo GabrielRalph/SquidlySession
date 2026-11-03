@@ -573,7 +573,7 @@ export class ContentViewer extends OccupiableWindow {
       "access-click": () => {
         if (this._rcPauseAction) this.root.dispatchEvent(new Event(this._rcPauseAction));
       }
-    }}, {text: "Ⅱ"}, "pause control");
+    }}, "pause", "pause control");
     this.remoteControlPause.hidden = true;
 
     this.iconsList = iconsList;
@@ -609,7 +609,7 @@ export class ContentViewer extends OccupiableWindow {
     this._rcPauseAction = showPauseTool ? (manuallyPaused ? "rc-resume" : "rc-pause") : null;
     this.remoteControlPause.hidden = !showPauseTool;
     this.remoteControlPause.displayValue = manuallyPaused ? "resume control" : "pause control";
-    this.remoteControlPause.symbol = {text: manuallyPaused ? "▶" : "Ⅱ"};
+    this.remoteControlPause.symbol = manuallyPaused ? "play" : "pause";
     this.remoteControlResume.hidden = !windowControl || ["checking", "preparing_window", "window_in_use", "agent_update_required"].includes(statusCode);
     this.remoteControlResume.textContent = statusCode === "agent_offline" ? "Reconnect" : "Resume control";
     if (showNotice) {
