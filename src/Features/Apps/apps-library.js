@@ -20,7 +20,7 @@ import { relURL } from "../../Utilities/usefull-funcs.js";
  * @property {AppDescriptor[]} apps - The list of apps in this category.
  */
 
-const ACCESS_BUTTONS_URL = relURL("../../Utilities/buttons/access-buttons.js", import.meta);
+const ACCESS_BUTTONS_URL = relURL("../../Utilities/Buttons/access-buttons.js", import.meta);
 const GRID_ICON_STYLES = relURL("../../Utilities/Buttons/grid-icon.css", import.meta);
 const API_URL = relURL("./app-base-api.js", import.meta);
 const APP_LIBRARY_URL = "https://firebasestorage.googleapis.com/v0/b/eyesee-d0a42.appspot.com/o/apps-database%2Fapps.json?alt=media"
