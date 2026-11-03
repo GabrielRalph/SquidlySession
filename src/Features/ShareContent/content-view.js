@@ -599,14 +599,16 @@ export class ContentViewer extends OccupiableWindow {
     else this.root.removeAttribute("rc-surface");
 
     this.content.setRemoteInput(isController && statusCode === "ready");
-    const showNotice = enabled && statusCode !== "ready";
+    const sourceChanged = statusCode === "source_changed";
+    this.root.toggleAttribute("rc-source-changed", sourceChanged);
+    const showNotice = sourceChanged || (enabled && statusCode !== "ready");
     this.remoteControlNotice.hidden = !showNotice;
     const windowControl = isReceiver && state.surface === "window";
     this.remoteControlPause.hidden = !(enabled && windowControl && ["ready", "preparing_window", "window_in_use"].includes(statusCode));
     this.remoteControlResume.hidden = !windowControl || ["checking", "preparing_window", "window_in_use", "agent_update_required"].includes(statusCode);
     this.remoteControlResume.textContent = statusCode === "agent_offline" ? "Reconnect" : "Resume control";
     if (showNotice) {
-      const copy = remoteControlStatusCopy(statusCode, isReceiver);
+      const copy = remoteControlStatusCopy(statusCode, state.isSharer ?? isReceiver);
       this.remoteControlNoticeTitle.textContent = copy.title;
       this.remoteControlNoticeDetail.textContent = copy.detail;
     }

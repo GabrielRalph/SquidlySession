@@ -225,6 +225,13 @@ content-viewer .rc-status-notice[hidden] {
     display: none;
 }
 
+content-viewer[rc-source-changed] .rc-status-notice:not([hidden]) {
+    top: auto;
+    bottom: 1em;
+    transform: translateX(-50%);
+    font-size: 0.8em;
+}
+
 content-viewer .rc-control-action {
     pointer-events: auto;
     align-self: center;

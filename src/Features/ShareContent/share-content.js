@@ -13,6 +13,7 @@ import {
 } from "./remote-control-protocol.js";
 import { RemoteAgentClient } from "./remote-agent-client.js";
 import { RC_STATUS_KEY } from "./remote-control-status.js";
+import { CaptureSourceGuard, controlInputEnvelope, authorizedControlPayload } from "./capture-source.js";
 
 
 export default class ShareContent extends Features {
@@ -26,6 +27,8 @@ export default class ShareContent extends Features {
     _rcKeysArmed = false;
     _rcHeldKeys = new Set();
     _rcAgent = null;
+    _captureSourceGuard = null;
+    _retiredControlIds = new Set();
     _rcInjectCount = 0;
 
     constructor(session, sdata){
@@ -94,6 +97,7 @@ export default class ShareContent extends Features {
     async shareScreen(){
         let stream = null;
         let oldStream = this._shareScreen.stream;
+        const wasSharing = this._isSharing;
 
         // share screen media options
         let displayMediaOptions = {
@@ -102,7 +106,9 @@ export default class ShareContent extends Features {
                 
             },
             audio: false,
-            surfaceSwitching: "include",
+            // A capture track has no portable native-window identity/switch
+            // event. Switch through our picker so old control can be revoked.
+            surfaceSwitching: "exclude",
             selfBrowserSurface: "exclude",
         }
 
@@ -133,6 +139,7 @@ export default class ShareContent extends Features {
 
             // add stream events
             stream.oninactive = () => {
+                this._isSharing = false;
                 this.contentView.setStream(null, this.sdata.me);
                 this.sdata.set("content-info", null);
                 this.clearRemoteControl();
@@ -151,19 +158,19 @@ export default class ShareContent extends Features {
 
             const track = stream.getVideoTracks()[0];
             this._displaySurface = track?.getSettings?.().displaySurface || null;
-            track?.addEventListener?.("configurationchange", () => this._matchAgentSurface());
+            this._captureSourceGuard = new CaptureSourceGuard(track);
+            const captureChanged = () => {
+                if (this._shareScreen.stream !== stream) return;
+                if (!this._checkCaptureSourceChange()) this._matchAgentSurface();
+            };
+            track?.addEventListener?.("configurationchange", captureChanged);
+            track?.addEventListener?.("capturehandlechange", captureChanged);
+            this._disableControlForSourceChange(this._displaySurface, wasSharing);
 
             this.sdata.set("content-info", {
                 type: "stream",
                 url: Math.random(),
                 page: this.sdata.me,
-            });
-
-            this.sdata.set(`remote-control/${RC_STATE_KEY}`, {
-                enabled: false,
-                controller: null,
-                sharer: this.sdata.me,
-                surface: this._displaySurface,
             });
 
             this._tryForwardWheel();
@@ -260,6 +267,12 @@ export default class ShareContent extends Features {
     }
 
     _applyRemoteControlState(state) {
+        if (state?.enabled && this._retiredControlIds.has(state.controlId)) return;
+        if (this._rcState?.controlId !== state?.controlId) {
+            this._setKeysArmed(false);
+            this._rcPublisher?.stop();
+            this._rcPublisher = null;
+        }
         this._rcState = state;
         const streaming = this.contentView.displayType === "stream";
         const enabled = !!(state && state.enabled && streaming);
@@ -268,9 +281,15 @@ export default class ShareContent extends Features {
         const isReceiver = enabled && state.sharer === me;
 
         if (isController) {
-            if (!this._rcPublisher) {
+            if (!this._rcPublisher || this._rcPublisherControlId !== state.controlId) {
+                this._rcPublisher?.stop();
+                const controlId = state.controlId;
+                this._rcPublisherControlId = controlId;
                 this._rcPublisher = new RemoteControlPublisher((payload) => {
-                    this.session.videoCall?.sendData(RC_DATA_PATH, payload);
+                    const current = this._rcState;
+                    if (current?.enabled && current.controlId === controlId && current.controller === this.sdata.me) {
+                        this.session.videoCall?.sendData(RC_DATA_PATH, controlInputEnvelope(controlId, payload));
+                    }
                 });
             }
         } else {
@@ -289,6 +308,7 @@ export default class ShareContent extends Features {
 
     _currentRemoteStatusCode() {
         const state = this._rcState;
+        if (state && !state.enabled && state.reason === "source_changed") return "source_changed";
         const status = this._rcStatus;
         if (!state?.enabled || !status || status.sharer !== state.sharer || status.controller !== state.controller || status.controlId !== state.controlId) {
             return "checking";
@@ -301,13 +321,14 @@ export default class ShareContent extends Features {
         const enabled = !!(state?.enabled && this.contentView.displayType === "stream");
         const isController = enabled && state.controller === this.sdata.me;
         const isReceiver = enabled && state.sharer === this.sdata.me;
-        const statusCode = this._currentRemoteStatusCode();
+        const statusCode = this.contentView.displayType === "stream" ? this._currentRemoteStatusCode() : "checking";
         if (isController && statusCode !== "ready") this._rcPublisher?.stop();
         this._setKeysArmed(isController && statusCode === "ready");
         this.contentView.setRemoteControl({
             enabled,
             isController,
             isReceiver,
+            isSharer: state?.sharer === this.sdata.me,
             statusCode,
             surface: state?.surface || this._displaySurface,
             agentConnected: !!(this._rcAgent && this._rcAgent.connected),
@@ -352,17 +373,42 @@ export default class ShareContent extends Features {
         const track = stream?.getVideoTracks?.()[0];
         const settings = track?.getSettings?.() || {};
         const video = this.contentView.content?.video;
-        const width = Number(video?.videoWidth || settings.width || 0);
-        const height = Number(video?.videoHeight || settings.height || 0);
+        // The video element can still report the previous source's frame while
+        // a replacement track is starting. Prefer the current capture settings.
+        const width = Number(settings.width || video?.videoWidth || 0);
+        const height = Number(settings.height || video?.videoHeight || 0);
         const surface = this._displaySurface || settings.displaySurface || this._rcState?.surface || "window";
         return { width, height, surface };
     }
 
     _matchAgentSurface() {
         if (!this._rcAgent) return;
+        if (this._checkCaptureSourceChange()) return;
         const info = this._captureVideoSize();
         if (!(info.width > 0 && info.height > 0)) return;
         this._rcAgent.matchSurface(info);
+    }
+
+    _checkCaptureSourceChange() {
+        if (!this._isSharing || !this._captureSourceGuard) return false;
+        const track = this._shareScreen?.stream?.getVideoTracks?.()[0];
+        if (!this._captureSourceGuard.changed(track)) return false;
+        this._captureSourceGuard = new CaptureSourceGuard(track);
+        this._displaySurface = track?.getSettings?.().displaySurface || null;
+        this._disableControlForSourceChange(this._displaySurface);
+        return true;
+    }
+
+    _disableControlForSourceChange(surface, changed = true) {
+        if (this._rcState?.controlId) this._retiredControlIds.add(this._rcState.controlId);
+        const state = { enabled: false, controller: null, sharer: this.sdata.me,
+            controlId: null, surface, reason: changed ? "source_changed" : null };
+        // Close the old native connection synchronously, before any further
+        // input can be forwarded. disconnect() clears its ID, pending input,
+        // retry/match timers and callbacks. Video capture stays intact.
+        this._rcStatus = null;
+        this._applyRemoteControlState(state);
+        this.sdata.set(`remote-control/${RC_STATE_KEY}`, state);
     }
 
     _disconnectAgent() {
@@ -477,7 +523,9 @@ export default class ShareContent extends Features {
 
     _onRemoteRtc(value) {
         if (!this._rcState?.enabled || this._rcState.sharer !== this.sdata.me) return;
-        this._injectRemoteCommand(toAgentCommand(parseStreamPayload(value)));
+        if (this._checkCaptureSourceChange()) return;
+        const payload = authorizedControlPayload(value, this._rcState.controlId);
+        if (payload !== null) this._injectRemoteCommand(toAgentCommand(parseStreamPayload(payload)));
     }
 
     _injectRemoteCommand(command) {
@@ -500,6 +548,7 @@ export default class ShareContent extends Features {
     }
 
     clearRemoteControl() {
+        this._captureSourceGuard = null;
         this._captureController = null;
         this._displaySurface = null;
         this._setKeysArmed(false);

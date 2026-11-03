@@ -28,6 +28,15 @@ export function remoteControlStatusCopy(code, isSharer) {
     window_unavailable: ["Remote control paused", isSharer
       ? "Select Resume control to restore the shared window. If it was closed, share it again."
       : "Waiting for the sharer to restore the shared window."],
+    window_minimized: ["Remote control paused", isSharer
+      ? "You minimized the shared window. Select Resume control to restore it."
+      : "The sharer minimized the shared window. Waiting for them to resume control."],
+    window_not_visible: ["Remote control paused", isSharer
+      ? "The shared window is not visible on this desktop. Return to its desktop or show it, then select Resume control."
+      : "Waiting for the sharer to return to the shared window and resume control."],
+    source_changed: ["Remote control turned off", isSharer
+      ? "The shared content changed. The other participant can start remote control again for this content."
+      : "The shared content changed. Select Remote control to start again for this content."],
     window_not_frontmost: ["Remote control paused", isSharer
       ? "The shared window could not be brought to the front. Close any system dialogs, then select Resume control."
       : "Waiting for the sharer to bring the shared window back."],
