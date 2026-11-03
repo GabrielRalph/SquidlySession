@@ -4,7 +4,9 @@ export const RC_STATUS_KEY = "status";
 export function remoteControlStatusCopy(code, isSharer) {
   const action = {
     checking: ["Checking remote control", "Waiting for the shared window to be ready."],
-    preparing_window: ["Preparing remote control", "Bringing the shared window to the front…"],
+    preparing_window: ["Bringing shared window to front", isSharer
+      ? "Control will continue automatically. Pause control to use other windows."
+      : "Waiting for the shared window to come forward. Control will continue automatically."],
     paused_by_sharer: ["Remote control paused", isSharer
       ? "Select Resume control when you are ready to continue."
       : "The sharer paused control. Waiting for them to resume."],
@@ -27,8 +29,8 @@ export function remoteControlStatusCopy(code, isSharer) {
       ? "Select Resume control to restore the shared window. If it was closed, share it again."
       : "Waiting for the sharer to restore the shared window."],
     window_not_frontmost: ["Remote control paused", isSharer
-      ? "You switched away from the shared window. Select Resume control to bring it back."
-      : "The sharer switched windows. Waiting for them to resume control."],
+      ? "The shared window could not be brought to the front. Close any system dialogs, then select Resume control."
+      : "Waiting for the sharer to bring the shared window back."],
     window_obscured: ["Remote control paused", isSharer
       ? "Select Resume control to bring the shared window to the front."
       : "Waiting for the sharer to resume control of the shared window."],

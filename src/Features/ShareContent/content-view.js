@@ -602,7 +602,7 @@ export class ContentViewer extends OccupiableWindow {
     const showNotice = enabled && statusCode !== "ready";
     this.remoteControlNotice.hidden = !showNotice;
     const windowControl = isReceiver && state.surface === "window";
-    this.remoteControlPause.hidden = !(windowControl && statusCode === "ready");
+    this.remoteControlPause.hidden = !(enabled && windowControl && ["ready", "preparing_window"].includes(statusCode));
     this.remoteControlResume.hidden = !windowControl || ["checking", "preparing_window", "agent_update_required"].includes(statusCode);
     this.remoteControlResume.textContent = statusCode === "agent_offline" ? "Reconnect" : "Resume control";
     if (showNotice) {
@@ -613,7 +613,8 @@ export class ContentViewer extends OccupiableWindow {
 
     if (this.remoteControlButton) {
       this.remoteControlButton.toggleAttribute("on", enabled);
-      if (enabled && statusCode !== "ready") this.remoteControlButton.displayValue = "control paused";
+      if (enabled && statusCode === "preparing_window") this.remoteControlButton.displayValue = "preparing control";
+      else if (enabled && statusCode !== "ready") this.remoteControlButton.displayValue = "control paused";
       else if (isController) this.remoteControlButton.displayValue = "controlling";
       else this.remoteControlButton.displayValue = "remote control";
     }

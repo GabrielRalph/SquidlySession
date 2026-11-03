@@ -244,7 +244,7 @@ export class RemoteAgentClient {
       if (data.pauseReason) {
         this.bounds = null;
         this.statusCode = data.pauseReason;
-        this._resumeRequired = true;
+        this._resumeRequired = data.pauseReason !== "preparing_window";
         this._emitStatus();
       }
       return;
@@ -252,7 +252,7 @@ export class RemoteAgentClient {
     if (!data.ok) {
       this.bounds = null;
       this.statusCode = data.pauseReason || "surface_unmatched";
-      this._resumeRequired = true;
+      this._resumeRequired = data.pauseReason !== "preparing_window";
       console.warn("%cremote-agent", "color:#e07a2f", "surface.match failed", data.error || "");
       this._emitStatus(data.error || "no unique matching surface");
       return;
@@ -278,7 +278,7 @@ export class RemoteAgentClient {
     }
     if (Number.isInteger(data.id) && data.id > 0) this._surfaceId = data.id;
     this.statusCode = data.controlAllowed ? "ready" : data.pauseReason || "surface_unmatched";
-    this._resumeRequired = !data.controlAllowed;
+    this._resumeRequired = !data.controlAllowed && data.pauseReason !== "preparing_window";
     this.bounds = data.controlAllowed ? bounds : null;
     const label = [data.kind, data.owner, data.name].filter(Boolean).join(" ");
     console.log(
