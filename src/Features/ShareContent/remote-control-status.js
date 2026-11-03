@@ -10,9 +10,9 @@ export function remoteControlStatusCopy(code, isSharer) {
     paused_by_sharer: ["Remote control paused", isSharer
       ? "Select Resume control when you are ready to continue."
       : "The sharer paused control. Waiting for them to resume."],
-    window_in_use: ["Remote control paused", isSharer
-      ? "Another session is controlling a window. Stop that control, then select Resume control."
-      : "Waiting for the sharer to finish control in another session."],
+    window_in_use: ["Waiting for remote control", isSharer
+      ? "Another control connection is still active on this Mac. Control will continue automatically when it ends."
+      : "Waiting for the sharer’s Mac to finish another control connection. Control will continue automatically."],
     window_binding_unavailable: ["Remote control paused", isSharer
       ? "This window could not be prepared for control. Select the shared window again."
       : "Waiting for the sharer to select the shared window again."],

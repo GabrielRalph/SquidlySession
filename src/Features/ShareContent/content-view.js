@@ -602,8 +602,8 @@ export class ContentViewer extends OccupiableWindow {
     const showNotice = enabled && statusCode !== "ready";
     this.remoteControlNotice.hidden = !showNotice;
     const windowControl = isReceiver && state.surface === "window";
-    this.remoteControlPause.hidden = !(enabled && windowControl && ["ready", "preparing_window"].includes(statusCode));
-    this.remoteControlResume.hidden = !windowControl || ["checking", "preparing_window", "agent_update_required"].includes(statusCode);
+    this.remoteControlPause.hidden = !(enabled && windowControl && ["ready", "preparing_window", "window_in_use"].includes(statusCode));
+    this.remoteControlResume.hidden = !windowControl || ["checking", "preparing_window", "window_in_use", "agent_update_required"].includes(statusCode);
     this.remoteControlResume.textContent = statusCode === "agent_offline" ? "Reconnect" : "Resume control";
     if (showNotice) {
       const copy = remoteControlStatusCopy(statusCode, isReceiver);
@@ -613,7 +613,8 @@ export class ContentViewer extends OccupiableWindow {
 
     if (this.remoteControlButton) {
       this.remoteControlButton.toggleAttribute("on", enabled);
-      if (enabled && statusCode === "preparing_window") this.remoteControlButton.displayValue = "preparing control";
+      if (enabled && statusCode === "window_in_use") this.remoteControlButton.displayValue = "waiting for control";
+      else if (enabled && statusCode === "preparing_window") this.remoteControlButton.displayValue = "preparing control";
       else if (enabled && statusCode !== "ready") this.remoteControlButton.displayValue = "control paused";
       else if (isController) this.remoteControlButton.displayValue = "controlling";
       else this.remoteControlButton.displayValue = "remote control";

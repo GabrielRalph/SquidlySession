@@ -197,6 +197,7 @@ export class RemoteAgentClient {
     }
     this._ws = ws;
     ws.onopen = () => {
+      if (this._ws !== ws || !this._wanted) return;
       this._connecting = false;
       this._loggedWaiting = false;
       this.bounds = null;
@@ -208,15 +209,19 @@ export class RemoteAgentClient {
       if (this._matchReq) this._sendMatch();
       this._startMatchTimer();
     };
-    ws.onmessage = (ev) => this._onMessage(ev.data);
+    ws.onmessage = (ev) => {
+      if (this._ws === ws && this._wanted) this._onMessage(ev.data);
+    };
     ws.onerror = () => {
       /* onclose handles retry */
     };
     ws.onclose = (event) => {
+      // A closing socket may finish after its replacement is already open.
+      // Its callbacks must not clear the new connection's state or timers.
+      if (this._ws !== ws) return;
       if (event?.code === 4000) this._wanted = false;
-      const wasOurs = this._ws === ws;
       this._connecting = false;
-      if (wasOurs) this._ws = null;
+      this._ws = null;
       this.bounds = null;
       this.statusCode = "agent_offline";
       this._presentationAction = null;
@@ -244,7 +249,7 @@ export class RemoteAgentClient {
       if (data.pauseReason) {
         this.bounds = null;
         this.statusCode = data.pauseReason;
-        this._resumeRequired = data.pauseReason !== "preparing_window";
+        this._resumeRequired = !["preparing_window", "window_in_use"].includes(data.pauseReason);
         this._emitStatus();
       }
       return;
@@ -252,7 +257,7 @@ export class RemoteAgentClient {
     if (!data.ok) {
       this.bounds = null;
       this.statusCode = data.pauseReason || "surface_unmatched";
-      this._resumeRequired = data.pauseReason !== "preparing_window";
+      this._resumeRequired = !["preparing_window", "window_in_use"].includes(data.pauseReason);
       console.warn("%cremote-agent", "color:#e07a2f", "surface.match failed", data.error || "");
       this._emitStatus(data.error || "no unique matching surface");
       return;
@@ -278,7 +283,7 @@ export class RemoteAgentClient {
     }
     if (Number.isInteger(data.id) && data.id > 0) this._surfaceId = data.id;
     this.statusCode = data.controlAllowed ? "ready" : data.pauseReason || "surface_unmatched";
-    this._resumeRequired = !data.controlAllowed && data.pauseReason !== "preparing_window";
+    this._resumeRequired = !data.controlAllowed && !["preparing_window", "window_in_use"].includes(data.pauseReason);
     this.bounds = data.controlAllowed ? bounds : null;
     const label = [data.kind, data.owner, data.name].filter(Boolean).join(" ");
     console.log(

@@ -33,6 +33,66 @@ test('both users see automatic foreground recovery instead of an occlusion pause
   }
 });
 
+test('waiting for ownership survives reconnect and ignores stale socket callbacks', () => {
+  const original = globalThis.WebSocket;
+  const sockets = [];
+  class Socket {
+    static OPEN = 1;
+    static CONNECTING = 0;
+    readyState = 0;
+    sent = [];
+    constructor() { sockets.push(this); }
+    send(raw) { this.sent.push(JSON.parse(raw)); }
+    close() { this.readyState = 3; }
+    open() { this.readyState = 1; this.onopen(); }
+  }
+  globalThis.WebSocket = Socket;
+  const client = new RemoteAgentClient();
+  try {
+    client._matchReq = {surface:'window', width:400, height:300};
+    client.connect();
+    sockets[0].open();
+    const reply = {type:'surface.match', ok:true, id:42, kind:'window', x:10, y:20,
+      width:400, height:300, guardedInput:true, foregroundControl:true,
+      controlAllowed:false, pauseReason:'window_in_use'};
+    sockets[0].onmessage({data:JSON.stringify(reply)});
+    assert.equal(client._resumeRequired, false);
+    assert.equal(client.bounds, null);
+    assert.equal(client.statusCode, 'window_in_use');
+    sockets[0].onmessage({data:JSON.stringify({type:'mouse.click', pauseReason:'window_in_use'})});
+    assert.equal(client._resumeRequired, false);
+
+    sockets[0].readyState = 3;
+    client.connect();
+    sockets[1].open();
+    const match = sockets[1].sent.find(message => message.type === 'surface.match');
+    assert.equal(match.id, 42);
+    assert.equal(match.startPaused, false);
+    sockets[1].onmessage({data:JSON.stringify({...reply, controlAllowed:true, pauseReason:null})});
+    const timer = client._matchTimer;
+    sockets[0].onclose({code:4000});
+    sockets[0].onmessage({data:JSON.stringify(reply)});
+    sockets[0].onopen();
+    assert.equal(client._wanted, true);
+    assert.equal(client._ws, sockets[1]);
+    assert.equal(client._matchTimer, timer);
+    assert.equal(client.statusCode, 'ready');
+    assert.ok(client.bounds);
+  } finally {
+    client.disconnect();
+    globalThis.WebSocket = original;
+  }
+});
+
+test('waiting copy promises automatic recovery without claiming a different meeting', () => {
+  for (const isSharer of [true, false]) {
+    const copy = remoteControlStatusCopy('window_in_use', isSharer);
+    assert.doesNotMatch(copy.title, /paused/i);
+    assert.match(copy.detail, /continue automatically/i);
+    assert.doesNotMatch(copy.detail, /another session|resume control/i);
+  }
+});
+
 test('identifies each connection, updates changed metadata, and honors menu disconnect', () => {
   const original = globalThis.WebSocket;
   const sockets = [];
