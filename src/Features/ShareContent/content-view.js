@@ -486,14 +486,6 @@ export class ContentViewer extends OccupiableWindow {
         this.root.dispatchEvent(new Event("rc-resume"));
       } },
     });
-    this.remoteControlPause = this.createChild("button", {
-      type: "button", class: "rc-control-action rc-pause-control", content: "Pause control",
-      events: { click: (event) => {
-        event.stopPropagation();
-        this.root.dispatchEvent(new Event("rc-pause"));
-      } },
-    });
-    this.remoteControlPause.hidden = true;
     this.loader = this.createChild(Loader)
   }
 
@@ -577,6 +569,13 @@ export class ContentViewer extends OccupiableWindow {
       "access-click": (e) => this.root.dispatchEvent(new AccessEvent("remote-control", e))
     }}, "cursor", "remote control");
 
+    this.remoteControlPause = iconsList.createChild(ToolIcon, {showable: true, name: "pause-control", events: {
+      "access-click": () => {
+        if (this._rcPauseAction) this.root.dispatchEvent(new Event(this._rcPauseAction));
+      }
+    }}, {text: "Ⅱ"}, "pause control");
+    this.remoteControlPause.hidden = true;
+
     this.iconsList = iconsList;
   }
 
@@ -604,7 +603,13 @@ export class ContentViewer extends OccupiableWindow {
     const showNotice = sourceChanged || (enabled && statusCode !== "ready");
     this.remoteControlNotice.hidden = !showNotice;
     const windowControl = isReceiver && state.surface === "window";
-    this.remoteControlPause.hidden = !(enabled && windowControl && ["ready", "preparing_window", "window_in_use"].includes(statusCode));
+    const manuallyPaused = statusCode === "paused_by_sharer";
+    const canPause = ["ready", "preparing_window", "window_in_use"].includes(statusCode);
+    const showPauseTool = enabled && windowControl && (canPause || manuallyPaused);
+    this._rcPauseAction = showPauseTool ? (manuallyPaused ? "rc-resume" : "rc-pause") : null;
+    this.remoteControlPause.hidden = !showPauseTool;
+    this.remoteControlPause.displayValue = manuallyPaused ? "resume control" : "pause control";
+    this.remoteControlPause.symbol = {text: manuallyPaused ? "▶" : "Ⅱ"};
     this.remoteControlResume.hidden = !windowControl || ["checking", "preparing_window", "window_in_use", "agent_update_required"].includes(statusCode);
     this.remoteControlResume.textContent = statusCode === "agent_offline" ? "Reconnect" : "Resume control";
     if (showNotice) {

@@ -168,6 +168,10 @@ access-button[name="right"] {
 access-button[name="remote-control"] {
     grid-column: 5;
 }
+access-button[name="pause-control"] {
+    grid-column: 5;
+    grid-row: 3;
+}
 access-button[name="left"], access-button[name="right"], access-button[name="up"], access-button[name="down"], access-button[name="remote-control"] {
     grid-row: 4;
 }
@@ -248,13 +252,6 @@ content-viewer .rc-control-action {
 content-viewer .rc-control-action:focus-visible {
     outline: 3px solid #35bf65;
     outline-offset: 3px;
-}
-
-content-viewer .rc-pause-control {
-    position: absolute;
-    z-index: 5;
-    right: 1em;
-    bottom: 1em;
 }
 
 content-viewer .rc-control-action[hidden] {
