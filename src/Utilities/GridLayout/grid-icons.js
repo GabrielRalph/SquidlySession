@@ -486,6 +486,10 @@ class GridCard extends SvgPlus {
         return CARD_RENDERERS[type].bind(CARD_RENDERERS);
       }
     }
+
+    static isCardRenderer(type) {
+      return CARD_RENDERERS[type] instanceof Function;
+    }
 }
 
 class TextValue extends SvgPlus {

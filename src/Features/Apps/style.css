@@ -1,3 +1,7 @@
+app-frame > grid-layout > .grid-icon {
+    pointer-events: all;
+}
+
 
 .overlay-grid {
     position: absolute;

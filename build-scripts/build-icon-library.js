@@ -90,7 +90,7 @@ async function getExistingIconsLibrary(filePath) {
 }
 
 async function getUpdatedIcons(dirPath) {
-    const fromFiles = getAllIconFiles(path.join(dirPath, "IconLibrary"));
+    const fromFiles = getAllIconFiles(path.join(dirPath, "ICSS_Icons"));
     const existingIcons = await getExistingIconsLibrary(path.join(dirPath, "icons-library.js"));
 
     const status = {};

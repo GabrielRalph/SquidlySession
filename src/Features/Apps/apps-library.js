@@ -50,15 +50,14 @@ class AppDescriptor {
                 appName: this.info.name,
             };
     
-            // Escape < to prevent </script> from terminating the injection prematurely.
             const injection = [
                 `<script type="module" src="${ACCESS_BUTTONS_URL}"></script>`,
                 `<script src="${API_URL}"></script>`,
-                `<base href="${this.url}/">`,
+                `<base href="${this.url}"/>`,
                 `<script>window.session_info = ${
                     JSON.stringify(sessionInfo).replace(/</g, "\\u003c")
                 };</script>`,
-                `<link rel="stylesheet" href="${GRID_ICON_STYLES}">`
+                `<link rel="stylesheet" href="${GRID_ICON_STYLES}" />`
             ].join("\n\t");
             
             newHTML = this.html.replace(/<head\b[^>]*>/, `$&\n\t${injection}`);

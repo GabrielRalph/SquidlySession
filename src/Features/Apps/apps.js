@@ -1,7 +1,7 @@
 import { relURL } from "../../Utilities/usefull-funcs.js";
 import { Features, OccupiableWindow } from "../features-interface.js";
 import { Vector } from "../../SvgPlus/4.js";
-import { GridIcon, GridLayout } from "../../Utilities/GridLayout/grid-icons.js";
+import { GridCard, GridIcon, GridLayout } from "../../Utilities/GridLayout/grid-icons.js";
 import { AccessButton } from "../../Utilities/Buttons/access-buttons.js";
 import * as F from "../../Firebase/firebase.js";
 import { addDeviceChangeCallback, getDevices } from "../../Utilities/device-manager.js";
@@ -175,7 +175,11 @@ class AppsFrame extends OccupiableWindow {
   }
  
   static get usedStyleSheets() {
-    return [...AppsSearch.usedStyleSheets, ...GridIcon.usedStyleSheets];
+    return [
+      ...AppsSearch.usedStyleSheets, 
+      ...GridIcon.usedStyleSheets,
+      relURL("../../Utilities/Icons/ICSS_Icons/icons.css", import.meta)
+    ];
   }
 
   static get fixToolBarWhenOpen() {
@@ -288,13 +292,16 @@ const APPS_API = {
       (x > 0 || y > 0)
     ) {
 
-      if (options.type === "object") {
-        GridIcon.getCardRenderer
-        options.type = options.type || "card";
-        options.colorTheme = options.theme || "action";
+      if (typeof options.type === "object") {
+        options.colorTheme = options.type.theme || "action";
+        options.type = options.type.card || "plain";
+      } else if (!GridCard.isCardRenderer(options.type)) {
+        const type = options.type;
+        options.type = type.endsWith("topic") ? "folder" : "plain";
+        options.colorTheme = type.replace(/-topic$/, "") || "action";
       }
 
-
+      console.log("Adding icon with key:", options);
 
       this._appIcons.set(key, 
         this.appFrame.grid.addGridIcon({
