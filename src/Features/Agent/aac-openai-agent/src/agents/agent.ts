@@ -7,7 +7,7 @@ const agent = new Agent<BoardContext>({
 	name: "AAC Board Generator Agent",
 	instructions: ({ context }) =>
 		`${AAC_AGENT_INSTRUCTIONS}\n<saved_requirements>\n${JSON.stringify(context.requirements)}\n</saved_requirements>`,
-	model: "gpt-6.1-terra",
+	model: "gpt-6-luna",
 	tools: [updateBoardContext],
 	modelSettings: { toolChoice: "required", parallelToolCalls: false },
 	resetToolChoice: true,
