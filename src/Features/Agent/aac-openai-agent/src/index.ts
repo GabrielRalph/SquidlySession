@@ -19,6 +19,8 @@ container.register({
 	agentService: asClass(AgentService).singleton(),
 });
 
+const agentService = container.resolve<AgentService>("agentService");
+
 app.get("/", (c) => {
 	return c.text("Hello Hono!");
 });
@@ -33,13 +35,9 @@ app.post(
 	),
 	async (c) => {
 		const { query } = c.req.valid("json");
-
-		const agentService = container.resolve<AgentService>("agentService");
 		const result = await agentService.generateBoard(query, "user_abc");
 
-		return c.json({
-			message: result,
-		});
+		return c.json(result);
 	},
 );
 
