@@ -48,6 +48,11 @@ async function renderPDF(canvas, pdfDoc, pageNum, maxDimension) {
   }).promise;
 }
 
+// Local meeting controls must keep their native mouse/keyboard behavior.
+function isViewerControlEvent(event) {
+  return !!event.target?.closest?.(".rc-status-notice, .tool-bar-area");
+}
+
 class ContentFrame extends SvgPlus {
   transformable = true;
   _scale = 1;
@@ -84,7 +89,7 @@ class ContentFrame extends SvgPlus {
     root.events = {
 
       mousewheel: (e) => {
-        if (this._remoteInput) return;
+        if (this._remoteInput || isViewerControlEvent(e)) return;
         if (this.transformable) {
           let pixelPos = new Vector(e.clientX, e.clientY);
           let wscale = 600 / this.scale;
@@ -95,7 +100,7 @@ class ContentFrame extends SvgPlus {
       },
 
       mousemove: (e) => {
-          if (this._remoteInput) return;
+          if (this._remoteInput || isViewerControlEvent(e)) return;
           if (selected && e.buttons == 1 && this.transformable) {
             let point = new Vector(e.clientX, e.clientY);
             if (last == null) last = point;
@@ -111,7 +116,7 @@ class ContentFrame extends SvgPlus {
       },
 
       mousedown: (e) => {
-        if (this._remoteInput) return;
+        if (this._remoteInput || isViewerControlEvent(e)) return;
         selected = true;
         e.preventDefault();
       },
@@ -122,14 +127,14 @@ class ContentFrame extends SvgPlus {
       },
 
       mouseup: (e) => {
-        if (this._remoteInput) return;
         last = null; selected = false;
+        if (this._remoteInput || isViewerControlEvent(e)) return;
         e.preventDefault();
 
       },
 
-      dblclick: () => {
-        if (this._remoteInput) return;
+      dblclick: (e) => {
+        if (this._remoteInput || isViewerControlEvent(e)) return;
         if (this.transformable) {
             this.resetTransform();
         }
