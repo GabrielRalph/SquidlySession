@@ -22,7 +22,9 @@ frame.resetTransform = () => resets++;
 const root = {};
 frame.addControlEvents(root);
 function event(localControl) {
-  return {target:{closest:() => localControl ? {} : null}, defaultPrevented:false,
+  const host = {closest:() => null};
+  const actualTarget = {closest:() => localControl ? {} : null};
+  return {target:host, composedPath:() => [actualTarget, host], defaultPrevented:false,
     preventDefault() { this.defaultPrevented = true; }};
 }
 for (const type of ['mousedown','mouseup','mousewheel','dblclick']) {

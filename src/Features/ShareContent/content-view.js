@@ -50,7 +50,10 @@ async function renderPDF(canvas, pdfDoc, pageNum, maxDimension) {
 
 // Local meeting controls must keep their native mouse/keyboard behavior.
 function isViewerControlEvent(event) {
-  return !!event.target?.closest?.(".rc-status-notice, .tool-bar-area");
+  // The gesture listener is on the shadow host: event.target is retargeted
+  // to content-viewer there, even when the real target is a select/button.
+  const path = event.composedPath?.() || [event.target];
+  return path.some(node => node?.closest?.(".rc-status-notice, .tool-bar-area"));
 }
 
 class ContentFrame extends SvgPlus {
