@@ -345,7 +345,13 @@ export default class ShareContent extends Features {
         if (!state?.enabled || state.sharer !== this.sdata.me) return;
         const code = info.connected ? info.code || "checking" : "agent_offline";
         const key = `${state.controlId}:${code}`;
-        if (this._rcPublishedStatus === key) { this._renderRemoteControlState(); return; }
+        const candidateKey = JSON.stringify((info.candidates || []).map(item => [item.id, item.owner, item.name]));
+        const candidatesChanged = candidateKey !== this._rcCandidateKey;
+        this._rcCandidateKey = candidateKey;
+        if (this._rcPublishedStatus === key) {
+            if (candidatesChanged) this._renderRemoteControlState();
+            return;
+        }
         this._rcPublishedStatus = key;
         this._rcStatus = { code, sharer: state.sharer, controller: state.controller, controlId: state.controlId };
         this._renderRemoteControlState();

@@ -659,7 +659,8 @@ export class ContentViewer extends OccupiableWindow {
 
     if (this.remoteControlButton) {
       this.remoteControlButton.toggleAttribute("on", enabled);
-      if (enabled && statusCode === "window_in_use") this.remoteControlButton.displayValue = "waiting for control";
+      if (enabled && statusCode === "surface_selection_required") this.remoteControlButton.displayValue = isReceiver ? "confirm control" : "waiting for control";
+      else if (enabled && statusCode === "window_in_use") this.remoteControlButton.displayValue = "waiting for control";
       else if (enabled && statusCode === "preparing_window") this.remoteControlButton.displayValue = "preparing control";
       else if (enabled && statusCode !== "ready") this.remoteControlButton.displayValue = "control paused";
       else if (isController) this.remoteControlButton.displayValue = "controlling";

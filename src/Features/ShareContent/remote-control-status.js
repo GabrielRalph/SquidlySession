@@ -3,7 +3,7 @@ export const RC_STATUS_KEY = "status";
 /** Copy displayed over the shared stream for both people in the session. */
 export function remoteControlStatusCopy(code, isSharer) {
   const action = {
-    surface_selection_required: ["Confirm the shared window", isSharer
+    surface_selection_required: [isSharer ? "Confirm the shared window" : "Waiting for confirmation", isSharer
       ? "Choose the same window or screen you selected for sharing. Only this selection will receive remote input."
       : "Waiting for the sharer to confirm which window or screen you can control."],
     checking: ["Checking remote control", "Waiting for the shared window to be ready."],
