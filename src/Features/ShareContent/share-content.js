@@ -52,16 +52,14 @@ export default class ShareContent extends Features {
         this.session.toolBar.addMenuItems("share", [
             {
                 name: "screen",
-                text: "share a window",
+                text: "share screen",
                 index: 0,
-                onSelect: e => e.waitFor(this.shareScreen())
-            },
-            {
-                name: "browser-screen",
-                symbol: "screen",
-                text: "share a tab or entire screen",
-                index: 1,
-                onSelect: e => e.waitFor(this.shareScreen(true))
+                subMenu: [
+                    {name: "window", symbol: "screen", text: "window", index: 0,
+                        onSelect: e => e.waitFor(this.shareScreen())},
+                    {name: "browser-screen", symbol: "screen", text: "tab / screen", index: 1,
+                        onSelect: e => e.waitFor(this.shareScreen(true))},
+                ],
             },
             {
                 name: "file",
