@@ -5,6 +5,7 @@ import { remoteControlStatusCopy } from '../src/Features/ShareContent/remote-con
 
 test('automatic foreground recovery does not require manual resume on reconnect', () => {
   const client = new RemoteAgentClient();
+  client._surfaceId = 42;
   client._matchReq = {surface:'window', width:400, height:300};
   const reply = {type:'surface.match', ok:true, id:42, kind:'window', x:10, y:20,
     width:400, height:300, guardedInput:true, foregroundControl:true,
@@ -44,11 +45,12 @@ test('waiting for ownership survives reconnect and ignores stale socket callback
     constructor() { sockets.push(this); }
     send(raw) { this.sent.push(JSON.parse(raw)); }
     close() { this.readyState = 3; }
-    open() { this.readyState = 1; this.onopen(); }
+    open() { this.readyState = 1; this.onopen(); this.onmessage({data:JSON.stringify({type:"screen.info", explicitSurfaceBinding:true})}); }
   }
   globalThis.WebSocket = Socket;
   const client = new RemoteAgentClient();
   try {
+    client._surfaceId = 42;
     client._matchReq = {surface:'window', width:400, height:300};
     client.connect();
     sockets[0].open();
@@ -104,7 +106,7 @@ test('identifies each connection, updates changed metadata, and honors menu disc
     constructor() { sockets.push(this); }
     send(raw) { this.sent.push(JSON.parse(raw)); }
     close() { this.readyState = 3; }
-    open() { this.readyState = 1; this.onopen(); }
+    open() { this.readyState = 1; this.onopen(); this.onmessage({data:JSON.stringify({type:"screen.info", explicitSurfaceBinding:true})}); }
   }
   globalThis.WebSocket = Socket;
   let tab = 'First tab';
@@ -129,4 +131,52 @@ test('identifies each connection, updates changed metadata, and honors menu disc
     client.disconnect();
     globalThis.WebSocket = original;
   }
+});
+
+
+test('requires explicit selection even for same-size windows and waits for capability handshake', () => {
+  const original = globalThis.WebSocket;
+  let socket;
+  class Socket {
+    static OPEN = 1; static CONNECTING = 0;
+    readyState = 0; sent = [];
+    constructor() { socket = this; }
+    send(raw) { this.sent.push(JSON.parse(raw)); }
+    close() { this.readyState = 3; }
+  }
+  globalThis.WebSocket = Socket;
+  const client = new RemoteAgentClient();
+  const receive = data => socket.onmessage({data:JSON.stringify(data)});
+  try {
+    client.matchSurface({surface:'window', width:0, height:0});
+    client.connect(); socket.readyState = 1; socket.onopen();
+    assert.equal(socket.sent.some(m => m.type === 'surface.match'), false);
+    receive({type:'screen.info'});
+    client._sendMatch();
+    assert.equal(client.statusCode, 'agent_update_required');
+    assert.equal(socket.sent.some(m => m.type === 'surface.match'), false);
+    receive({type:'screen.info', explicitSurfaceBinding:true});
+    assert.equal(socket.sent.at(-1).id, undefined);
+    const waiting = {type:'surface.match', ok:false, pauseReason:'surface_selection_required',
+      candidates:[{id:42, width:400, height:300}, {id:43, width:400, height:300}]};
+    receive(waiting);
+    assert.equal(client.surfaceId, null);
+    assert.equal(client.bounds, null);
+    assert.equal(client._resumeRequired, false);
+    assert.equal(client.selectSurface(99), false);
+    assert.equal(client.selectSurface(43), true);
+    assert.equal(socket.sent.at(-1).id, 43);
+    assert.equal(socket.sent.at(-1).width, 0);
+    receive(waiting); // A previously queued list reply must not undo selection.
+    assert.equal(client.statusCode, 'preparing_window');
+    const reply = {type:'surface.match', ok:true, id:42, kind:'window', x:10, y:20,
+      width:900, height:700, guardedInput:true, foregroundControl:true, controlAllowed:true};
+    receive(reply); // The reply cannot silently substitute a different ID.
+    assert.equal(client.bounds, null);
+    receive({...reply, id:43});
+    assert.equal(client.bounds.width, 900);
+    assert.equal(client.statusCode, 'ready');
+    client._sendMatch();
+    assert.equal(socket.sent.at(-1).id, 43);
+  } finally { client.disconnect(); globalThis.WebSocket = original; }
 });

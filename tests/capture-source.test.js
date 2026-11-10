@@ -55,7 +55,7 @@ test('new capture authorization opens a fresh native connection without the prev
     constructor() { sockets.push(this); }
     send(raw) { this.sent.push(JSON.parse(raw)); }
     close() { this.readyState=3; }
-    open() { this.readyState=1; this.onopen(); }
+    open() { this.readyState=1; this.onopen(); this.onmessage({data:JSON.stringify({type:"screen.info", explicitSurfaceBinding:true})}); }
   }
   globalThis.WebSocket=Socket;
   const client=new RemoteAgentClient();
@@ -64,6 +64,8 @@ test('new capture authorization opens a fresh native connection without the prev
   try {
     client.matchSurface({surface:'window',width:800,height:600});
     client.connect(); sockets[0].open();
+    client.candidates = [{id:42}];
+    assert.equal(client.selectSurface(42), true);
     sockets[0].onmessage({data:JSON.stringify(reply)});
     const lateMessage=sockets[0].onmessage;
     client._pending.push({type:'mouse.click',surfaceId:42});
@@ -77,6 +79,8 @@ test('new capture authorization opens a fresh native connection without the prev
     assert.equal(match.startPaused,false);
     lateMessage({data:JSON.stringify(reply)});
     assert.equal(client.surfaceId,null);
+    client.candidates = [{id:77}];
+    assert.equal(client.selectSurface(77), true);
     sockets[1].onmessage({data:JSON.stringify({...reply,id:77})});
     assert.equal(client.surfaceId,77);
   } finally {

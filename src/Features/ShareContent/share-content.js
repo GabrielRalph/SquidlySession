@@ -43,6 +43,9 @@ export default class ShareContent extends Features {
             },
             screen: (e) => this.shareScreen(),
             "remote-control": (e) => e.waitFor(this.toggleRemoteControl(e)),
+            "rc-select-surface": (e) => {
+                if (this._rcState?.enabled && this._rcState.sharer === this.sdata.me) this._rcAgent?.selectSurface(e.detail);
+            },
             "rc-resume": () => this.resumeRemoteControl(),
             "rc-pause": () => this.pauseRemoteControl(),
             "rc-input": (e) => this._onRemoteInput(e.detail),
@@ -332,6 +335,7 @@ export default class ShareContent extends Features {
             statusCode,
             surface: state?.surface || this._displaySurface,
             agentConnected: !!(this._rcAgent && this._rcAgent.connected),
+            candidates: isReceiver ? this._rcAgent?.candidates || [] : [],
             agentMapped: !!(this._rcAgent && this._rcAgent.bounds),
         });
     }
@@ -341,7 +345,7 @@ export default class ShareContent extends Features {
         if (!state?.enabled || state.sharer !== this.sdata.me) return;
         const code = info.connected ? info.code || "checking" : "agent_offline";
         const key = `${state.controlId}:${code}`;
-        if (this._rcPublishedStatus === key) return;
+        if (this._rcPublishedStatus === key) { this._renderRemoteControlState(); return; }
         this._rcPublishedStatus = key;
         this._rcStatus = { code, sharer: state.sharer, controller: state.controller, controlId: state.controlId };
         this._renderRemoteControlState();
@@ -385,7 +389,6 @@ export default class ShareContent extends Features {
         if (!this._rcAgent) return;
         if (this._checkCaptureSourceChange()) return;
         const info = this._captureVideoSize();
-        if (!(info.width > 0 && info.height > 0)) return;
         this._rcAgent.matchSurface(info);
     }
 

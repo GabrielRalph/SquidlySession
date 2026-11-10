@@ -26,7 +26,9 @@ export class RemoteAgentClient {
     this.statusCode = "checking";
     this._matchReq = null;
     this._surfaceId = null;
+    this.candidates = [];
     this._matchTimer = 0;
+    this._explicitBinding = false;
     this._ws = null;
     this._wanted = false;
     this._reconnectTimer = 0;
@@ -60,6 +62,7 @@ export class RemoteAgentClient {
     this.statusCode = "checking";
     this._matchReq = null;
     this._surfaceId = null;
+    this.candidates = [];
     this._presentationAction = null;
     this._resumeRequired = false;
     const ws = this._ws;
@@ -81,13 +84,13 @@ export class RemoteAgentClient {
 
   /**
    * Ask the agent to map normalized coords onto the captured window/display.
-   * Injection bounds are only set after a successful unique match.
+   * Injection bounds are only set after explicit native surface selection.
    * @param {{surface?: string|null, width: number, height: number}} info
    */
   matchSurface(info) {
-    const width = Number(info?.width);
-    const height = Number(info?.height);
-    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return;
+    const width = Number(info?.width || 0);
+    const height = Number(info?.height || 0);
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width < 0 || height < 0) return;
     const surface = info.surface || "window";
     if (this._matchReq && this._matchReq.surface !== surface) {
       this._surfaceId = null;
@@ -128,7 +131,22 @@ export class RemoteAgentClient {
     if (key !== this._sessionInfoSent && this.send(info)) this._sessionInfoSent = key;
   }
 
+  selectSurface(id) {
+    if (!this.connected || !this._explicitBinding || this._surfaceId != null ||
+        !this.candidates.some(item => item.id === id)) return false;
+    this._surfaceId = id;
+    this._pending = [];
+    this.candidates = [];
+    this._resumeRequired = false;
+    this.bounds = null;
+    this.statusCode = "preparing_window";
+    this._emitStatus();
+    this._sendMatch();
+    return true;
+  }
+
   _sendMatch() {
+    if (!this._explicitBinding) return;
     this._identifySession();
     const req = this._matchReq;
     if (!req) return;
@@ -199,6 +217,7 @@ export class RemoteAgentClient {
     ws.onopen = () => {
       if (this._ws !== ws || !this._wanted) return;
       this._connecting = false;
+      this._explicitBinding = false;
       this._loggedWaiting = false;
       this.bounds = null;
       this.statusCode = "checking";
@@ -242,6 +261,24 @@ export class RemoteAgentClient {
       return;
     }
     if (!data) return;
+    if (data.type === "screen.info") {
+      this._explicitBinding = data.explicitSurfaceBinding === true;
+      if (!this._explicitBinding) {
+        this.bounds = null;
+        this.statusCode = "agent_update_required";
+        this._emitStatus();
+      } else this._sendMatch();
+      return;
+    }
+    if (data.type === "surface.match" && data.pauseReason === "surface_selection_required") {
+      if (this._surfaceId != null) return;
+      this.bounds = null;
+      this.statusCode = "surface_selection_required";
+      this._resumeRequired = false;
+      this.candidates = Array.isArray(data.candidates) ? data.candidates.filter(item => Number.isInteger(item.id) && item.id > 0) : [];
+      this._emitStatus();
+      return;
+    }
     const surfaceReply = ["surface.match", "surface.activate", "surface.pause"].includes(data.type);
     if (surfaceReply && this._presentationAction && data.type !== this._presentationAction) return;
     if (data.type === this._presentationAction) this._presentationAction = null;
@@ -274,6 +311,8 @@ export class RemoteAgentClient {
       this._emitStatus();
       return;
     }
+    // A response cannot choose or replace the sharer-approved native identity.
+    if (this._surfaceId == null || data.id !== this._surfaceId) return;
     const bounds = parseBounds(data);
     if (!bounds) {
       this.bounds = null;
@@ -337,6 +376,7 @@ export class RemoteAgentClient {
       connected: this.connected,
       bounds: this.bounds,
       code: this.statusCode,
+      candidates: this.candidates,
       error,
     });
   }

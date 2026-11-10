@@ -3,6 +3,9 @@ export const RC_STATUS_KEY = "status";
 /** Copy displayed over the shared stream for both people in the session. */
 export function remoteControlStatusCopy(code, isSharer) {
   const action = {
+    surface_selection_required: ["Confirm the shared window", isSharer
+      ? "Choose the same window or screen you selected for sharing. Only this selection will receive remote input."
+      : "Waiting for the sharer to confirm which window or screen you can control."],
     checking: ["Checking remote control", "Waiting for the shared window to be ready."],
     preparing_window: ["Bringing shared window to front", isSharer
       ? "Control will continue automatically. You can keep using the meeting controls."
@@ -23,8 +26,8 @@ export function remoteControlStatusCopy(code, isSharer) {
       ? "Update and restart RemoteAgent to resume control."
       : "The sharer needs to update RemoteAgent."],
     surface_unmatched: ["Remote control paused", isSharer
-      ? "The shared window could not be identified. Resize or select it again to resume control."
-      : "Ask the sharer to resize or select the shared window again."],
+      ? "The shared window could not be identified. Stop sharing and select it again."
+      : "Waiting for the sharer to select the shared window again."],
     window_unavailable: ["Remote control paused", isSharer
       ? "Select Resume control to restore the shared window. If it was closed, share it again."
       : "Waiting for the sharer to restore the shared window."],

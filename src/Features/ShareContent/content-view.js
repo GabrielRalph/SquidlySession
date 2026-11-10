@@ -479,6 +479,18 @@ export class ContentViewer extends OccupiableWindow {
     this.remoteControlNotice.hidden = true;
     this.remoteControlNoticeTitle = this.remoteControlNotice.createChild("strong");
     this.remoteControlNoticeDetail = this.remoteControlNotice.createChild("span");
+    this.remoteControlPicker = this.remoteControlNotice.createChild("div", { class: "rc-surface-picker" });
+    this.remoteControlSelect = this.remoteControlPicker.createChild("select", {
+      "aria-label": "Window or screen being shared",
+      events: { change: () => { this.remoteControlConfirm.disabled = !this.remoteControlSelect.value; } },
+    });
+    this.remoteControlConfirm = this.remoteControlPicker.createChild("button", {
+      type: "button", class: "rc-control-action", content: "Confirm and allow control", disabled: true,
+      events: { click: (event) => {
+        event.stopPropagation();
+        this.root.dispatchEvent(new CustomEvent("rc-select-surface", { detail: Number(this.remoteControlSelect.value) }));
+      } },
+    });
     this.remoteControlResume = this.remoteControlNotice.createChild("button", {
       type: "button", class: "rc-control-action", content: "Resume control",
       events: { click: (event) => {
@@ -610,7 +622,34 @@ export class ContentViewer extends OccupiableWindow {
     this.remoteControlPause.hidden = !showPauseTool;
     this.remoteControlPause.displayValue = manuallyPaused ? "resume control" : "pause control";
     this.remoteControlPause.symbol = manuallyPaused ? "play" : "pause";
-    this.remoteControlResume.hidden = !windowControl || ["checking", "preparing_window", "window_in_use", "agent_update_required"].includes(statusCode);
+    this.remoteControlPicker.hidden = !(enabled && isReceiver && statusCode === "surface_selection_required");
+    if (this.remoteControlPicker.hidden) {
+      this._rcCandidateSignature = null;
+      this.remoteControlSelect.value = "";
+    } else {
+      const candidates = state.candidates || [];
+      const signature = JSON.stringify(candidates.map(item => [item.id, item.owner, item.name]));
+      if (signature !== this._rcCandidateSignature) {
+        const previous = this.remoteControlSelect.value;
+        this._rcCandidateSignature = signature;
+        this.remoteControlSelect.replaceChildren();
+        const placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = candidates.length ? "Choose the window or screen you are sharing…" : "No available windows. Open the shared window.";
+        this.remoteControlSelect.appendChild(placeholder);
+        for (const [index, item] of candidates.entries()) {
+          const option = document.createElement("option");
+          option.value = String(item.id);
+          const label = [item.owner, item.name].filter(Boolean).join(" — ");
+          const duplicate = candidates.some(other => other.id !== item.id && other.owner === item.owner && other.name === item.name);
+          option.textContent = label ? `${label}${duplicate ? ` (window ${item.id})` : ""}` : `Screen ${index + 1}`;
+          this.remoteControlSelect.appendChild(option);
+        }
+        this.remoteControlSelect.value = candidates.some(item => String(item.id) === previous) ? previous : "";
+        this.remoteControlConfirm.disabled = !this.remoteControlSelect.value;
+      }
+    }
+    this.remoteControlResume.hidden = !windowControl || ["surface_selection_required", "checking", "preparing_window", "window_in_use", "agent_update_required"].includes(statusCode);
     this.remoteControlResume.textContent = statusCode === "agent_offline" ? "Reconnect" : "Resume control";
     if (showNotice) {
       const copy = remoteControlStatusCopy(statusCode, state.isSharer ?? isReceiver);

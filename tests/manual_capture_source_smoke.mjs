@@ -15,7 +15,7 @@ class Socket {
   constructor() { sockets.push(this); }
   send(raw) { this.sent.push(JSON.parse(raw)); }
   close() { this.readyState=3; }
-  open() { this.readyState=1; this.onopen(); }
+  open() { this.readyState=1; this.onopen(); this.onmessage({data:JSON.stringify({type:"screen.info", explicitSurfaceBinding:true})}); }
 }
 const context=vm.createContext({console, setTimeout, clearTimeout, setInterval, clearInterval, WebSocket:Socket});
 const actual=new Set(['share-content.js','remote-agent-client.js','remote-control-protocol.js','remote-control-status.js','capture-source.js']);
@@ -55,6 +55,7 @@ feature._rcAgent=client;
 client.matchSurface({surface:'window',width:800,height:600}); client.connect(); sockets[0].open();
 const reply={type:'surface.match',ok:true,kind:'window',id:42,x:0,y:0,width:800,height:600,
   guardedInput:true,foregroundControl:true,controlAllowed:true};
+client.candidates=[{id:42}]; assert.equal(client.selectSurface(42),true);
 sockets[0].onmessage({data:JSON.stringify(reply)});
 client._pending.push({type:'mouse.click',surfaceId:42});
 settings.deviceId='window-b';
@@ -73,6 +74,7 @@ sockets[1].open();
 const match=sockets[1].sent.find(message=>message.type==='surface.match');
 assert.equal(match.id,undefined);
 assert.equal(match.width,800); // Current track, not the old video frame's 400.
+client.candidates=[{id:77}]; assert.equal(client.selectSurface(77),true);
 sockets[1].onmessage({data:JSON.stringify({...reply,id:77})});
 const count=()=>sockets[1].sent.filter(message=>message.type==='mouse.click').length;
 feature._onRemoteRtc(controlInputEnvelope('old-control','1|click|0.5|0.5|left|1'));
