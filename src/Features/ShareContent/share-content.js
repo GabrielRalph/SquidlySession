@@ -1,3 +1,4 @@
+import { AgentWindowCapture } from "./agent-window-capture.js";
 import { SvgPlus } from "../../SvgPlus/4.js";
 import { Features } from "../features-interface.js";
 import { ContentViewer } from "./content-view.js";
@@ -43,18 +44,24 @@ export default class ShareContent extends Features {
             },
             screen: (e) => this.shareScreen(),
             "remote-control": (e) => e.waitFor(this.toggleRemoteControl(e)),
-            "rc-select-surface": (e) => {
-                if (this._rcState?.enabled && this._rcState.sharer === this.sdata.me) this._rcAgent?.selectSurface(e.detail);
-            },
             "rc-resume": () => this.resumeRemoteControl(),
             "rc-pause": () => this.pauseRemoteControl(),
+            "browser-share": () => this.shareScreen(true),
             "rc-input": (e) => this._onRemoteInput(e.detail),
         }
         this.session.toolBar.addMenuItems("share", [
             {
                 name: "screen",
+                text: "share a window",
                 index: 0,
                 onSelect: e => e.waitFor(this.shareScreen())
+            },
+            {
+                name: "browser-screen",
+                symbol: "screen",
+                text: "share a tab or entire screen",
+                index: 1,
+                onSelect: e => e.waitFor(this.shareScreen(true))
             },
             {
                 name: "file",
@@ -97,7 +104,10 @@ export default class ShareContent extends Features {
      * Prompts the user to share their screen and sets up the stream for sharing
      * @return {Promise<void>}
      */
-    async shareScreen(){
+    async shareScreen(browserOnly = false){
+        if (this._selectingShare) return;
+        this._selectingShare = true;
+        let nextCapture = null;
         let stream = null;
         let oldStream = this._shareScreen.stream;
         const wasSharing = this._isSharing;
@@ -127,8 +137,20 @@ export default class ShareContent extends Features {
         }
 
         try {
-            // promt user to select a screen/window to share
-            try {
+            // macOS window sharing has one native choice for both pixels and ID.
+            // Other platforms keep the browser's standard tab/screen sharing.
+            const useAgent = !browserOnly && /Mac/.test(navigator.platform || navigator.userAgent);
+            if (useAgent) {
+                nextCapture = new AgentWindowCapture({onEnded: error => {
+                    if (this._nativeCapture !== nextCapture) return;
+                    stream?.oninactive?.();
+                    this._nativeCapture = null;
+                    this.contentView.showSharingError(error.message);
+                    this.session.openWindow("shareContent");
+                }});
+                this._pendingCapture = nextCapture;
+                stream = await nextCapture.start();
+            } else try {
                 stream = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
             } catch (err) {
                 if (displayMediaOptions.controller && err?.name === "TypeError") {
@@ -149,8 +171,10 @@ export default class ShareContent extends Features {
                 this.session.openWindow("default");
             }
 
-            // clear old stream events
+            // Retire the previous capture only once the new choice produced a picture.
             if (oldStream instanceof MediaStream) oldStream.oninactive = null;
+            this._nativeCapture?.stop();
+            this._nativeCapture = nextCapture;
          
             // set the stream to the connection manager and content view
             this.contentView.stream = stream;
@@ -160,7 +184,7 @@ export default class ShareContent extends Features {
             this._isSharing = true;
 
             const track = stream.getVideoTracks()[0];
-            this._displaySurface = track?.getSettings?.().displaySurface || null;
+            this._displaySurface = stream.agentCapture ? "window" : track?.getSettings?.().displaySurface || null;
             this._captureSourceGuard = new CaptureSourceGuard(track);
             const captureChanged = () => {
                 if (this._shareScreen.stream !== stream) return;
@@ -180,7 +204,14 @@ export default class ShareContent extends Features {
 
             this.session.openWindow("shareContent");
         } catch (err) {
-            
+            nextCapture?.stop();
+            if (err?.name !== "AbortError") {
+                this.contentView.showSharingError(err?.message || "Window sharing could not start. Try again.");
+                this.session.openWindow("shareContent");
+            }
+        } finally {
+            if (this._pendingCapture === nextCapture) this._pendingCapture = null;
+            this._selectingShare = false;
         }
     }
 
@@ -388,7 +419,7 @@ export default class ShareContent extends Features {
         const width = Number(settings.width || video?.videoWidth || 0);
         const height = Number(settings.height || video?.videoHeight || 0);
         const surface = this._displaySurface || settings.displaySurface || this._rcState?.surface || "window";
-        return { width, height, surface };
+        return { width, height, surface, nativeCapture: stream?.agentCapture || null };
     }
 
     _matchAgentSurface() {
@@ -573,6 +604,10 @@ export default class ShareContent extends Features {
      * Stops sharing the current screen
      */
     stopSharing(){
+        this._pendingCapture?.stop();
+        this._pendingCapture = null;
+        this._nativeCapture?.stop();
+        this._nativeCapture = null;
         if (this._isSharing) {
             let stream = this._shareScreen.stream;
             stream.oninactive = null;

@@ -95,7 +95,13 @@ export class RemoteAgentClient {
     if (this._matchReq && this._matchReq.surface !== surface) {
       this._surfaceId = null;
     }
+    const nativeCapture = info.nativeCapture;
+    if (nativeCapture) {
+      if (!Number.isInteger(nativeCapture.id) || nativeCapture.id <= 0 || !nativeCapture.captureId) return;
+      this._surfaceId = nativeCapture.id;
+    }
     this._matchReq = {
+      captureId: nativeCapture?.captureId,
       surface,
       width,
       height,
@@ -157,6 +163,7 @@ export class RemoteAgentClient {
       height: req.height,
       foregroundControl: req.surface === "window",
       startPaused: this._resumeRequired,
+      ...(req.captureId ? {captureId:req.captureId} : {}),
       ...(this._surfaceId != null ? { id: this._surfaceId } : {}),
     });
   }

@@ -18,7 +18,7 @@ class Socket {
   open() { this.readyState=1; this.onopen(); this.onmessage({data:JSON.stringify({type:"screen.info", explicitSurfaceBinding:true})}); }
 }
 const context=vm.createContext({console, setTimeout, clearTimeout, setInterval, clearInterval, WebSocket:Socket});
-const actual=new Set(['share-content.js','remote-agent-client.js','remote-control-protocol.js','remote-control-status.js','capture-source.js']);
+const actual=new Set(['share-content.js','remote-agent-client.js','remote-control-protocol.js','remote-control-status.js','capture-source.js','agent-window-capture.js']);
 const cache=new Map();
 const base=new URL('../src/Features/ShareContent/',import.meta.url);
 async function load(url) {

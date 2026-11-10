@@ -276,20 +276,4 @@ content-frame[remote-control] {
     pointer-events: none;
 }
 
-content-viewer .rc-surface-picker:not([hidden]) {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6em;
-    pointer-events: auto;
-}
-content-viewer .rc-surface-picker[hidden] { display: none; }
-content-viewer .rc-surface-picker select {
-    width: 100%;
-    min-height: 44px;
-    padding: 0.4em;
-    border-radius: 0.4em;
-    font: inherit;
-    background: white;
-    color: #18222b;
-}
 content-viewer .rc-control-action:disabled { opacity: 0.5; cursor: default; }
