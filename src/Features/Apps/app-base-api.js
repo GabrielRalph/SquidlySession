@@ -78,13 +78,18 @@
   // CONSOLE OVERRIDE
   // ============================================================================
   console.log = (...params) => {
-    window.parent.postMessage(
-      {
-        mode: "log",
-        params,
-      },
-      "*",
-    );
+    try {
+
+      window.parent.postMessage(
+        {
+          mode: "log",
+          params,
+        },
+        "*",
+      );
+    } catch (e) {
+      console.error(params, e);
+    }
   };
 
 

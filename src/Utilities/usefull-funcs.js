@@ -604,6 +604,8 @@ export class Color {
         this.#a = a;
     }
 
+
+
     clone() {
         return new Color(this)
     }
@@ -618,6 +620,10 @@ export class Color {
 
     get brightness() {
         return 0.2126*this.#r + 0.7152*this.#g + 0.0722*this.#b;
+    }
+
+    get isWhite() {
+        return this.r === 255 && this.g === 255 && this.b === 255;
     }
 
     get valid() {
@@ -684,9 +690,9 @@ export class Color {
         if (!this.valid) {
             return null;
         } 
-        const r = this.r.toString(16).padStart(2, "0");
-        const g = this.g.toString(16).padStart(2, "0");
-        const b = this.b.toString(16).padStart(2, "0");
+        const r = Math.round(this.r).toString(16).padStart(2, "0");
+        const g = Math.round(this.g).toString(16).padStart(2, "0");
+        const b = Math.round(this.b).toString(16).padStart(2, "0");
         if (this.a === 1) {
             return `#${r}${g}${b}`;
         } else {

@@ -214,11 +214,11 @@ export default class ShareContent extends Features {
     }
 
 
-    static get name(){
-        return "shareContent"
-    }
+    // static get name(){
+    //     return "shareContent"
+    // }
 
-    static get firebaseName(){
-        return "share-content"
-    }
+    // static get firebaseName(){
+    //     return "share-content"
+    // }
 }

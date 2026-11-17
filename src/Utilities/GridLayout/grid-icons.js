@@ -332,7 +332,9 @@ class GridIconSymbol extends SvgPlus{
                 this.createChild(Icon, {}, url)
                 this.toggleAttribute("icon", true);
             }
-        } 
+        } else if (Array.isArray(url)) {
+            this.createChild(Icon, {}, ...url);
+        }
     }
 }
 

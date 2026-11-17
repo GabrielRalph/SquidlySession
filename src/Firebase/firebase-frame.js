@@ -205,7 +205,7 @@ export class FirebaseFrame {
         let close = null;
         if (cb instanceof Function) {
             close = FB.onChildRemoved(this.appRef(path), (sc) => cb(sc.val(), sc.key));
-            this.listeners.add()
+            this.listeners.add(close)
         } else {
             throw "The callback must be a function"
         }

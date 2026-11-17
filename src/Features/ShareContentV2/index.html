@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<style>
+    body {
+        background-color: rgb(31, 31, 31);
+    }
+    share-content-view {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 85%;
+    height: 100%;
+}
+</style>
+<body>
+    
+</body>
+<script type = "module">
+    // standalone preview of the share content view (no session)
+    import { ShareContentView } from "./share-content-view.js";
+    const view = new ShareContentView();
+    document.body.appendChild(view);
+    view.show();
+</script>
+</html>
