@@ -7,6 +7,7 @@ import { SelectionBox, SelectTransform } from "./Utilites/selection.js";
 import { BasicShapes, DASH_STYLES } from "./Utilites/basic-shapes.js";
 import { objectDeepCopy, Svg2DataURL, dateNice } from "./Utilites/basic-funcs.js";
 import { WhiteBoardSync } from "./whiteboard-sync.js";
+import { relURL } from "../../../Utilities/usefull-funcs.js";
 
 /**
  * @typedef {string|number|boolean|null} StyleValue
@@ -178,13 +179,19 @@ const Events = {
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ STYLESHEETS / FONTS ~~~~~~~~~~~~~~~~~~~~~ */
 
-function getRoot(){
-    let a = import.meta.url.split("/");
-    a.pop();
-    return a.join("/")
+// Asset urls must be literal relURL("...", import.meta) calls so that the
+// build (relURLAssetPlugin in rollup.config.js) emits the files and rewrites
+// the urls, a path built from import.meta.url breaks once bundled.
+const STYLES_URL = relURL("./styles.css", import.meta);
+const FONT_URLS = {
+    "Anonymous-Pro": {
+        woff2: relURL("./fonts/Anonymous-Pro.woff2", import.meta),
+        woff: relURL("./fonts/Anonymous-Pro.woff", import.meta),
+        ttf: relURL("./fonts/Anonymous-Pro.ttf", import.meta),
+    }
 }
 
-let styles = await (await fetch(getRoot() + "/styles.css")).text();
+let styles = await (await fetch(STYLES_URL)).text();
 const StyleSheet = new CSSStyleSheet();
 StyleSheet.replaceSync(styles);
 
@@ -193,9 +200,9 @@ StyleSheet.replaceSync(styles);
 const FontStyleSheet = new CSSStyleSheet();
 FontStyleSheet.replaceSync(`@font-face {
     font-family: 'Anonymous Pro';
-    src: url('${getRoot()}/fonts/Anonymous-Pro.woff2') format('woff2'),
-        url('${getRoot()}/fonts/Anonymous-Pro.woff') format('woff'),
-        url('${getRoot()}/fonts/Anonymous-Pro.ttf')  format('truetype');
+    src: url('${FONT_URLS["Anonymous-Pro"].woff2}') format('woff2'),
+        url('${FONT_URLS["Anonymous-Pro"].woff}') format('woff'),
+        url('${FONT_URLS["Anonymous-Pro"].ttf}')  format('truetype');
 }`)
 document.adoptedStyleSheets = [...document.adoptedStyleSheets, FontStyleSheet];
 
@@ -203,7 +210,7 @@ let fonts = {}
 async function getFontDataURL(fname){
     if (!(fname in fonts)) {
         fonts[fname] = (async () => {
-            let font_res = await fetch(getRoot() + `/fonts/${fname}.woff2`);
+            let font_res = await fetch(FONT_URLS[fname].woff2);
             let font_blob = await font_res.blob()
             return await new Promise((resolve) => {
                 var reader = new FileReader();

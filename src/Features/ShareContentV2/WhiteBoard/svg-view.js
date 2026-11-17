@@ -294,6 +294,8 @@ class ViewBox {
     p = new Vector(p);
     let [spos, ssize] = this.getScreenBBox();
     let [vpos, vsize] = this.transformedViewbox;
+    // the svg has no size on screen (hidden or not laid out yet)
+    if (ssize.x == 0 || ssize.y == 0) return vpos;
     let deltaPercent = p.sub(spos).mul(vsize.div(ssize));
     let pos = vpos.add(deltaPercent);
     return pos;
