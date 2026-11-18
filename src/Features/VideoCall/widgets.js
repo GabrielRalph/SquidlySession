@@ -213,7 +213,6 @@ class VideoDisplay extends HideShowTransition {
 
 }
 
-
 const stackModes = {
     "vertical-height": (a1, a2, w, h, space) => [ (h - space) / (1/a1 + 1/a2), h ],
     "vertical-width": (a1, a2, w, h, space) => [ w, (w / a1) + (w / a2) + space ],

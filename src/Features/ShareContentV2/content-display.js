@@ -47,6 +47,9 @@ class ContentFrame extends SvgPlus {
 
         this.image = this.createChild("img", {
             class: "image",
+            // load with CORS so the image can be drawn into screenshots
+            // without tainting the canvas (storage allows it, like the pdfs)
+            crossorigin: "anonymous",
             draggable: false,
             events: {
                 'dragstart': e => e.preventDefault()

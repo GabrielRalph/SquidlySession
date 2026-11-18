@@ -8,6 +8,16 @@ export function onSelect(wb){
     wb.cursor = "grab";
 }
 
+export function mousedown(e, wb) {
+    // stop the second click of a double click from selecting text
+    if (e.detail > 1) e.preventDefault();
+}
+
+export function dblclick(e, wb) {
+    e.preventDefault();
+    wb.resetView();
+}
+
 export function clearSelectionOnSelect(){
     return false;
 }

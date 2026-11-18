@@ -88,11 +88,11 @@ class StrokeStylePicker extends SelectionGroups {
                 }]),
             1, 4).flat()
         }
-        this.value = {stroke: 12}
+        this.value = {stroke: 4}
     }
 
     static get STROKE_VALUES() {
-        return [2, 7, 12, 17, 22];
+        return [1, 3, 6, 10, 22];
     }
 
     /** Whiteboard arrow head names, in the order of the arrow-<i> icons */
@@ -185,7 +185,7 @@ class TextOptions extends SelectionGroups {
     }
 
     static get FONT_SIZE_VALUES() {
-        return [14, 16, 18, 20, 24]
+        return [14, 18, 25, 32, 46]
     }
 }
 
@@ -311,7 +311,10 @@ class WhiteBoardTools {
                 symbol: "delete",
                 colorTheme: "action",
                 events: {
-                    "access-click": () => this.whiteboard?.deleteSelection()
+                    "access-click": () => {
+                        this.whiteboard?.clearSelection();
+                        this.whiteboard?.deleteAll();
+                    }
                 }
             },
             {
@@ -407,6 +410,7 @@ class WhiteBoardTools {
             const {styles, styleKeys} = e.detail;
             if (styleKeys.length > 0) this.#showStyles(styles);
         });
+        wb.addEventListener("textedit", (e) => this.#showStyles(e.detail.styles));
 
         wb.setStyles(this.styles);
         this.#applyTool();

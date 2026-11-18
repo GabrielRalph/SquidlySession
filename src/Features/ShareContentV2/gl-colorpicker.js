@@ -165,8 +165,8 @@ class ColorPicker extends GridLayout {
     }
 }
 class ColorPickerGroup extends GridLayout {
-    #value = {fill: "#f00", stroke: "#f00", text: "#000"}
-    #selectedType = "fill"
+    #value = {fill: "rgb(255, 149, 0)", stroke: "rgb(0, 183, 255)", text: "#000"}
+    #selectedType = "stroke"
 
     constructor() {
         super(5, 6);
@@ -203,7 +203,7 @@ class ColorPickerGroup extends GridLayout {
             this.#onValueUpdate(true);
         });
 
-        this.select("stroke")
+        this.value = this.#value;
     }
 
     #onValueUpdate(e = false) {
@@ -236,7 +236,9 @@ class ColorPickerGroup extends GridLayout {
 
     set value(val) {
         this.#value = val;
+        
         this.#onValueUpdate();
+        this.select(this.#selectedType);
     }
 
     get value() {

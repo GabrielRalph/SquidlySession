@@ -421,6 +421,8 @@ export class SvgView extends SvgPlus {
           dt = (1 - Math.cos(dt * Math.PI))/2;
           this.viewBoxX.scale = dt + (1- dt) * this.reset_scale;
           this.viewBoxX.offset = this.reset_offset.mul(1 - dt);
+          // a reset is a user change, so it is shared with the other user
+          this.viewBoxX._userChange();
         }
 
         if (this.render_flag || reset) {

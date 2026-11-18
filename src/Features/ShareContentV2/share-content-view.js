@@ -55,26 +55,19 @@ class ShareContentTools extends SvgPlus {
         this.modeIcon = modeIcon;
 
         const shareTools = this.createChild(GL, {class: "dynamic"}, 1, 8)
-        const [, , ,prevIcon, nextIcon] = shareTools.addGridIcons([
+        const [screenIcon, fileIcon, prevIcon, nextIcon] = shareTools.addGridIcons([
             {
                 symbol: "screen",
                 colorTheme: "action",
                 events: {
                     "access-click": (e) => dispatch("screen", e)
-                }
+                },
             },
             {
                 symbol: "file",
                 colorTheme: "action",
                 events: {
                     "access-click": (e) => dispatch("file", e)
-                }
-            },
-            {
-                symbol: "trash",
-                colorTheme: "action",
-                events: {
-                    "access-click": (e) => dispatch("clear", e)
                 }
             },
             {
@@ -96,16 +89,28 @@ class ShareContentTools extends SvgPlus {
         ])
         this.shareTools = shareTools;
         this.pageIcons = [prevIcon, nextIcon];
+        this.screenIcon = screenIcon;
+        this.fileIcon = fileIcon;
 
+        this.contentType = null;
         this.annotating = false;
     }
 
-    /** The type of the shared content, the page arrows are only shown for pdfs
+    /** The type of the shared content. The page arrows are only shown for
+     *  pdfs, and the screen / file icons show a stop symbol while a screen /
+     *  file is being shared.
      * @param {?string} type "pdf", "image", "stream" or null */
     set contentType(type) {
         // toggle the attribute directly: GridIcon's "hidden" setter is shadowed
         // by HTMLElement.hidden when SvgPlus extends the element
         for (const icon of this.pageIcons) icon.toggleAttribute("i-hidden", type !== "pdf");
+
+        const setIcon = (icon, on, onSymbol, offSymbol) => {
+            icon.symbol = on ? onSymbol : offSymbol;
+            icon.styles = {"--i-color-1": on ? "#ff7474" : null};
+        }
+        setIcon(this.screenIcon, type === "stream", "screen-pause", "screen");
+        setIcon(this.fileIcon, type === "pdf" || type === "image", "file-close", "file");
     }
 
     /** True when the whiteboard tools are shown, false when the share tools
@@ -118,7 +123,7 @@ class ShareContentTools extends SvgPlus {
             this.shareTools.remove()
             this.appendChild(wbt.tools)
             this.appendChild(wbt.options)
-            this.modeIcon.symbol = "share"
+            this.modeIcon.symbol = "share-doc"
             wbt.selectTool("pen")
         } else {
             // close menus and stop drawing
@@ -245,7 +250,8 @@ export class ShareContentView extends OccupiableWindow {
     /** @param {?import("./content-display.js").ContentInfo} contentInfo */
     async updateContentInfo(contentInfo) {
         this.root.setAttribute("display-type", contentInfo?.type || "none");
-        this.tools.contentType = contentInfo?.type ?? null;
+        this.contentType = contentInfo?.type ?? null;
+        this.tools.contentType = this.contentType;
         await this.display.updateContentInfo(contentInfo);
     }
 
@@ -258,7 +264,7 @@ export class ShareContentView extends OccupiableWindow {
 
     async close(){
         this.shareContent?.session.cursors.updateReferenceArea("entireScreen");
-        this.shareContent?.stopSharing();
+        this.shareContent?.endScreenShare();
         this.tools.annotating = false;
         await this.hide();
     }

@@ -7,6 +7,7 @@ import { createNoiseSuppressionAdapter } from "./AudioUtils/NoiseSuppress/noise-
 import { setupVoiceDetection } from "./AudioUtils/voice-detector.js";
 import { getHostPresets } from "./presets.js";
 import { VideoPanelWidget } from "./widgets.js";
+import { relURL } from "../../Utilities/usefull-funcs.js";
 
 function getDefaulIceServers() {
 	return {
@@ -88,18 +89,23 @@ export default class VideoCall extends Features {
 		this.topPanelWidget = new VideoPanelWidget();
 		this.sidePanelWidget = new VideoPanelWidget();
 		this.mainAreaWidget = new VideoPanelWidget();
+		this.pictureInPictureWidget = new VideoPanelWidget();
 
 		this.mainAreaWidget.isVisibleForUser = () => !session.isOccupied;
 		this.sidePanelWidget.isVisibleForUser = () =>
 			session.getToggleState("sidePanel").some((s) => s === true);
 		this.topPanelWidget.isVisibleForUser = () =>
 			session.getToggleState("topPanel").some((s) => s === true);
+		this.pictureInPictureWidget.isVisibleForUser = () =>
+			this._pictureInPicture && this._pictureInPicture.document;
 
-		/** @type {[VideoPanelWidget]} */
+
+		/** @type {VideoPanelWidget[]} */
 		this._allWidgets = [
 			this.topPanelWidget,
 			this.sidePanelWidget,
 			this.mainAreaWidget,
+			this.pictureInPictureWidget,
 		];
 
 		// store video elements for each user
@@ -113,6 +119,40 @@ export default class VideoCall extends Features {
 		this._setupVideoFrameCapture();
 		this._setWidgetEvents();
 	}
+
+	async createPictureInPicture() {
+		if (!this._pictureInPicture) {
+			const dWidth = (this.videos.host.videoWidth || 640) / 2;
+			const dHeight = ((this.videos.host.videoHeight || 480) + (this.videos.participant.videoHeight || 480)) / 2;
+			const width = 240;
+			const height = width * (dHeight / dWidth);
+			this._pictureInPicture = await documentPictureInPicture.requestWindow({ width, height });
+			this._pictureInPicture.addEventListener("close", () => {
+				this._pictureInPicture = null;
+			});
+		}
+
+		if (this._pictureInPicture) {
+			this.pictureInPictureWidget.root.toggleAttribute("pip", true);
+			this.pictureInPictureWidget.styles = {
+				position: "fixed",
+				left: "0",
+				top: "0",
+				right: "0",
+				bottom: "0"
+			}
+			this._pictureInPicture.document.body.appendChild(this.pictureInPictureWidget);
+			this.pictureInPictureWidget.reloadStyles(
+				undefined,
+				this._pictureInPicture,
+				this._pictureInPicture.document,
+				false
+			)
+		}
+
+
+	}
+
 
 	/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 	/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ PRIVATE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */

@@ -173,6 +173,14 @@ export class WhiteBoardSync {
     }
 
     async lockElement(e) {
+        // Send a buffered creation first. Otherwise the lock would create the
+        // element's database entry, so other users' onChildAdded fires
+        // without the element and they never see it.
+        const pending = this.changeBuffers.creation?.[e.id];
+        if (pending != null) {
+            delete this.changeBuffers.creation[e.id];
+            this.sendChange(pending);
+        }
         try {
             await this.frame.set(`${e.id}/locked`, this.uid);
             return true;

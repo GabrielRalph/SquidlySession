@@ -264,7 +264,11 @@ class TextBox extends TextShape {
 
     setStyleSet(sset) {
         super.setStyleSet(sset);
-        this.rect.styles = sset;
+        this.rect.styles = {
+            ...sset,
+            rx: sset["stroke-width"] * 2,
+            ry: sset["stroke-width"] * 2,
+        };
         this.text.styles = {
             color: sset["text-color"],
             "font-size": sset["font-size"] + "pt",

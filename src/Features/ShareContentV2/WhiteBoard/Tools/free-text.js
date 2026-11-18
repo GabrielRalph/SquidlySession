@@ -2,25 +2,41 @@ import { SvgPlus, Vector } from "../../../../SvgPlus/4.js";
 
 let currentBox = null;
 
+/**
+ * Removes the free text last being edited if nothing was typed in it
+ * (only the placeholder is showing).
+ * @param {WhiteBoard} wb
+ */
+function removeIfEmpty(wb) {
+    const box = currentBox;
+    currentBox = null;
+    if (box && box.isConnected && box.name === "free-text" && box.text.value === "") {
+        box.text.blur();
+        wb.deleteElement(box);
+    }
+}
 
 /**
  * @param {WhiteBoard} wb
  */
 export function editText(e, wb) {
+    if (e.element !== currentBox) removeIfEmpty(wb);
     currentBox = e.element;
 }
 
 export function click(e, wb) {
     let v = wb.screenToSVG(e);
-    let els = wb.elements.filter(s => s.isInBBox(v) && s.isTextElement);  
+    let els = wb.elements.filter(s => s.isInBBox(v) && s.isTextElement);
     if (els.length == 0) {
+        removeIfEmpty(wb);
         let end_pos = wb.screenToSVG(e);
         let styleSet = wb.styleSet;
         let el = wb.createElement("free-text", end_pos, styleSet);
         el.styleSet = styleSet;
         e.preventDefault();
-        el.focusOn();
+        // create before focusing, focusing locks the element in the database
         el.dispatchCreationEvent();
+        el.focusOn();
     } 
 }
 
@@ -47,7 +63,7 @@ export function onSelect(wb){
 }
 
 export function onDeselect(wb) {
-    currentBox = null;
+    removeIfEmpty(wb);
 }
 
 export function getName(){

@@ -55,9 +55,13 @@ export default class ShareContent extends Features {
             viewchange: (e) => this.sdata.set("content-transform", e.view),
             page: () => this.sdata.set("content-info/page", this.contentView.page),
             close: (e) => e.waitFor(this.close()),
-            screen: (e) => e.waitFor(this.shareScreen()),
+            // the screen / file buttons toggle: they stop the share when
+            // a screen / file is shared, otherwise they start one
+            screen: (e) => e.waitFor(this.contentView.contentType === "stream" ?
+                this.clearContent() : this.shareScreen()),
             clear: (e) => e.waitFor(this.clearContent()),
-            file: (e) => e.waitFor(this.shareFile()),
+            file: (e) => e.waitFor(["pdf", "image"].includes(this.contentView.contentType) ?
+                this.clearContent() : this.shareFile()),
         }
         this.session.toolBar.addMenuItems("share", [
             {
@@ -129,7 +133,9 @@ export default class ShareContent extends Features {
             // prompt user to select a screen/window to share
             stream = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
         } catch (err) {
-            // user cancelled or sharing is not permitted
+            // user cancelled (NotAllowedError), or the capture could not start
+            // e.g. NotReadableError / InvalidStateError (no user gesture)
+            console.warn(`share screen failed: ${err.name}: ${err.message}`);
             return;
         }
 
@@ -142,9 +148,7 @@ export default class ShareContent extends Features {
         // when the user stops sharing from the browser UI (the video track
         // ends, the stream stays active while the silent audio track runs)
         stream.getVideoTracks()[0].onended = () => {
-            this.stopSharing();
-            this.contentView.setStream(null, this.sdata.me);
-            this.sdata.set("content-info", null);
+            this.endScreenShare();
             this.session.openWindow("default");
         }
 
@@ -177,12 +181,18 @@ export default class ShareContent extends Features {
             accept: "image/*,application/pdf",
         }
 
+        // resolve when a file is picked or the dialog is cancelled, otherwise
+        // the click's promise never settles (a dwell click would block the
+        // eye tracking until it times out). Browsers without the "cancel"
+        // event fall back to the window regaining focus.
         await new Promise((r) => {
-            input.addEventListener("input", r)
+            input.addEventListener("input", r, {once: true});
+            input.addEventListener("cancel", r, {once: true});
+            window.addEventListener("focus", () => setTimeout(r, 1000), {once: true});
             input.click();
         })
 
-        if (input.files.length > 0) {
+        if (input.files?.length > 0) {
             this.uploadFile(input.files[0])
             await this.session.openWindow("shareContent")
         }
@@ -203,6 +213,24 @@ export default class ShareContent extends Features {
     }
 
     /**
+     * Stops our screen share and, if the shared content is our stream, clears
+     * it from the database, so it doesn't stay set to a stream that has
+     * stopped (the screen button would then show "stop" with nothing shared).
+     * @return {Promise<void>}
+     */
+    async endScreenShare() {
+        this.stopSharing();
+        const info = this._contentInfo;
+        if (info?.type === "stream" && info.page === this.sdata.me) {
+            this.contentView.setStream(null, this.sdata.me);
+            await Promise.all([
+                this.sdata.set("content-transform", null),
+                this.sdata.set("content-info", null),
+            ]);
+        }
+    }
+
+    /**
      * Stops sharing any file or screen (ours or the other user's) leaving
      * just the whiteboard, the annotations are kept.
      * @return {Promise<void>}
@@ -217,7 +245,7 @@ export default class ShareContent extends Features {
     }
 
     async close(){
-        this.stopSharing()
+        this.endScreenShare();
         await this.session.openWindow("default");
     }
 
@@ -292,11 +320,14 @@ export default class ShareContent extends Features {
 
         // a screen share of ours from a previous session can not be resumed
         let contentInfo = await this.sdata.get("content-info");
+        this._contentInfo = contentInfo;
         if (contentInfo !== null && contentInfo.type === "stream" && contentInfo.page === this.sdata.me) {
+            await this.endScreenShare();
             await this.session.openWindow("default");
         }
 
         this.sdata.onValue("content-info", (contentInfo) => {
+            this._contentInfo = contentInfo;
             // the other user started sharing, or shared a file
             if (contentInfo === null || contentInfo.type !== "stream" || contentInfo.page !== this.sdata.me) {
                 this.stopSharing();

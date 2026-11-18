@@ -911,7 +911,8 @@ export class WhiteBoard extends SvgPlus {
 
     async SVG2PNG(){
         // create image
-        const {width, height} = this.svgView.getBoundingClientRect()
+        const rect = this.svgView.getBoundingClientRect();
+        const {width, height} = rect;
         let img = new Image(width, height);
         await new Promise((resolve, reject) => {
             img.onload = resolve;
@@ -919,12 +920,55 @@ export class WhiteBoard extends SvgPlus {
             img.src = Svg2DataURL(this.svgView.outerHTML);
         })
 
-        // draw image in canvas
-        const canvas = new SvgPlus("canvas");
-        canvas.width = width*2;
-        canvas.height = height*2;
-        canvas.getContext("2d").drawImage(img, 0, 0, width*2, height*2);
-        return canvas.toDataURL("image/png");
+        // draw the linked content (pdf, image, screen share) and then the
+        // board on top in a canvas
+        const draw = (withContent) => {
+            const canvas = new SvgPlus("canvas");
+            canvas.width = width*2;
+            canvas.height = height*2;
+            const ctx = canvas.getContext("2d");
+            ctx.scale(2, 2);
+            if (withContent) this._drawLinkedElement(ctx, rect);
+            ctx.drawImage(img, 0, 0, width, height);
+            return canvas.toDataURL("image/png");
+        }
+
+        try {
+            return draw(true);
+        } catch (e) {
+            // a cross origin image without CORS taints the canvas
+            if (e.name !== "SecurityError") throw e;
+            console.warn("WhiteBoard: the content could not be included in the screenshot", e);
+            return draw(false);
+        }
+    }
+
+    /** Draws the element the board is linked to (see linkToElement) where it
+     *  appears under the board.
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {DOMRect} rect the board's position on screen */
+    _drawLinkedElement(ctx, rect) {
+        const el = this.svgView.viewBoxX.linked_element;
+        if (!(el instanceof Element) || !el.isConnected) return;
+
+        // the bounding rect includes the pan / zoom transform
+        const r = el.getBoundingClientRect();
+        if (r.width == 0 || r.height == 0) return;
+        const x = r.left - rect.left;
+        const y = r.top - rect.top;
+
+        const isImage = el instanceof HTMLImageElement && el.complete && el.naturalWidth > 0;
+        const isCanvas = el instanceof HTMLCanvasElement && el.width > 0 && el.height > 0;
+        if (isImage || isCanvas) {
+            ctx.drawImage(el, x, y, r.width, r.height);
+        } else {
+            // e.g. the blank sheet shown when nothing is shared
+            const bg = getComputedStyle(el).backgroundColor;
+            if (bg && bg !== "transparent" && bg !== "rgba(0, 0, 0, 0)") {
+                ctx.fillStyle = bg;
+                ctx.fillRect(x, y, r.width, r.height);
+            }
+        }
     }
 
     async SVG2SVG(){
@@ -1059,9 +1103,20 @@ export class WhiteBoard extends SvgPlus {
     _dispatchSelectionChange() {
         let st = this.selectTransform;
         let styleKeys = st ? [...st.styleKeys].filter(k => STYLE_KEYS.includes(k)) : [];
+        let stored = {};
+        if (st) {
+            stored = st.styleSet;
+            // no arrow head is stored as null, which styleSet leaves out
+            for (let key of ["marker-start", "marker-end"]) {
+                if (styleKeys.includes(key) && !(key in stored)) stored[key] = null;
+            }
+            // the selection's styles become the current styles, so new
+            // elements (e.g. with the pen) are drawn with them
+            Object.assign(this._styles, stored);
+        }
         this._dispatch("selectionchange", {
             selection: this.selection,
-            styles: st ? combineStyles(st.styleSet) : {},
+            styles: combineStyles(stored),
             styleKeys,
         });
     }
@@ -1424,6 +1479,21 @@ export class WhiteBoard extends SvgPlus {
             }
         }
         this.svgView.events = events;
+
+        // editing a text element makes its styles the current styles, so the
+        // style pickers show them and changes apply to it
+        this.svgView.addEventListener("editText", (e) => {
+            const element = e.element;
+            if (!element || !element.isConnected) return;
+            const sset = element.styleSet;
+            // set directly, setStyles would also apply them to the element
+            Object.assign(this._styles, sset);
+            this._dispatch("textedit", {
+                element,
+                styles: combineStyles(sset),
+                styleKeys: [...element.observedStyles].filter(k => STYLE_KEYS.includes(k)),
+            });
+        });
 
         this.addKeyListeners();
         this.addClipboardListeners();
