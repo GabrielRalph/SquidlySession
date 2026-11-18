@@ -81,6 +81,10 @@ export class AgentWindowCapture {
         // Identity comes only from this live native capture, never video size.
         this.stream.agentCapture = {captureId:this.surface.captureId, id:this.surface.id};
         this.track = this.stream.getVideoTracks()[0];
+        // Canvas tracks default to camera-style encoding, which lowers
+        // resolution under CPU/bandwidth pressure. Window content needs
+        // legible detail, like a getDisplayMedia screen track.
+        if ('contentHint' in this.track) this.track.contentHint = 'detail';
         this.track.addEventListener('ended', () => this._fail(new Error('Window sharing stopped. Share the window again.')));
       }
       this.track.requestFrame();
