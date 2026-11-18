@@ -62,6 +62,7 @@ export default class ShareContent extends Features {
             clear: (e) => e.waitFor(this.clearContent()),
             file: (e) => e.waitFor(["pdf", "image"].includes(this.contentView.contentType) ?
                 this.clearContent() : this.shareFile()),
+            pip: (e) => e.waitFor(this.openPictureInPicture()),
         }
         this.session.toolBar.addMenuItems("share", [
             {
@@ -138,6 +139,12 @@ export default class ShareContent extends Features {
             console.warn(`share screen failed: ${err.name}: ${err.message}`);
             return;
         }
+
+        // open the video call in picture in picture so the call stays visible
+        // while the user is on the shared tab / window. Do this straight away,
+        // requestWindow needs the user activation from the share click, which
+        // may have expired after the picker (it then fails quietly).
+        this.openPictureInPicture();
 
         // always send an audio track so the connection keeps an audio sender
         // (the user may not have ticked "share audio")
@@ -250,6 +257,35 @@ export default class ShareContent extends Features {
     }
 
     /**
+     * Opens the video call in a picture in picture window. The pip button is
+     * disabled while the window is opening and while it is open.
+     * @return {Promise<void>}
+     */
+    async openPictureInPicture() {
+        const videoCall = this.session.videoCall;
+        if (!videoCall || videoCall.pictureInPicture || this._openingPIP) return;
+
+        this._openingPIP = true;
+        this._updatePIPButton();
+        try {
+            await videoCall.createPictureInPicture();
+        } catch (err) {
+            // e.g. NotAllowedError when not triggered by a user gesture
+            console.warn(`picture in picture failed: ${err.name}: ${err.message}`);
+        }
+        this._openingPIP = false;
+        this._updatePIPButton();
+    }
+
+    /** Disables the pip button when PiP is unsupported, opening or already open */
+    _updatePIPButton() {
+        const videoCall = this.session.videoCall;
+        const supported = "documentPictureInPicture" in window;
+        this.contentView.pipDisabled = !supported || !videoCall ||
+            !!this._openingPIP || videoCall.pictureInPicture;
+    }
+
+    /**
      * Shares the size of each user's content area, so that everyone sees
      * the content framed with the participant's aspect ratio. On a larger
      * screen (normally the host's) the parts the participant can not see
@@ -291,6 +327,8 @@ export default class ShareContent extends Features {
     async initialise(){
         // sync the annotations with the other user
         this.contentView.whiteboard.setFirebaseFrame(this.sdata.child("whiteboard"));
+
+
 
         this._initialiseViewAspect();
 
@@ -341,6 +379,13 @@ export default class ShareContent extends Features {
                 this.contentView.view = view;
             }
         })
+
+        // keep the pip button in sync with the video call's PiP window,
+        // which may also be opened / closed from elsewhere
+        const videoCall = this.session.videoCall;
+        videoCall?.addEventListener("pip-open", () => this._updatePIPButton());
+        videoCall?.addEventListener("pip-close", () => this._updatePIPButton());
+        this._updatePIPButton();
     }
 
     /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */

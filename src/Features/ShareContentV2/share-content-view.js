@@ -55,7 +55,7 @@ class ShareContentTools extends SvgPlus {
         this.modeIcon = modeIcon;
 
         const shareTools = this.createChild(GL, {class: "dynamic"}, 1, 8)
-        const [screenIcon, fileIcon, prevIcon, nextIcon] = shareTools.addGridIcons([
+        const [screenIcon, fileIcon, pipIcon, prevIcon, nextIcon] = shareTools.addGridIcons([
             {
                 symbol: "screen",
                 colorTheme: "action",
@@ -70,6 +70,18 @@ class ShareContentTools extends SvgPlus {
                     "access-click": (e) => dispatch("file", e)
                 }
             },
+
+            {
+                symbol: "pip",
+                colorTheme: "action",
+                events: {
+                    // ignore clicks while disabled (a PiP window is already open)
+                    "access-click": (e) => {
+                        if (!this.pipIcon.disabled) dispatch("pip", e);
+                    }
+                }
+            },
+           
             {
                 symbol: "leftArrow",
                 colorTheme: "action",
@@ -91,6 +103,7 @@ class ShareContentTools extends SvgPlus {
         this.pageIcons = [prevIcon, nextIcon];
         this.screenIcon = screenIcon;
         this.fileIcon = fileIcon;
+        this.pipIcon = pipIcon;
 
         this.contentType = null;
         this.annotating = false;
@@ -148,7 +161,7 @@ class ShareContentTools extends SvgPlus {
  * board's background: panning and zooming the board moves both together.
  *
  * Events (dispatched on .root):
- *   "close", "screen", "clear"  AccessEvents from the tool buttons
+ *   "close", "screen", "clear", "file", "pip"  AccessEvents from the tool buttons
  *   "page"             the user changed the pdf page (see .page)
  *   "viewchange"       the user panned/zoomed, event.view (see .view)
  *   "areasize"         the content area was resized, event.size {x, y} (px)
@@ -241,6 +254,11 @@ export class ShareContentView extends OccupiableWindow {
     /** @param {number} value 1 based pdf page */
     set page(value) { this.display.page = value; }
     get page() { return this.display.page; }
+
+    /** Disables the picture in picture button, e.g. while a PiP window is open
+     * @param {boolean} value */
+    set pipDisabled(value) { this.tools.pipIcon.disabled = !!value; }
+    get pipDisabled() { return !!this.tools.pipIcon.disabled; }
 
     /** @param {?MediaStream} stream @param {string} user */
     setStream(stream, user) {

@@ -6,7 +6,7 @@ import { Features } from "../features-interface.js";
 import { createNoiseSuppressionAdapter } from "./AudioUtils/NoiseSuppress/noise-suppression.js";
 import { setupVoiceDetection } from "./AudioUtils/voice-detector.js";
 import { getHostPresets } from "./presets.js";
-import { VideoPanelWidget } from "./widgets.js";
+import { VideoPanelWidget, WidgetManager } from "./widgets.js";
 import { relURL } from "../../Utilities/usefull-funcs.js";
 
 function getDefaulIceServers() {
@@ -86,28 +86,21 @@ export default class VideoCall extends Features {
 	 */
 	constructor(session, sdata) {
 		super(session, sdata);
-		this.topPanelWidget = new VideoPanelWidget();
-		this.sidePanelWidget = new VideoPanelWidget();
-		this.mainAreaWidget = new VideoPanelWidget();
-		this.pictureInPictureWidget = new VideoPanelWidget();
+		this.WM = new WidgetManager();
+		this.WM.onMuteClick = (track, user) => this.toggleMuted(track, user);
 
-		this.mainAreaWidget.isVisibleForUser = () => !session.isOccupied;
-		this.sidePanelWidget.isVisibleForUser = () =>
-			session.getToggleState("sidePanel").some((s) => s === true);
-		this.topPanelWidget.isVisibleForUser = () =>
-			session.getToggleState("topPanel").some((s) => s === true);
-		this.pictureInPictureWidget.isVisibleForUser = () =>
-			this._pictureInPicture && this._pictureInPicture.document;
+		let isTState = (panel) => session.getToggleState(panel).some((s) => s === true);
 
-
-		/** @type {VideoPanelWidget[]} */
-		this._allWidgets = [
-			this.topPanelWidget,
-			this.sidePanelWidget,
-			this.mainAreaWidget,
-			this.pictureInPictureWidget,
-		];
-
+		this.topPanelWidget = this.WM.create(
+			"top", () => isTState("topPanel")
+		)
+		this.sidePanelWidget = this.WM.create(
+			"side", () => isTState("sidePanel")
+		)
+		this.mainAreaWidget = this.WM.create(
+			"main", () => !session.isOccupied
+		);
+	
 		// store video elements for each user
 		/** @type {Object.<string, HTMLVideoElement>} */
 		this.videos = {
@@ -117,7 +110,6 @@ export default class VideoCall extends Features {
 		this.videos[sdata.me].muted = true;
 
 		this._setupVideoFrameCapture();
-		this._setWidgetEvents();
 	}
 
 	async createPictureInPicture() {
@@ -126,31 +118,49 @@ export default class VideoCall extends Features {
 			const dHeight = ((this.videos.host.videoHeight || 480) + (this.videos.participant.videoHeight || 480)) / 2;
 			const width = 240;
 			const height = width * (dHeight / dWidth);
-			this._pictureInPicture = await documentPictureInPicture.requestWindow({ width, height });
-			this._pictureInPicture.addEventListener("close", () => {
-				this._pictureInPicture = null;
-			});
-		}
+			const pipWin = await documentPictureInPicture.requestWindow({ width, height });
+			
+			if (pipWin) {
+				this._pictureInPicture = pipWin;
+				const pipWidget = this.WM.create(
+					"pip", () => true
+				);
+				await pipWidget.loadStyles();
 
-		if (this._pictureInPicture) {
-			this.pictureInPictureWidget.root.toggleAttribute("pip", true);
-			this.pictureInPictureWidget.styles = {
-				position: "fixed",
-				left: "0",
-				top: "0",
-				right: "0",
-				bottom: "0"
+				pipWidget.root.toggleAttribute("pip", true);
+				pipWidget.root.styles = {
+					"font-family": "sans-serif"
+				}
+				pipWidget.styles = {
+					position: "fixed",
+					left: "0",
+					top: "0",
+					right: "0",
+					bottom: "0"
+				}
+				pipWin.document.body.appendChild(pipWidget);
+
+				await pipWidget.reloadStyles(
+					undefined,
+					pipWin,
+					pipWin.document,
+					false
+				)
+				
+				pipWin.addEventListener("pagehide", () => {
+					this._pictureInPicture = null;
+					this.WM.remove("pip")
+					console.log("Picture-in-picture closed");
+					this.dispatchEvent(new Event("pip-close"));
+				});
+
+				this.dispatchEvent(new Event("pip-open"));
 			}
-			this._pictureInPicture.document.body.appendChild(this.pictureInPictureWidget);
-			this.pictureInPictureWidget.reloadStyles(
-				undefined,
-				this._pictureInPicture,
-				this._pictureInPicture.document,
-				false
-			)
 		}
+	}
 
-
+	get pictureInPicture() {
+		return !!this._pictureInPicture;
 	}
 
 
@@ -162,70 +172,24 @@ export default class VideoCall extends Features {
 		// For each video, set up a loop to capture frames and send them to the widgets
 		for (const user in this.videos) {
 			const video = this.videos[user];
-
 			this.mainAreaWidget.appendChild(video); // needed to get frames from some browsers
 
 			if ((!video.requestVideoFrameCallback) instanceof Function) {
-				video.requestVideoFrameCallback =
-					window.requestAnimationFrame.bind(window);
+				video.requestVideoFrameCallback = window.requestAnimationFrame.bind(window);
 			}
+
 			const next = () => {
 				if (video.videoWidth > 5 && video.videoHeight > 5) {
-					this._setWidgetWaitingState(user, false);
+					this.WM.setWaitingState(user, false);
 				}
-				for (const w of this._allWidgets) {
-					if (w.isVisibleForUser()) {
-						w[user].captureFrame(this._muteState[user].video ? video : null);
-					}
-				}
+				this.WM.render(
+					user, 
+					this._muteState[user].video ? video : null
+				);
 				video.requestVideoFrameCallback(next);
 			};
 			video.requestVideoFrameCallback(next);
 		}
-	}
-
-	/**
-	 * Updates the user name for all widgets
-	 * @param {string} name
-	 * @param {("host"|"participant")} user
-	 */
-	_setWidgetUserName(name, user) {
-		this._allWidgets.forEach((w) => {
-			w[user].userName = name;
-		});
-	}
-
-	/**
-	 * Updates the user image for all widgets
-	 * @param {string} url
-	 * @param {("host"|"participant")} user
-	 */
-	_setWidgetUserImage(url, user) {
-		this._allWidgets.forEach((w) => {
-			w[user].userImage = url;
-		});
-	}
-
-	/**
-	 * Sets the talking state icon for all widgets
-	 * @param {boolean} bool
-	 * @param {("host"|"participant")} user
-	 */
-	_setWidgetTalking(bool, user) {
-		this._allWidgets.forEach((w) => {
-			w[user].isTalking = bool;
-		});
-	}
-
-	/**
-	 * Sets up event listeners for all widgets
-	 */
-	_setWidgetEvents() {
-		this._allWidgets.forEach((w) => {
-			w.addEventListener("mute", (e) => {
-				this.toggleMuted(e.track, e.user);
-			});
-		});
 	}
 
 	/**
@@ -237,53 +201,6 @@ export default class VideoCall extends Features {
 		this.videos[user].srcObject = stream;
 	}
 
-	/** Sets the mute state for all widgets
-	 * @param {("audio"|"video")} type
-	 * @param {boolean} bool
-	 * @param {("host"|"participant")} user
-	 */
-	_setWidgetMuteState(type, bool, user) {
-		this._allWidgets.forEach((w) => {
-			w[user][type + "_muted"] = bool;
-		});
-	}
-
-	_setWidgetWaitingState(user, bool, wait = 0) {
-		clearTimeout(this._setWidgetWaitingStateTimeout);
-		if (wait > 0) {
-			this._setWidgetWaitingStateTimeout = setTimeout(() => {
-				this._setWidgetWaitingState(user, bool);
-			}, wait);
-		} else {
-			const k = "_waitingState" + user;
-			if (this[k] !== bool) {
-				this[k] = bool;
-				console.log("Setting waiting state for", user, "to", bool);
-				this._allWidgets.forEach((w) => {
-					w[user].waiting = bool;
-				});
-			}
-		}
-	}
-
-	/**
-	 * Clears the video frames for all widgets
-	 * @param {("host"|"participant")} user
-	 */
-	_clearWidgets(user) {
-		this._setWidgetVisibility(user, false);
-	}
-
-	_setWidgetVisibility(user, isVisible) {
-		console.log(
-			(!isVisible ? "Clearing" : "Showing") + " widgets for user",
-			user,
-		);
-		this._allWidgets.forEach((w) => {
-			w.toggleUserVideoDisplay(user, isVisible);
-		});
-	}
-
 	/**
 	 * If the webRTC state changes, update the video streams accordingly
 	 * @param {Object} state
@@ -292,9 +209,9 @@ export default class VideoCall extends Features {
 		const stream = state.remoteStream;
 		if (state.isRemoteStreamReady) {
 			this._setUserStream(stream, this.sdata.them);
-			this._setWidgetWaitingState(this.sdata.them, false);
+			this.WM.setWaitingState(this.sdata.them, false);
 		} else {
-			this._setWidgetWaitingState(this.sdata.them, true, 1500);
+			this.WM.setWaitingState(this.sdata.them, true, 1500);
 		}
 	}
 
@@ -368,7 +285,7 @@ export default class VideoCall extends Features {
 			}
 
 			// update the widget mute state
-			this._setWidgetMuteState(type, !bool, user);
+			this.WM.setMuteState(user, !bool, type);
 		}
 	}
 
@@ -412,18 +329,18 @@ export default class VideoCall extends Features {
 	}
 
 	async _onUserLeft() {
-		this._setWidgetWaitingState(this.sdata.them, true);
+		this.WM.setWaitingState(this.sdata.them, true);
 		clearTimeout(this._onUserLeftTimeout);
 		this._onUserLeftTimeout = setTimeout(() => {
 			if (!this.sdata.isUserActive(this.sdata.them)) {
-				this._clearWidgets(this.sdata.them);
+				this.WM.clear(this.sdata.them);
 			}
 		}, 5000);
 	}
 
 	async _onUserJoined() {
 		clearTimeout(this._onUserLeftTimeout);
-		this._setWidgetVisibility(this.sdata.them, true);
+		this.WM.setVisibility(this.sdata.them, true);
 	}
 
 	/**
@@ -450,14 +367,13 @@ export default class VideoCall extends Features {
 			this.presets = presets;
 
 			// set the host's name
-			const name =
-				(presets.name || "host") +
+			const name = (presets.name || "host") +
 				(presets.pronouns ? ` (${presets.pronouns})` : "");
-			this._setWidgetUserName(name, "host");
+			this.WM.setUserName("host", name);
 
 			// set the host's image
 			if (presets.image) {
-				this._setWidgetUserImage(presets.image, "host");
+				this.WM.setUserImage("host", presets.image);
 			}
 
 			// get new stream from webcam
@@ -469,9 +385,7 @@ export default class VideoCall extends Features {
 			const stream = this._noiseSuppressionAdapter.stream;
 
 			// set up voice detection
-			setupVoiceDetection(stream, (d) => {
-				this._setWidgetTalking(d, this.sdata.me);
-			});
+			setupVoiceDetection(stream, (d) => this.WM.setTalking(this.sdata.me, d));
 
 			// Start the webrtc connection
 			const signaler = new RTCSignaler(this.sdata);
@@ -502,21 +416,15 @@ export default class VideoCall extends Features {
 
 			this.session.settings.onValue(
 				`${this.sdata.me}/volume/level`,
-				(value) => {
-					this._setVolume(value);
-				},
+				(value) => this._setVolume(value)
 			);
 			this.session.settings.onValue(
 				"participant/profileSettings/name",
-				(value) => {
-					this._setWidgetUserName(value, "participant");
-				},
+				(value) => this.WM.setUserName("participant", value)
 			);
 			this.session.settings.onValue(
 				"participant/profileSettings/image",
-				(value) => {
-					this._setWidgetUserImage(value, "participant");
-				},
+				(value) => this.WM.setUserImage("participant", value)
 			);
 
 			// Listen to changes in audio output device and update sinkId accordingly
@@ -543,11 +451,11 @@ export default class VideoCall extends Features {
 			this.sdata.onUser("joined", (key) => {
 				if (key == this.sdata.them) {
 					this._onUserJoined();
-					this._setWidgetWaitingState(this.sdata.them, true);
+					this.WM.setWaitingState(this.sdata.them, true);
 				}
 			});
 
-			this._setWidgetVisibility(this.sdata.me, true);
+			this.WM.setVisibility(this.sdata.me, true);
 		} else {
 			this.throwInitialisationError(
 				"Could not start webcam. Please check your camera permissions.",
