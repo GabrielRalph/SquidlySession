@@ -140,12 +140,7 @@ export default class VideoCall extends Features {
 				}
 				pipWin.document.body.appendChild(pipWidget);
 
-				await pipWidget.reloadStyles(
-					undefined,
-					pipWin,
-					pipWin.document,
-					false
-				)
+				await pipWidget.reloadStyles({window: pipWin});
 				
 				pipWin.addEventListener("pagehide", () => {
 					this._pictureInPicture = null;
