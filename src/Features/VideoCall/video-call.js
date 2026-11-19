@@ -154,6 +154,15 @@ export default class VideoCall extends Features {
 		}
 	}
 
+	closePictureInPicture() {
+		if (this._pictureInPicture) {
+			this._pictureInPicture.close();
+			this._pictureInPicture = null;
+			this.WM.remove("pip");
+			this.dispatchEvent(new Event("pip-close"));
+		}
+	}
+
 	get pictureInPicture() {
 		return !!this._pictureInPicture;
 	}

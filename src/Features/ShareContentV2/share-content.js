@@ -62,7 +62,6 @@ export default class ShareContent extends Features {
             clear: (e) => e.waitFor(this.clearContent()),
             file: (e) => e.waitFor(["pdf", "image"].includes(this.contentView.contentType) ?
                 this.clearContent() : this.shareFile()),
-            pip: (e) => e.waitFor(this.openPictureInPicture()),
         }
         this.session.toolBar.addMenuItems("share", [
             {
@@ -216,6 +215,8 @@ export default class ShareContent extends Features {
                 stream.getTracks().forEach((track) => track.stop());
             }
             this._isSharing = false;
+            // the PiP window was opened for the screen share
+            this.session.videoCall?.closePictureInPicture();
         }
     }
 
@@ -257,16 +258,16 @@ export default class ShareContent extends Features {
     }
 
     /**
-     * Opens the video call in a picture in picture window. The pip button is
-     * disabled while the window is opening and while it is open.
+     * Opens the video call in a picture in picture window while sharing the
+     * screen. It is closed again when the screen share stops.
      * @return {Promise<void>}
      */
     async openPictureInPicture() {
         const videoCall = this.session.videoCall;
         if (!videoCall || videoCall.pictureInPicture || this._openingPIP) return;
+        if (!("documentPictureInPicture" in window)) return;
 
         this._openingPIP = true;
-        this._updatePIPButton();
         try {
             await videoCall.createPictureInPicture();
         } catch (err) {
@@ -274,15 +275,9 @@ export default class ShareContent extends Features {
             console.warn(`picture in picture failed: ${err.name}: ${err.message}`);
         }
         this._openingPIP = false;
-        this._updatePIPButton();
-    }
 
-    /** Disables the pip button when PiP is unsupported, opening or already open */
-    _updatePIPButton() {
-        const videoCall = this.session.videoCall;
-        const supported = "documentPictureInPicture" in window;
-        this.contentView.pipDisabled = !supported || !videoCall ||
-            !!this._openingPIP || videoCall.pictureInPicture;
+        // the share stopped while the window was opening
+        if (!this._isSharing) videoCall.closePictureInPicture();
     }
 
     /**
@@ -379,13 +374,6 @@ export default class ShareContent extends Features {
                 this.contentView.view = view;
             }
         })
-
-        // keep the pip button in sync with the video call's PiP window,
-        // which may also be opened / closed from elsewhere
-        const videoCall = this.session.videoCall;
-        videoCall?.addEventListener("pip-open", () => this._updatePIPButton());
-        videoCall?.addEventListener("pip-close", () => this._updatePIPButton());
-        this._updatePIPButton();
     }
 
     /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */

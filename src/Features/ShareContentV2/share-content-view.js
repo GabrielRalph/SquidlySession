@@ -1,11 +1,12 @@
 import { SvgPlus } from "../../SvgPlus/4.js";
-import { GridIcon, GridLayout } from "../../Utilities/GridLayout/grid-icons.js";
+import { GridCard, GridIcon, GridLayout } from "../../Utilities/GridLayout/grid-icons.js";
 import { WhiteBoardTools } from "./whiteboard-tools.js";
 import { relURL } from "../../Utilities/usefull-funcs.js";
 import { AccessEvent } from "../../Utilities/Buttons/access-buttons.js";
 import { OccupiableWindow } from "../features-interface.js";
 import { WhiteBoard } from "./WhiteBoard/whiteboard.js";
 import { ContentDisplay } from "./content-display.js";
+import { TimerWidget } from "./timer.js";
 
 const SPACE = 8;
 const BORDER_RADIUS = 14;
@@ -14,6 +15,15 @@ const BORDER = 4;
 class GL extends GridLayout {
     getBorderStyle() {
         return [BORDER_RADIUS, BORDER]
+    }
+}
+
+class TimerTool extends GL {
+    constructor() {
+        super(7, 8);
+        this.class = "dynamic-options"
+        const tw=new TimerWidget();
+        this.add(tw, [0,tw.size[0]-1], [0,tw.size[1]-1])
     }
 }
 
@@ -28,6 +38,7 @@ class ShareContentTools extends SvgPlus {
         this.class = "sc-tools";
 
         const wbt = new WhiteBoardTools(GL);
+        this.timerTool = new TimerTool();
         wbt.connect(whiteboard);
         this.whiteboardTools = wbt;
         this.whiteboard = whiteboard;
@@ -55,7 +66,7 @@ class ShareContentTools extends SvgPlus {
         this.modeIcon = modeIcon;
 
         const shareTools = this.createChild(GL, {class: "dynamic"}, 1, 8)
-        const [screenIcon, fileIcon, pipIcon, prevIcon, nextIcon] = shareTools.addGridIcons([
+        const [screenIcon, fileIcon, timer, prevIcon, nextIcon] = shareTools.addGridIcons([
             {
                 symbol: "screen",
                 colorTheme: "action",
@@ -70,18 +81,10 @@ class ShareContentTools extends SvgPlus {
                     "access-click": (e) => dispatch("file", e)
                 }
             },
-
             {
-                symbol: "pip",
+                symbol: "timer",
                 colorTheme: "action",
-                events: {
-                    // ignore clicks while disabled (a PiP window is already open)
-                    "access-click": (e) => {
-                        if (!this.pipIcon.disabled) dispatch("pip", e);
-                    }
-                }
             },
-           
             {
                 symbol: "leftArrow",
                 colorTheme: "action",
@@ -103,20 +106,33 @@ class ShareContentTools extends SvgPlus {
         this.pageIcons = [prevIcon, nextIcon];
         this.screenIcon = screenIcon;
         this.fileIcon = fileIcon;
-        this.pipIcon = pipIcon;
+
+        this.display = display;
+        display.addEventListener("pagestate", () => this.updatePageIcons());
 
         this.contentType = null;
         this.annotating = false;
     }
 
-    /** The type of the shared content. The page arrows are only shown for
-     *  pdfs, and the screen / file icons show a stop symbol while a screen /
-     *  file is being shared.
-     * @param {?string} type "pdf", "image", "stream" or null */
-    set contentType(type) {
+    /** Shows the page arrows only for a loaded pdf with more than one page,
+     *  disabling the back arrow on the first page and the next arrow on the
+     *  last page. */
+    updatePageIcons() {
+        const {display} = this;
+        const total = display.displayType === "pdf" && display.pdfDoc ? display.totalPages : 0;
+        const [prev, next] = this.pageIcons;
         // toggle the attribute directly: GridIcon's "hidden" setter is shadowed
         // by HTMLElement.hidden when SvgPlus extends the element
-        for (const icon of this.pageIcons) icon.toggleAttribute("i-hidden", type !== "pdf");
+        for (const icon of this.pageIcons) icon.toggleAttribute("i-hidden", total <= 1);
+        prev.disabled = display.page <= 1;
+        next.disabled = display.page >= total;
+    }
+
+    /** The type of the shared content. The screen / file icons show a stop
+     *  symbol while a screen / file is being shared.
+     * @param {?string} type "pdf", "image", "stream" or null */
+    set contentType(type) {
+        this.updatePageIcons();
 
         const setIcon = (icon, on, onSymbol, offSymbol) => {
             icon.symbol = on ? onSymbol : offSymbol;
@@ -136,6 +152,7 @@ class ShareContentTools extends SvgPlus {
             this.shareTools.remove()
             this.appendChild(wbt.tools)
             this.appendChild(wbt.options)
+            this.timerTool.remove()
             this.modeIcon.symbol = "share-doc"
             wbt.selectTool("pen")
         } else {
@@ -145,6 +162,7 @@ class ShareContentTools extends SvgPlus {
             wbt.options.remove()
             wbt.tools.remove()
             this.appendChild(this.shareTools)
+            this.appendChild(this.timerTool)
             this.modeIcon.symbol = "pen"
         }
         this._annotating = value;
@@ -161,7 +179,7 @@ class ShareContentTools extends SvgPlus {
  * board's background: panning and zooming the board moves both together.
  *
  * Events (dispatched on .root):
- *   "close", "screen", "clear", "file", "pip"  AccessEvents from the tool buttons
+ *   "close", "screen", "clear", "file"  AccessEvents from the tool buttons
  *   "page"             the user changed the pdf page (see .page)
  *   "viewchange"       the user panned/zoomed, event.view (see .view)
  *   "areasize"         the content area was resized, event.size {x, y} (px)
@@ -254,11 +272,6 @@ export class ShareContentView extends OccupiableWindow {
     /** @param {number} value 1 based pdf page */
     set page(value) { this.display.page = value; }
     get page() { return this.display.page; }
-
-    /** Disables the picture in picture button, e.g. while a PiP window is open
-     * @param {boolean} value */
-    set pipDisabled(value) { this.tools.pipIcon.disabled = !!value; }
-    get pipDisabled() { return !!this.tools.pipIcon.disabled; }
 
     /** @param {?MediaStream} stream @param {string} user */
     setStream(stream, user) {

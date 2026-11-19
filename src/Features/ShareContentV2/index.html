@@ -7,7 +7,7 @@
 </head>
 <style>
     body {
-        background-color: rgb(31, 31, 31);
+        background-color: rgb(255, 255, 255);
     }
     share-content-view {
     position: fixed;
@@ -21,10 +21,10 @@
     
 </body>
 <script type = "module">
-    // standalone preview of the share content view (no session)
-    import { ShareContentView } from "./share-content-view.js";
-    const view = new ShareContentView();
-    document.body.appendChild(view);
-    view.show();
+
+window.addEventListener("mousemove", (e) => {
+document.body.innerHTML = timer_svg(e.clientX / window.innerWidth);
+
+})
 </script>
 </html>

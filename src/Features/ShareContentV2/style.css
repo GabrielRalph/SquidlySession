@@ -11,7 +11,7 @@ share-content-view {
 white-board {
     pointer-events: all;
 }
-access-button {
+access-button, .grid-icon {
     pointer-events: all;
 }
 .sc-tools, .content-grid {

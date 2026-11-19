@@ -173,6 +173,7 @@ class Loader extends HideShowTransition {
  * Events (non bubbling, on this element):
  *   "page"           the user changed the pdf page (see .page)
  *   "displaychange"  the type of content shown changed, see activeElement
+ *   "pagestate"      the pdf, its page or its page count changed
  */
 class ContentDisplay extends SvgPlus {
     /** @type {{promise: Promise, abort: function}} */
@@ -362,6 +363,7 @@ class ContentDisplay extends SvgPlus {
         this.setAttribute("pages", isPDF ? this.totalPages : 0);
         this.toggleAttribute("no-back", !isPDF || this.page <= 1);
         this.toggleAttribute("no-next", !isPDF || this.page >= this.totalPages);
+        this.dispatchEvent(new Event("pagestate"));
     }
 }
 
