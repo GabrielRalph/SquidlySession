@@ -151,7 +151,6 @@ export default class AACFeature extends Features {
                 this.#init = false;
                 this.board.search.closeButton.symbol = "downArrow";
 
-                // console.log("State updated:", value);
                 const state = value?.state ?? {};
                 const boardID = value?.boardID ?? DEFAULT_BOARD_ID;
                 const sharedBy = value?.sharedBy ?? null;
@@ -167,9 +166,9 @@ export default class AACFeature extends Features {
                 this.lastState = state
                 if (this.#boardID !== boardID || this.#sharedBy !== sharedBy) {
                     this.setBoard(boardID, sharedBy);
+                    this.board.search.close();
                 } else {
                     main.state = value.state;
-                    // console.log("State applied to main:", value.state);
                     main.toggleAttribute("loading", false);
                 }
             }
