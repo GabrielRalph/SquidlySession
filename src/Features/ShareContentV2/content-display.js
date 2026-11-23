@@ -32,6 +32,8 @@ async function renderPDF(canvas, pdfDoc, pageNum, maxDimension) {
     }).promise;
 }
 
+
+
 /**
  * Displays a pdf page, an image or a video stream. Only one is shown at a
  * time, see activeElement. The frame does not pan or zoom itself, the
@@ -60,7 +62,7 @@ class ContentFrame extends SvgPlus {
 
         /** @type {HTMLCanvasElement} */
         this.streamCanvas = this.createChild("canvas");
-        this.streamCtx = this.streamCanvas.getContext("2d", { willReadFrequently: true });
+        this.streamCtx = this.streamCanvas.getContext("2d");
 
         this.video = this.createChild("video", { playsinline: true, muted: true, autoplay: true });
 
@@ -84,7 +86,11 @@ class ContentFrame extends SvgPlus {
                     if (streamCanvas.height !== video.videoHeight) streamCanvas.height = video.videoHeight;
                     this.streamCtx.drawImage(video, 0, 0, streamCanvas.width, streamCanvas.height);
                 }
-                await delay();
+                await new Promise(
+                    video.requestVideoFrameCallback instanceof Function 
+                    ? video.requestVideoFrameCallback.bind(video)
+                    : window.requestAnimationFrame.bind(window)
+                );
             }
         }
 

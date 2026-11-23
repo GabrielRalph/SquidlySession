@@ -180,8 +180,10 @@ class VideoDisplay extends HideShowTransition {
                 let cW = Math.min(this.W, videoWidth);
                 let cH = Math.min(this.H, videoHeight);
 
-                this.canvas.width = cW;
-                this.canvas.height = cH;
+                if (this.canvas.width != cW || this.canvas.height != cH) {
+                    this.canvas.width = cW;
+                    this.canvas.height = cH;
+                }
                 this.ctx.drawImage(video, 0, 0, videoWidth, videoHeight, 0, 0, cW, cH);
             }
         }

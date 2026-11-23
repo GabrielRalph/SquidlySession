@@ -530,6 +530,7 @@ class GridIcon extends GridCard {
         }
         this.group = accessGroup || item.accessGroup || "default";
         this.item = item;
+        this.iconName = item.name || this.group;
     
         // Toggle attribute 'i-hidden' if icon is hidden.
         this.toggleAttribute("i-hidden", !!item.hidden);
@@ -941,6 +942,18 @@ class GridLayout extends SvgPlus {
             "--width": `${this.clientWidth}px`,
             "--height": `${this.clientHeight}px`
         }
+    }
+
+    static byName(icons) {
+        let byName = {};
+        for (let row of icons) {
+            for (let icon of row) {
+                if (icon) {
+                    byName[icon.iconName] = icon;
+                }
+            }
+        }
+        return byName;
     }
 }
 

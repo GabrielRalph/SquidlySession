@@ -178,7 +178,7 @@ export default class VideoCall extends Features {
 			const video = this.videos[user];
 			this.mainAreaWidget.appendChild(video); // needed to get frames from some browsers
 
-			if ((!video.requestVideoFrameCallback) instanceof Function) {
+			if (!(video.requestVideoFrameCallback instanceof Function)) {
 				video.requestVideoFrameCallback = window.requestAnimationFrame.bind(window);
 			}
 

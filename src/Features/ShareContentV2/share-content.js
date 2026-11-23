@@ -44,6 +44,8 @@ function clearEndedEvents(stream) {
  *   rtc                signalling for the screen share stream
  *   whiteboard         the annotations (see WhiteBoardSync)
  *   view-size/{user}   {{x, y}} the size of each user's content area (px)
+ *   widgets            {{widget, widgetStates}} the displayed widget and the
+ *                      state of every widget (see ShareWidgets)
  */
 export default class ShareContent extends Features {
     _isSharing = false;
@@ -326,6 +328,19 @@ export default class ShareContent extends Features {
 
 
         this._initialiseViewAspect();
+
+        // sync the widgets (which one is displayed and each widget's state).
+        // Setting .state does not dispatch "change", so this doesn't echo.
+        const widgets = this.contentView.widgets;
+        widgets.addEventListener("change", () => {
+            const state = widgets.state;
+            console.log("Widgets changed:", state);
+            this.sdata.set("widgets", state);
+        });
+        this.sdata.onValue("widgets", (state) => {
+            console.log("Widgets updated from sdata:", state);
+            widgets.state = state;
+        });
 
         let signaler = new RTCSignaler(this.sdata.child("rtc"));
 

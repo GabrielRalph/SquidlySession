@@ -265,6 +265,17 @@ export class WhiteBoardSync {
         let type = e.changeType
         let id = e.elementId;
 
+        // A creation or deletion carries/overrides the element's entire state,
+        // so any pending partial changes for it are now stale. If left in the
+        // buffer they would be sent AFTER the creation (see sendChanges order)
+        // and overwrite it, e.g. a light data change from mid-stroke would
+        // replace a closed pen path's final data, losing `filled: true`.
+        if (type === "creation" || type === "deletion") {
+            for (let t of specific_change_types) {
+                if (this.changeBuffers[t]) delete this.changeBuffers[t][id];
+            }
+        }
+
         if (!(type in this.changeBuffers)) {
             this.changeBuffers[type] = {}
         }

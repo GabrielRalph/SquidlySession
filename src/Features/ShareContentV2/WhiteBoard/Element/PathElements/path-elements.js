@@ -121,11 +121,7 @@ export class PathElement extends WhiteBoardElementBase {
 
     set pFill(pFill){
         this._pFill = pFill;
-        if (this.isFilled) {
-            this.path.styles = {
-                "fill": pFill
-            }
-        }
+        this._updateFill();
     }
     get pFill(){
         return this._pFill;
@@ -136,10 +132,14 @@ export class PathElement extends WhiteBoardElementBase {
     }
     set isFilled(bool) {
         this._isFilled = !!bool;
-        if (this.pFill && this.isFilled) {
-            this.path.styles = {
-                "fill": this.pFill,
-            }
+        this._updateFill();
+    }
+
+    /** fill is only shown on filled (closed) paths, and is cleared otherwise
+     *  so the rendered state always matches `isFilled` */
+    _updateFill() {
+        this.path.styles = {
+            "fill": this._isFilled && this._pFill ? this._pFill : "none",
         }
     }
 

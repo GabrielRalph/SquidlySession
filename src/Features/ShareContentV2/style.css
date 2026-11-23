@@ -274,3 +274,36 @@ i-bw[i = "text"] {
 
 
 
+
+.grid-icon.time-input input[type=number] {
+    height: 100%;
+    width: 1.15em;
+    font-size: min(calc( var(--width) / 3), calc(var(--height) / 1.5));
+    color: currentColor;
+    background: transparent;
+    border: none;
+    outline: none;
+    -moz-appearance: textfield;
+    margin: 0;
+    padding: 0;
+}
+
+/* remove number spinners */
+.grid-icon.time-input input::-webkit-outer-spin-button,
+.grid-icon.time-input input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.grid-icon.time-input .content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: row !important;
+    font-size: 2.5em;
+    gap: 0.05em;
+}
+
+.grid-icon.time-input .content input:first-of-type {
+    text-align: right;
+}

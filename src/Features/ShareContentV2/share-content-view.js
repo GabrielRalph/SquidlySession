@@ -8,7 +8,7 @@ import { WhiteBoard } from "./WhiteBoard/whiteboard.js";
 import { ContentDisplay } from "./content-display.js";
 import { TimerWidget } from "./timer.js";
 
-const SPACE = 8;
+const SPACE = 4;
 const BORDER_RADIUS = 14;
 const BORDER = 4;
 
@@ -18,12 +18,89 @@ class GL extends GridLayout {
     }
 }
 
-class TimerTool extends GL {
+/**
+ * The widgets (e.g. the timer) shown beside the share tools. Only one widget
+ * is displayed at a time. Each widget has a `state` getter / setter and
+ * dispatches a "change" event when the user changes its state.
+ *
+ * Events:
+ *   "change"  the user changed the displayed widget or a widget's state,
+ *             read .state to get the new state. Not dispatched when .state
+ *             is set (e.g. from the database), so syncing doesn't echo.
+ */
+class ShareWidgets extends GL {
+    #currentWidget = null;
     constructor() {
         super(7, 8);
         this.class = "dynamic-options"
-        const tw=new TimerWidget();
-        this.add(tw, [0,tw.size[0]-1], [0,tw.size[1]-1])
+        this.widgets = {
+            timer: new TimerWidget(),
+        }
+
+        for (const widgetName in this.widgets) {
+            const widget = this.widgets[widgetName];
+            // Relay change events from individual widgets to the ShareWidgets
+            // component itself. Only the widget's own change events count:
+            // change events from its inner elements (e.g. native <input>
+            // change events) bubble up through it as well.
+            widget.addEventListener("change", (e) => {
+                e.stopPropagation();
+                if (e.target === widget) this.#dispatchChange();
+            });
+        }
+    }
+
+    #dispatchChange() {
+        this.dispatchEvent(new CustomEvent("change"));
+    }
+
+    /** Shows the widget, or hides it if it is already shown (user action,
+     *  dispatches "change").
+     * @param {string} widgetName */
+    toggleWidget(widgetName) {
+        this.widget = widgetName === this.#currentWidget ? null : widgetName;
+        this.#dispatchChange();
+    }
+
+    /** The name of the displayed widget, null for none.
+     * @param {?string} widgetName */
+    set widget(widgetName) {
+        if (!(widgetName in this.widgets)) widgetName = null;
+        if (widgetName === this.#currentWidget) return;
+
+        if (this.#currentWidget !== null) {
+            this.widgets[this.#currentWidget].remove();
+        }
+        this.#currentWidget = widgetName;
+        if (widgetName !== null) {
+            const t = this.widgets[widgetName];
+            const [r, c] = t.size;
+            const [, fc] = this.size;
+            this.add(t, [0, r-1], [fc-c, fc-1])
+        }
+    }
+
+    get widget() {
+        return this.#currentWidget;
+    }
+
+    get state() {
+        return {
+            widget: this.#currentWidget,
+            widgetStates: Object.fromEntries(Object.entries(this.widgets).map(([name, widget]) => [name, widget.state]))
+        };
+    }
+
+    set state(state) {
+        const {widget = null, widgetStates = null} = state || {};
+        this.widget = widget;
+        if (typeof widgetStates === "object" && widgetStates !== null) {
+            for (const [name, widgetState] of Object.entries(widgetStates)) {
+                if (name in this.widgets) {
+                    this.widgets[name].state = widgetState;
+                }
+            }
+        }
     }
 }
 
@@ -38,7 +115,7 @@ class ShareContentTools extends SvgPlus {
         this.class = "sc-tools";
 
         const wbt = new WhiteBoardTools(GL);
-        this.timerTool = new TimerTool();
+        this.shareWidgets = new ShareWidgets();
         wbt.connect(whiteboard);
         this.whiteboardTools = wbt;
         this.whiteboard = whiteboard;
@@ -84,6 +161,9 @@ class ShareContentTools extends SvgPlus {
             {
                 symbol: "timer",
                 colorTheme: "action",
+                events: {
+                    "access-click": (e) => this.shareWidgets.toggleWidget("timer")
+                }
             },
             {
                 symbol: "leftArrow",
@@ -152,7 +232,7 @@ class ShareContentTools extends SvgPlus {
             this.shareTools.remove()
             this.appendChild(wbt.tools)
             this.appendChild(wbt.options)
-            this.timerTool.remove()
+            this.shareWidgets.remove()
             this.modeIcon.symbol = "share-doc"
             wbt.selectTool("pen")
         } else {
@@ -162,7 +242,7 @@ class ShareContentTools extends SvgPlus {
             wbt.options.remove()
             wbt.tools.remove()
             this.appendChild(this.shareTools)
-            this.appendChild(this.timerTool)
+            this.appendChild(this.shareWidgets)
             this.modeIcon.symbol = "pen"
         }
         this._annotating = value;
@@ -232,6 +312,9 @@ export class ShareContentView extends OccupiableWindow {
 
         const dispatch = (name, e) => this.root.dispatchEvent(new AccessEvent(name, e));
         this.tools = this.root.createChild(ShareContentTools, {}, this.whiteboard, this.display, dispatch);
+
+        /** @type {ShareWidgets} */
+        this.widgets = this.tools.shareWidgets;
 
         this.root.styles = {
             "--border-radius": BORDER_RADIUS + "px",

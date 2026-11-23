@@ -21,10 +21,10 @@
     
 </body>
 <script type = "module">
-
-window.addEventListener("mousemove", (e) => {
-document.body.innerHTML = timer_svg(e.clientX / window.innerWidth);
-
-})
+import { StreamCanvas } from "./stream-canvas.js";
+const shareScreenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+const streamCanvas = new StreamCanvas();
+document.body.appendChild(streamCanvas);
+streamCanvas.connect(shareScreenStream);
 </script>
 </html>
