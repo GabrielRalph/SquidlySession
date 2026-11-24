@@ -241,9 +241,10 @@ grid-layout[scale-font] {
 }
 
 /* Active state */
-
-.grid-icon:not([i-disable-active]):active,
-.grid-icon:not([i-disable-active])[active] {
+.grid-icon:not([i-disable-active]):active .card-icon,
+.grid-icon:not([i-disable-active]):active .content,
+.grid-icon:not([i-disable-active])[active] .card-icon,
+.grid-icon:not([i-disable-active])[active] .content {
     transform: scale(0.97);
 }
 

@@ -50,9 +50,17 @@ class BasicShape extends WhiteBoardElementBase {
     }
 
     setStyleSet(sset) {
+        // shapes with fixed colours (emoji) ignore the fill / stroke styles
+        if (this.shape.fixedColors) return;
         this.shape.styles = sset;
     }
 
+
+    /** Shapes with fixed colours (emoji) have no stroke, so the selection
+     *  box isn't padded by the stroke width */
+    get strokeWidth() {
+        return this.shape?.fixedColors ? 0 : super.strokeWidth;
+    }
 
     isIntersection(points) {
       return this.shape.isIntersection(points);

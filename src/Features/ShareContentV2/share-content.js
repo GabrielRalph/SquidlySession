@@ -78,6 +78,11 @@ export default class ShareContent extends Features {
                     if (e.clickMode === "click")
                         e.waitFor(this.shareFile())
                 }
+            },
+            {
+                name: "whiteboard",
+                index: 100,
+                onSelect: e => e.waitFor(this.openWhiteboard())
             }
         ]);
     }
@@ -220,6 +225,15 @@ export default class ShareContent extends Features {
             // the PiP window was opened for the screen share
             this.session.videoCall?.closePictureInPicture();
         }
+    }
+
+    /**
+     * Opens the whiteboard for annotation, clearing any shared content.
+     * @return {Promise<void>}
+     */
+    async openWhiteboard() {
+        this.clearContent();
+        await this.session.openWindow("shareContent");
     }
 
     /**

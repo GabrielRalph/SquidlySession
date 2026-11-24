@@ -307,3 +307,75 @@ i-bw[i = "text"] {
 .grid-icon.time-input .content input:first-of-type {
     text-align: right;
 }
+
+.grid-icon[hint]::after {
+     --__r: var(--hint-rows, 1);
+    --__c: var(--hint-cols, 4);
+    content: attr(hint);
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: calc(var(--width) * var(--__c) + (var(--__c) - 1) * var(--_grid-layout-gap));
+    transform: translate(0, calc(100% + var(--space) * 2));
+    background: #d1cdc8b8;
+    border-radius: var(--border-radius);
+    /* border: var(--_grid-icon-border) solid #8e8883; */
+    padding: 0.5em;
+    box-sizing: border-box;
+    color: black;
+    backdrop-filter: blur(15px);
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+
+.grid-icon[hint][hint-position="bottom-left"]::after {
+    left: auto;
+    right: 0;
+}
+
+.grid-icon[hint][hint-position="left"]::after {
+    left: auto;
+    right: 0;
+    transform: translate(calc(-1 * (var(--width) + var(--_grid-layout-gap) * 2) ), 0 );
+}
+
+
+
+.grid-icon[hint]:hover::after {
+    opacity: 1;
+    transition: opacity 0.5s ease 1s;  
+    pointer-events: all;
+}
+
+
+.grid-icon[hint]:hover::before {
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    position: absolute;
+    transform: translate(0, 50%);
+    content: '';
+    z-index: 999;
+    pointer-events: none;
+    animation: fadeIn 0.5s ease forwards;
+    animation-delay: 1s;
+}
+.grid-icon[hint][hint-position="left"]:hover::before {
+    left: 0;
+    transform: translate(-50%, 0);
+}
+
+@keyframes fadeIn {
+    from { pointer-events: none; }
+    to { pointer-events: all; }
+}

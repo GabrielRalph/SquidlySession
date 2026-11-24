@@ -6,7 +6,8 @@ import { AccessEvent } from "../../Utilities/Buttons/access-buttons.js";
 import { OccupiableWindow } from "../features-interface.js";
 import { WhiteBoard } from "./WhiteBoard/whiteboard.js";
 import { ContentDisplay } from "./content-display.js";
-import { TimerWidget } from "./timer.js";
+import { TimerWidget } from "./Widgets/timer.js";
+import HINT_TEXT from "./hint-text.js";
 
 const SPACE = 4;
 const BORDER_RADIUS = 14;
@@ -54,6 +55,25 @@ class ShareWidgets extends GL {
         this.dispatchEvent(new CustomEvent("change"));
     }
 
+    /** Icons that open each widget, highlighted while their widget is shown.
+     * @type {Object<string, GridIcon>} */
+    #icons = {};
+
+    /** Registers the icon that opens a widget so it is highlighted while the
+     *  widget is shown.
+     * @param {string} widgetName
+     * @param {GridIcon} icon */
+    setIcon(widgetName, icon) {
+        this.#icons[widgetName] = icon;
+        this.#highlightIcons();
+    }
+
+    #highlightIcons() {
+        for (const [name, icon] of Object.entries(this.#icons)) {
+            icon.highlight = name === this.#currentWidget;
+        }
+    }
+
     /** Shows the widget, or hides it if it is already shown (user action,
      *  dispatches "change").
      * @param {string} widgetName */
@@ -72,6 +92,7 @@ class ShareWidgets extends GL {
             this.widgets[this.#currentWidget].remove();
         }
         this.#currentWidget = widgetName;
+        this.#highlightIcons();
         if (widgetName !== null) {
             const t = this.widgets[widgetName];
             const [r, c] = t.size;
@@ -101,6 +122,28 @@ class ShareWidgets extends GL {
                 }
             }
         }
+    }
+}
+
+class Hints extends GL {
+    constructor() {
+        super("div");
+        this.class = "dynamic-options hints";
+    }
+
+    addHint(text, ...positionArgs) {
+        const hint = new GridIcon({
+            colorTheme: "dark",
+            displayValue: text,
+        })
+        hint.styles = {
+            opacity: 0,
+            transition: "opacity 0.3s ease"
+        }
+        this.add(hint, ...positionArgs);
+        setTimeout(() => {
+            hint.styles.opacity = 1;
+        }, 50);
     }
 }
 
@@ -137,6 +180,10 @@ class ShareContentTools extends SvgPlus {
                 type: "folder",
                 events: {
                     "access-click": () => this.annotating = !this.annotating
+                },
+                props: {hint: HINT_TEXT.Annotate},
+                styles: {
+                    "--hint-cols": 2,
                 }
             },
         ])
@@ -150,20 +197,23 @@ class ShareContentTools extends SvgPlus {
                 events: {
                     "access-click": (e) => dispatch("screen", e)
                 },
+                props: {hint: HINT_TEXT.ShareScreen}
             },
             {
                 symbol: "file",
                 colorTheme: "action",
                 events: {
                     "access-click": (e) => dispatch("file", e)
-                }
+                },
+                props: {hint: HINT_TEXT.ShareFile}
             },
             {
                 symbol: "timer",
                 colorTheme: "action",
                 events: {
                     "access-click": (e) => this.shareWidgets.toggleWidget("timer")
-                }
+                },
+                props: {hint: HINT_TEXT.Timer}
             },
             {
                 symbol: "leftArrow",
@@ -171,7 +221,7 @@ class ShareContentTools extends SvgPlus {
                 hidden: true,
                 events: {
                     "access-click": () => display.page--
-                }
+                },
             },
             {
                 symbol: "rightArrow",
@@ -183,15 +233,20 @@ class ShareContentTools extends SvgPlus {
             },
         ])
         this.shareTools = shareTools;
+        this.shareWidgets.setIcon("timer", timer);
         this.pageIcons = [prevIcon, nextIcon];
         this.screenIcon = screenIcon;
         this.fileIcon = fileIcon;
+
+        this.hints = this.createChild(Hints);
 
         this.display = display;
         display.addEventListener("pagestate", () => this.updatePageIcons());
 
         this.contentType = null;
         this.annotating = false;
+
+
     }
 
     /** Shows the page arrows only for a loaded pdf with more than one page,
@@ -216,7 +271,7 @@ class ShareContentTools extends SvgPlus {
 
         const setIcon = (icon, on, onSymbol, offSymbol) => {
             icon.symbol = on ? onSymbol : offSymbol;
-            icon.styles = {"--i-color-1": on ? "#ff7474" : null};
+            icon.styles = {"--i-color-1": on ? "white" : null};
         }
         setIcon(this.screenIcon, type === "stream", "screen-pause", "screen");
         setIcon(this.fileIcon, type === "pdf" || type === "image", "file-close", "file");
@@ -234,6 +289,7 @@ class ShareContentTools extends SvgPlus {
             this.appendChild(wbt.options)
             this.shareWidgets.remove()
             this.modeIcon.symbol = "share-doc"
+            this.modeIcon.props = {hint: HINT_TEXT.BackToSharing}
             wbt.selectTool("pen")
         } else {
             // close menus and stop drawing
@@ -243,7 +299,8 @@ class ShareContentTools extends SvgPlus {
             wbt.tools.remove()
             this.appendChild(this.shareTools)
             this.appendChild(this.shareWidgets)
-            this.modeIcon.symbol = "pen"
+            this.modeIcon.symbol = "pen";
+            this.modeIcon.props = {hint: HINT_TEXT.Annotate};
         }
         this._annotating = value;
     }

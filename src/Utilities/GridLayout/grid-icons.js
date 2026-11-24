@@ -561,6 +561,10 @@ class GridIcon extends GridCard {
         if ("styles" in item) {
             this.styles = item.styles;
         }
+
+        if ("props" in item) {
+            this.props = item.props;
+        }
     }
 
     makeSubtitleElement() {

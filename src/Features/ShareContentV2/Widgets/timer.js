@@ -1,5 +1,5 @@
-import { GridCard, GridLayout } from "../../Utilities/GridLayout/grid-icons.js";
-import { delay, relURL } from "../../Utilities/usefull-funcs.js";
+import { GridCard, GridLayout } from "../../../Utilities/GridLayout/grid-icons.js";
+import { delay, relURL } from "../../../Utilities/usefull-funcs.js";
 
 const D2R = Math.PI / 180;
 function segPath(theta1, theta2, r, segsPerDeg = 0.05) {
@@ -93,6 +93,7 @@ class TimeInput extends GridCard {
 
 const DT = 75;
 const AUDIO_START_THRESHOLD = 11;
+const MAX_TIME = 59 * 60 + 59; // seconds, the most the input can display
 
 /**
  * A count down timer. Its state is made of timestamps rather than a ticking
@@ -159,7 +160,7 @@ class TimerWidget extends GridLayout {
                     colorTheme: "dark-a",
                     events: {
                         "access-click": (e) => {
-                            this.input.addMinute(1);
+                            this.addMinute(1);
                         }
                     }
                 }
@@ -216,6 +217,30 @@ class TimerWidget extends GridLayout {
             this.#stopAudio();
         }
         this.#updateState();
+    }
+
+    /**
+     * Adds minutes to the timer. When stopped this changes the input value,
+     * when running or paused it extends the current count down.
+     * @param {number} value number of minutes to add
+     */
+    addMinute(value = 1) {
+        if (this.#finish) {
+            this.input.addMinute(value);
+            return;
+        }
+        // keep the remaining time within what the input can display
+        const maxSetTime = this.elapsed + MAX_TIME;
+        this.#setTime = Math.min(this.#setTime + value * 60, maxSetTime);
+        this.#checkAudioReset();
+        this.#updateState();
+    }
+
+    /** Stop the end sound if more time was added since it started. */
+    #checkAudioReset() {
+        if (this.#audioStarted && this.remaining >= AUDIO_START_THRESHOLD) {
+            this.#stopAudio();
+        }
     }
 
     /**
@@ -288,13 +313,15 @@ class TimerWidget extends GridLayout {
         if (wasRunning && (this.#paused || (this.#finish && remainingBefore > 0.5))) {
             this.#stopAudio();
         }
+        // the other user added time after the end sound started
+        if (!this.#finish) this.#checkAudioReset();
 
         this.#updateState(false);
     }
 
     #updateState(dispatch = true) {
         this.icons.stop.disabled = this.#finish;
-        this.icons.plusOne.disabled = !this.#finish;
+        // this.icons.plusOne.disabled = !this.#finish;
         this.icons.play.symbol = this.#paused || this.#finish ? "play" : "pause";
         this.input.locked = !this.#finish;
         if (this.#finish) {

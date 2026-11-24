@@ -1,6 +1,7 @@
 import { GridLayout } from "../../Utilities/GridLayout/grid-icons.js";
 import { ColorPickerGroup } from "./gl-colorpicker.js";
-
+import { EMOJI_SHAPES } from "./WhiteBoard/Utilites/basic-shapes.js";
+import HINT_TEXT from "./hint-text.js";
 class SelectionGroups extends GridLayout {
     #values = {}
     selectionGroups = {}
@@ -116,9 +117,12 @@ class MoreOptions extends GridLayout {
     constructor() {
         super(4, 1);
         this.eraser = this.addGridIcons(
-            ["eraser", "undo", "redo", "camera"].map(action => [
-                actionIcon(this, action, {symbol: action, colorTheme: "starter"})
-            ])
+            ["eraser", "undo", "redo", "camera"].map(action => {
+                const i = actionIcon(this, action, {symbol: action, colorTheme: "starter"});
+                let capitalizedAction = action.charAt(0).toUpperCase() + action.slice(1);
+                i.props = {hint: HINT_TEXT[capitalizedAction], "hint-position": "left"};
+                return [i]
+            })
         )[0][0];
     }
 }
@@ -203,21 +207,33 @@ class ShapeOptions extends SelectionGroups {
         shape: (v) => ShapeOptions.SHAPE_VALUES[v] || ShapeOptions.SHAPE_VALUES[0]
     }
     constructor() {
-        super(1, 6);
+        super(2, 6);
+        const values = ShapeOptions.SHAPE_VALUES;
+        const icon = (shape) => ({
+            symbol: shape in EMOJI_SHAPES ? {url: EMOJI_SHAPES[shape]} : shape,
+            colorTheme: "shapes-op",
+            ...this.evm("shape", values.indexOf(shape))
+        });
+        // shapes on the first row, emoji on the second
         this.selectionGroups = {
             shape: this.addGridIcons([
-                ...ShapeOptions.SHAPE_VALUES.map((shape, i) => ({
-                    symbol: shape,
-                    colorTheme: "shapes-op",
-                    ...this.evm("shape", i)
-                }))
+                ShapeOptions.BASIC_SHAPES.map(icon),
+                ShapeOptions.EMOJI.map(icon),
             ], 0, 0).flat()
         }
         this.value = {};
     }
 
-    static get SHAPE_VALUES() {
+    static get BASIC_SHAPES() {
         return ["ellipse", "rectangle", "triangle", "star", "line", "elbow"]
+    }
+
+    static get EMOJI() {
+        return Object.keys(EMOJI_SHAPES);
+    }
+
+    static get SHAPE_VALUES() {
+        return [...ShapeOptions.BASIC_SHAPES, ...ShapeOptions.EMOJI]
     }
 }
 
@@ -258,7 +274,8 @@ class WhiteBoardTools {
                         this.selectTool("select", e)
                         this.openMenu("select", e)
                     }
-                }
+                },
+                props: {hint: HINT_TEXT.Select}
                 
             },
             {
@@ -266,7 +283,8 @@ class WhiteBoardTools {
                 colorTheme: "pen-tool",
                 events: {
                     "access-click": (e) => this.selectTool("pen", e)
-                }
+                },
+                props: {hint: HINT_TEXT.Pen}
             },
             {
                 // type: "folder",
@@ -277,7 +295,8 @@ class WhiteBoardTools {
                         this.selectTool("shapes", e)
                         this.openMenu("shapes", e)
                     }
-                }
+                },
+                props: {hint: HINT_TEXT.Shapes}
             },
             {
                 symbol: "textbox",
@@ -287,7 +306,8 @@ class WhiteBoardTools {
                         this.selectTool("text", e)
                         this.openMenu("text", e)
                     }
-                }
+                },
+                props: {hint: HINT_TEXT.Text}
             },
             
             {
@@ -296,7 +316,8 @@ class WhiteBoardTools {
                 type: "folder",
                 events: {
                     "access-click": (e) => this.openMenu("colors", e)
-                }
+                },
+                props: {hint: HINT_TEXT.Colours}
             },
 
             {
@@ -305,7 +326,8 @@ class WhiteBoardTools {
                 type: "folder",
                 events: {
                     "access-click": (e) => this.openMenu("stroke-width", e)
-                }
+                },
+                props: {hint: HINT_TEXT.LineStyle, "hint-position": "bottom-left"}
             },
             {
                 symbol: "delete",
@@ -315,7 +337,8 @@ class WhiteBoardTools {
                         this.whiteboard?.clearSelection();
                         this.whiteboard?.deleteAll();
                     }
-                }
+                },
+                props: {hint: HINT_TEXT.ClearAll, "hint-position": "bottom-left"}
             },
             {
                 symbol: "more",
@@ -323,7 +346,8 @@ class WhiteBoardTools {
                 type: "folder",
                 events: {
                     "access-click": (e) => this.openMenu("more", e)
-                }
+                },
+                props: {hint: HINT_TEXT.MoreTools, "hint-position": "bottom-left"}
             }   
         ])
         this.tls = tls;
