@@ -409,6 +409,13 @@ class WhiteBoardTools {
         wb.addEventListener("selectionchange", (e) => {
             const {styles, styleKeys} = e.detail;
             if (styleKeys.length > 0) this.#showStyles(styles);
+
+            // show / hide the arrange options with the selection, unless
+            // another menu is open
+            const menu = this.#lastMenu;
+            if (menu === "select" || (menu === null && this.#currentTool === "select")) {
+                this.#renderMenu("select");
+            }
         });
         wb.addEventListener("textedit", (e) => this.#showStyles(e.detail.styles));
 
@@ -437,11 +444,24 @@ class WhiteBoardTools {
         this.textOptions.value = text;
     }
 
+    /** Opens a menu, or closes it if it is already open.
+     * @param {?string} menu */
     openMenu(menu) {
         if (this.#lastMenu === menu) {
             menu = null;
         }
+        this.#renderMenu(menu);
+    }
 
+    /** True when an element on the whiteboard is selected */
+    get hasSelection() {
+        return (this.whiteboard?.selection.length ?? 0) > 0;
+    }
+
+    /** Shows the given menu in the options area. The "select" menu (the
+     *  arrange options) is only visible while something is selected.
+     * @param {?string} menu */
+    #renderMenu(menu) {
         this.tls.colors.highlight = menu == "colors";
         this.tls.strokeWidth.highlight = menu == "stroke-width";
         this.tls.more.highlight = menu == "more";
@@ -467,8 +487,7 @@ class WhiteBoardTools {
                 this.options.add(this.shapeOptions, [0, this.shapeOptions.size[0]-1], [7 - this.shapeOptions.size[1] + 1, 7])
                 break;
             case "select":
-                // Implement logic to open select menu
-                this.options.add(this.arrangeOptions, [0, this.arrangeOptions.size[0]-1], [0, this.arrangeOptions.size[1]-1])
+                if (this.hasSelection) this.options.add(this.arrangeOptions, [0, this.arrangeOptions.size[0]-1], [0, this.arrangeOptions.size[1]-1])
                 break;
             
         }
