@@ -127,28 +127,6 @@ class ShareWidgets extends GL {
     }
 }
 
-class Hints extends GL {
-    constructor() {
-        super("div");
-        this.class = "dynamic-options hints";
-    }
-
-    addHint(text, ...positionArgs) {
-        const hint = new GridIcon({
-            colorTheme: "dark",
-            displayValue: text,
-        })
-        hint.styles = {
-            opacity: 0,
-            transition: "opacity 0.3s ease"
-        }
-        this.add(hint, ...positionArgs);
-        setTimeout(() => {
-            hint.styles.opacity = 1;
-        }, 50);
-    }
-}
-
 class ShareContentTools extends SvgPlus {
     /**
      * @param {WhiteBoard} whiteboard the whiteboard the tools control
@@ -223,7 +201,7 @@ class ShareContentTools extends SvgPlus {
                 events: {
                     "access-click": (e) => this.shareWidgets.toggleWidget("dice")
                 },
-                props: {hint: HINT_TEXT.Timer}
+                props: {hint: HINT_TEXT.DiceRoller}
             },
             {
                 symbol: "leftArrow",
