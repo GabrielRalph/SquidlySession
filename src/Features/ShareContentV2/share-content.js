@@ -3,6 +3,7 @@ import { Features } from "../features-interface.js";
 import { ShareContentView } from "./share-content-view.js";
 import { RTCSignaler } from "../../Utilities/WebRTC/rtc-signaler.js";
 import { ConnectionManager } from "../../Utilities/WebRTC/webrtc-base.js";
+import { DiceWidget } from "./Widgets/Dice/dice-widget.js";
 
 /**
  * @typedef {import("./content-display.js").ContentInfo} ContentInfo
@@ -408,6 +409,10 @@ export default class ShareContent extends Features {
     /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
     /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ STATIC ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
     /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+    static async loadResources() {
+        await DiceWidget.load();
+    }
 
     static get layers() {
         return {

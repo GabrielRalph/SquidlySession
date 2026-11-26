@@ -159,6 +159,10 @@ class DiceWidget extends GridLayout {
             [0x000000, 0xffff00]
         ]
     }
+
+    static async load() {
+        await DiceRoller.load()
+    }
 }
 
 export {DiceWidget}

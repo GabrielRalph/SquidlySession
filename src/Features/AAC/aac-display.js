@@ -255,6 +255,23 @@ class AACBoardSetViewer extends GridLayout {
     desiredRows = 2;
     topCols = 5;
 
+    #closeSymbol = "close";
+
+    /** The symbol of the close button when on the root board (on other
+     *  boards it shows "home" and returns to the root board).
+     * @param {string} symbol */
+    set closeSymbol(symbol) {
+        this.#closeSymbol = symbol || "close";
+        this.#updateCloseSymbol();
+    }
+    get closeSymbol() {
+        return this.#closeSymbol;
+    }
+
+    #updateCloseSymbol() {
+        this.#closeButton.symbol = this.#history.length > 1 ? "home" : this.#closeSymbol;
+    }
+
     computeIconBorderRadiusAndWidth() {
         let rows = Math.max(this.desiredRows || this.size[0], this.minRowsForBorderRadius)
         let desiredBR = (this.clientHeight / rows) * this.borderRadiusToCellHeightRatio;
@@ -407,7 +424,7 @@ class AACBoardSetViewer extends GridLayout {
             // Add the backspace and search buttons if it 
             // is enabled.
             let end = cc - 3;
-            this.#closeButton.symbol = this.#history.length > 1 ? "home" : "close";
+            this.#updateCloseSymbol();
             if (this.showSearchButton) {
                 this.#controlsGrid.add(this.#backspaceButton, 0, cc-1);
                 this.#controlsGrid.add(this.#searchButton, 0, cc-2);
@@ -586,7 +603,6 @@ class AACBoardSetViewer extends GridLayout {
             caretPosition: this.#textArea.caretPosition || 0
         }
     }
-
     set state(state) {
         state = typeof state !== "object" || state === null ? {} : state;
 
@@ -616,6 +632,10 @@ class AACBoardSetViewer extends GridLayout {
     }
     get manager() {
         return this.#manager;
+    }
+
+    get text() {
+        return this.#textArea.value;
     }
 
     /**
@@ -655,6 +675,9 @@ class AACBoardSetViewer extends GridLayout {
     
     static get usedStyleSheets() {
         return [
+            // the general icons, so other features can set icons such as
+            // the close icon (see AACFeature.getText)
+            relURL("../../Utilities/Icons/ICSS_Icons/icons.css", import.meta),
             relURL("./icons.css", import.meta),
             relURL("./aac-style.css", import.meta),
             ...GridIcon.usedStyleSheets,

@@ -1,3 +1,4 @@
+import { Vector } from "../../SvgPlus/4.js";
 import { GridLayout } from "../../Utilities/GridLayout/grid-icons.js";
 import { ColorPickerGroup } from "./gl-colorpicker.js";
 import { EMOJI_SHAPES } from "./WhiteBoard/Utilites/basic-shapes.js";
@@ -180,6 +181,12 @@ class TextOptions extends SelectionGroups {
                 )
             , 0, 3).flat()
         }
+
+        // adds text from the aac grid (see WhiteBoardTools.insertAACText)
+        this.addGridIcon(actionIcon(this, "aac", {
+            symbol: "aac",
+            colorTheme: "text-tool-dark",
+        }), 1,1)
         this.value = {fontSize: 18}
     }
 
@@ -252,6 +259,14 @@ class ArrangeOptions extends GridLayout {
 class WhiteBoardTools {
     #currentTool = null;
     #lastMenu = null;
+
+    /** The text element last edited or selected on the whiteboard */
+    #lastTextElement = null;
+
+    /** Gets text from the user with the aac grid, resolving to null if none
+     *  was given. Set by the owner of the tools.
+     * @type {?() => Promise<?string>} */
+    getText = null;
     constructor(GL) {
         const tools = new GL(1,8) 
         tools.class = "dynamic"
@@ -410,6 +425,9 @@ class WhiteBoardTools {
             if (e.detail.group === "mode") this.#applyTool();
             else wb.setStyles(this.textStyles);
         });
+        this.textOptions.addEventListener("action", (e) => {
+            if (e.detail.action === "aac") this.insertAACText();
+        });
         this.shapeOptions.addEventListener("change", () => this.selectTool("shapes"));
 
         // actions
@@ -431,6 +449,9 @@ class WhiteBoardTools {
             if (tool !== this.#currentTool) this.#highlightTool(tool);
         });
         wb.addEventListener("selectionchange", (e) => {
+            const textElement = wb.selection.findLast(el => el.isTextElement);
+            if (textElement) this.#lastTextElement = textElement;
+
             const {styles, styleKeys} = e.detail;
             if (styleKeys.length > 0) this.#showStyles(styles);
 
@@ -441,10 +462,58 @@ class WhiteBoardTools {
                 this.#renderMenu("select");
             }
         });
-        wb.addEventListener("textedit", (e) => this.#showStyles(e.detail.styles));
+        wb.addEventListener("textedit", (e) => {
+            this.#lastTextElement = e.detail.element;
+            this.#showStyles(e.detail.styles);
+        });
 
         wb.setStyles(this.styles);
         this.#applyTool();
+    }
+
+    /** Gets text from the user with the aac grid (see getText) and appends
+     *  it to the text element last edited or selected. If there is none
+     *  (or it was deleted) a free text element with the text is placed in
+     *  the center of the board. */
+    async insertAACText() {
+        const wb = this.whiteboard;
+        if (!wb || !(this.getText instanceof Function)) return;
+
+        const text = await this.getText();
+        if (typeof text !== "string" || text.trim() === "") return;
+
+        const el = this.#lastTextElement;
+        if (el && el.isConnected && wb.elements.includes(el)) {
+            const value = el.text.value;
+            // separate the new text from the existing text with a space
+            const sep = value === "" || /\s$/.test(value) || /^\s/.test(text) ? "" : " ";
+            el.setData({content: value + sep + text});
+            el.dispatchDataChange();
+        } else {
+            this.#lastTextElement = this.#addFreeText(text);
+        }
+    }
+
+    /** Creates a free text element with the given text, centered on the
+     *  board, using the current styles.
+     * @param {string} text */
+    #addFreeText(text) {
+        const wb = this.whiteboard;
+        const rect = wb.svgView.getBoundingClientRect();
+        const center = wb.screenToSVG(new Vector(rect.left + rect.width / 2, rect.top + rect.height / 2));
+
+        const styleSet = wb.styleSet;
+        const el = wb.createElement("free-text", center, styleSet);
+        el.styleSet = styleSet;
+        el.setData({content: text});
+
+        // the anchor is the start of the text (for left alignment), move it
+        // so the middle of the text is at the center
+        const middle = el.corner.add(el.size.div(2));
+        el.setTransform([el.anchor.add(center.sub(middle))]);
+
+        el.dispatchCreationEvent();
+        return el;
     }
 
     /** Updates the pickers to show the given whiteboard styles (no events) */

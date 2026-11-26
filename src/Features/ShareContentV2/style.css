@@ -258,6 +258,11 @@ file-loader[progress] .icon path {
     --main-hover: #a14ac1;
     --main-active: #8c3fae;
 }
+.grid-icon[color-theme="text-tool-dark"]{
+    --main: #9b3db3;
+    --main-hover: #7d2793;
+    --main-active: #641977;
+}
 
 .grid-icon[color-theme="text-tool"],
 .grid-icon[color-theme="select-tool"],

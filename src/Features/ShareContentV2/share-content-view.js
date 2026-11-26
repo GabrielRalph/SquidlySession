@@ -355,6 +355,26 @@ export class ShareContentView extends OccupiableWindow {
         const dispatch = (name, e) => this.root.dispatchEvent(new AccessEvent(name, e));
         this.tools = this.root.createChild(ShareContentTools, {}, this.whiteboard, this.display, dispatch);
 
+        // the aac button in the text options gets text with the aac grid,
+        // returning to this window afterwards
+        this.tools.whiteboardTools.getText = async () => {
+            const aac = this.shareContent?.session.aacGrid;
+            if (!aac) return null;
+
+            // keep sharing the screen while away getting the text
+            this._keepShareOnClose = true;
+            const text = await aac.getText("shareContent", {
+                returnIconSymbol: "whiteboard",
+                sendIconSymbol: "whiteboard"
+            });
+            this._keepShareOnClose = false;
+
+            // the aac grid was closed without coming back (another window
+            // was opened), so end the screen share as closing would have
+            if (!this._isOpen) this.shareContent?.endScreenShare();
+            return text;
+        };
+
         /** @type {ShareWidgets} */
         this.widgets = this.tools.shareWidgets;
 
@@ -414,14 +434,18 @@ export class ShareContentView extends OccupiableWindow {
     /* ~~~~~~~~~~~~~~~~~~ WINDOW ~~~~~~~~~~~~~~~~~~~~ */
 
     async open(){
+        this._isOpen = true;
         this.shareContent?.session.cursors.updateReferenceArea("fixedAspectArea");
         await this.show();
     }
 
     async close(){
+        this._isOpen = false;
         this.shareContent?.session.cursors.updateReferenceArea("entireScreen");
-        this.shareContent?.endScreenShare();
-        this.tools.annotating = false;
+        // the screen share is kept while getting text from the aac grid
+        if (!this._keepShareOnClose) this.shareContent?.endScreenShare();
+        // the tools (annotating or sharing) are kept so they are the same
+        // when the window is opened again
         await this.hide();
     }
 

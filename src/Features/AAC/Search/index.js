@@ -453,6 +453,9 @@ class AACExplore extends ShadowElement {
             ...RoundedTabs.usedStyleSheets,
             ...AccessTextarea.usedStyleSheets,
             ...GridIcon.usedStyleSheets,
+            // the general icons, so other features can set the close icon
+            // (see AACFeature.getText)
+            relURL("../../../Utilities/Icons/ICSS_Icons/icons.css", import.meta),
             relURL("../icons.css", import.meta),
             relURL("./index.css", import.meta),
         ]
