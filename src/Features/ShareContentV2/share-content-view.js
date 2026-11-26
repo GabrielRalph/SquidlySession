@@ -227,15 +227,11 @@ class ShareContentTools extends SvgPlus {
         this.screenIcon = screenIcon;
         this.fileIcon = fileIcon;
 
-        this.hints = this.createChild(Hints);
-
         this.display = display;
         display.addEventListener("pagestate", () => this.updatePageIcons());
 
         this.contentType = null;
         this.annotating = false;
-
-
     }
 
     /** Shows the page arrows only for a loaded pdf with more than one page,
