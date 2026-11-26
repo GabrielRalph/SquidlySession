@@ -1,5 +1,5 @@
-import { GridCard, GridLayout } from "../../../Utilities/GridLayout/grid-icons.js";
-import { delay, relURL } from "../../../Utilities/usefull-funcs.js";
+import { GridCard, GridLayout } from "../../../../Utilities/GridLayout/grid-icons.js";
+import { delay, relURL } from "../../../../Utilities/usefull-funcs.js";
 
 const D2R = Math.PI / 180;
 function segPath(theta1, theta2, r, segsPerDeg = 0.05) {

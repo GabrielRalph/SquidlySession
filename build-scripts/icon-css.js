@@ -73,7 +73,7 @@ function extractGroup(svg, start) {
 // Splits an SVG containing <g id="CLayer_N"> groups into one SVG per layer.
 // Each layer SVG reuses the root <svg> tag (and so the viewBox) and any <defs>.
 function extractColorLayers(svg) {
-  const layerPattern = /<g\b[^>]*\bid=["']CLayer_(\d+)["'][^>]*>/gi;
+  const layerPattern = /<g\b[^>]*\bid=["']CLayer[_\s]*(\d+)["'][^>]*>/gi;
   const layers = [];
   let match;
   while ((match = layerPattern.exec(svg))) {
