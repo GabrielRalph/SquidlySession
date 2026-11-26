@@ -218,7 +218,7 @@ class ShareContentTools extends SvgPlus {
                 props: {hint: HINT_TEXT.Timer}
             },
             {
-                symbol: "timer",
+                symbol: "dice_icon",
                 colorTheme: "action",
                 events: {
                     "access-click": (e) => this.shareWidgets.toggleWidget("dice")
@@ -244,6 +244,7 @@ class ShareContentTools extends SvgPlus {
         ])
         this.shareTools = shareTools;
         this.shareWidgets.setIcon("timer", timer);
+        this.shareWidgets.setIcon("dice", dice)
         this.pageIcons = [prevIcon, nextIcon];
         this.screenIcon = screenIcon;
         this.fileIcon = fileIcon;
