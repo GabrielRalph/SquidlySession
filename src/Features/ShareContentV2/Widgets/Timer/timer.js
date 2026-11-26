@@ -23,7 +23,7 @@ function svg2dataUrl(svg) {
 
 class Timer extends GridCard {
     constructor({type = "plain", colorTheme="dark-a"} = {}) {
-        super("div", type, colorTheme);
+        super("access-button", type, colorTheme);
         this.icon = this.content
             .createChild("div", {class: "symbol", icon: true})
             .createChild("i-bw")
@@ -176,6 +176,7 @@ class TimerWidget extends GridLayout {
             this.#updateState();
         });
         this.timer = this.add(new Timer(), 0, [1,2])
+        this.timer.events = {"access-click": e => this.togglePausePlay()}
         this.#updateState(false);
         this.startUpdatingLoop();
     }
