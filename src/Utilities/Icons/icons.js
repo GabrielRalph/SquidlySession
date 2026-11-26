@@ -49,9 +49,8 @@ for (let name in IconSourceText) {
         html: svg.innerHTML
     }
   } catch(e) {
-    console.log(name, e);
+    console.log(name, e + "");
   }
-
 }
 
 const DEFAULT_ICON_STYLE = `

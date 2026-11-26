@@ -1,6 +1,9 @@
 video-panel-widget {
     --border: 2px;
     --bg-color: rgb(34 33 33);
+    --icon-color: #cac9c4;
+    --icon-color-hover: white;
+    --pip-br: 14px;
     background: var(--bg-color);
     width: 100%;
     height: 100%;
@@ -35,6 +38,7 @@ video-display {
     height: 100%;
     --t-width:var(--s-width);
     --t-height: var(--s-height);
+    overflow: hidden;
 }
 
 .stack[stack-mode="vertical-width"] video-display,
@@ -42,10 +46,27 @@ video-display {
     --v-width: calc(var(--t-width));
     --v-height: calc(var(--t-width) / var(--aspect, 1));
 }
+
 .stack[stack-mode="horizontal-width"] video-display,
 .stack[stack-mode="horizontal-height"] video-display{
     --v-height: calc(var(--t-height));
     --v-width: calc(var(--t-height) * var(--aspect, 1));
+}
+
+
+video-panel-widget[pip] .stack[stack-mode="vertical-width"] video-display:last-of-type,
+video-panel-widget[pip] .stack[stack-mode="vertical-height"] video-display:last-of-type {
+    border-radius: 0 0 var(--pip-br) var(--pip-br);
+}
+
+video-panel-widget[pip] .stack[stack-mode="horizontal-width"] video-display:last-of-type,
+video-panel-widget[pip] .stack[stack-mode="horizontal-height"] video-display:last-of-type {
+    border-radius: 0 0 var(--pip-br) 0;
+}
+
+video-panel-widget[pip] .stack[stack-mode="horizontal-width"] video-display:first-of-type,
+video-panel-widget[pip] .stack[stack-mode="horizontal-height"] video-display:first-of-type {
+    border-radius: 0 0 0 var(--pip-br);
 }
 
 video-display video {

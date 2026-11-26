@@ -565,7 +565,7 @@ export class ConnectionManager {
         let oldStream = this.stream;
         if (this.connection && this.connection.PC instanceof RTCPeerConnection) {
             for (let track of stream.getTracks()) {
-                const sender = this.connection.PC.getSenders().find((s) => s.track.kind === track.kind);
+                const sender = this.connection.PC.getSenders().find((s) => s.track?.kind === track.kind);
                 if (sender) {
                     sender.replaceTrack(track);
                 }

@@ -68,17 +68,16 @@ grid-layout[scale-font] {
     transition: transform var(--transition-time) ease;
 }
 
-.grid-icon[i-hidden] {
-    opacity: 0;
-    pointer-events: none;
-}
 
 .grid-icon[i-disabled] {
     opacity: 0.4;
     pointer-events: none;
 }
-
 .grid-icon[i-display-only] {
+    pointer-events: none;
+}
+.grid-icon[i-hidden] {
+    opacity: 0;
     pointer-events: none;
 }
 
@@ -242,9 +241,10 @@ grid-layout[scale-font] {
 }
 
 /* Active state */
-
-.grid-icon:not([i-disable-active]):active,
-.grid-icon:not([i-disable-active])[active] {
+.grid-icon:not([i-disable-active]):active .card-icon,
+.grid-icon:not([i-disable-active]):active .content,
+.grid-icon:not([i-disable-active])[active] .card-icon,
+.grid-icon:not([i-disable-active])[active] .content {
     transform: scale(0.97);
 }
 

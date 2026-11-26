@@ -15,7 +15,7 @@ import { relURL } from '../Utilities/usefull-funcs.js';
 /** @typedef {import('./Apps/apps.js').default} Apps */
 /** @typedef {import('./Chat/chat.js').default} ChatFeature */
 /** @typedef {import('./Quiz/quiz.js').default} QuizFeature */
-/** @typedef {import('./ShareContent/share-content.js').default} ShareContent */
+/** @typedef {import('./ShareContentV2/share-content.js').default} ShareContent */
 
 export class SquildyFeatureProxy {
 
@@ -88,5 +88,5 @@ export const FeaturesList = [
 	[() => import("./Apps/apps.js"), "apps"],
 	[() => import("./Chat/chat.js"), "chat"],
 	[() => import("./Quiz/quiz.js"), "quiz"],
-	[() => import("./ShareContent/share-content.js"), "shareContent"]
+	[() => import("./ShareContentV2/share-content.js"), "shareContent"]
 ];

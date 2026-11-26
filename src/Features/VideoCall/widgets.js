@@ -74,10 +74,18 @@ class VideoDisplay extends HideShowTransition {
         this.aspect = DEFAULT_ASPECT_RATIO;
     }
 
+    async toggle(isShow, time){
+        const changed = isShow !== this._shown;
+        const promise = super.toggle(isShow, time);
+        if (changed) {
+            this.dispatchEvent(new Event("toggle"));
+        }
+        await promise;
+    }
+    
     _update(mode){
         this.dispatchEvent(new MuteEvent(mode, null))
     }
-
 
 
     /** @param {boolean} bool */
@@ -90,7 +98,7 @@ class VideoDisplay extends HideShowTransition {
     }
 
     /** @param {boolean} value */
-    set video_muted(value) {
+    set videoMuted(value) {
         this.toggleAttribute("disabled", false);
         if (value === false) {
             this.setIcon("videoMute", "video", () => this._update("video"));
@@ -103,7 +111,7 @@ class VideoDisplay extends HideShowTransition {
         this._video_muted = value;
     }
     /** @param {boolean} value */
-    set audio_muted(value) {
+    set audioMuted(value) {
         if (value === false) {
             this.setIcon("audioMute", "unmute", () => this._update("audio"));
         } else if (value === true) {
@@ -172,8 +180,10 @@ class VideoDisplay extends HideShowTransition {
                 let cW = Math.min(this.W, videoWidth);
                 let cH = Math.min(this.H, videoHeight);
 
-                this.canvas.width = cW;
-                this.canvas.height = cH;
+                if (this.canvas.width != cW || this.canvas.height != cH) {
+                    this.canvas.width = cW;
+                    this.canvas.height = cH;
+                }
                 this.ctx.drawImage(video, 0, 0, videoWidth, videoHeight, 0, 0, cW, cH);
             }
         }
@@ -213,7 +223,6 @@ class VideoDisplay extends HideShowTransition {
 
 }
 
-
 const stackModes = {
     "vertical-height": (a1, a2, w, h, space) => [ (h - space) / (1/a1 + 1/a2), h ],
     "vertical-width": (a1, a2, w, h, space) => [ w, (w / a1) + (w / a2) + space ],
@@ -221,7 +230,7 @@ const stackModes = {
     "horizontal-height": (a1, a2, w, h, space) => [ h * a1 + h * a2 + space, h ],
 }
     
-export class VideoPanelWidget extends SquidlyFeatureWindow {
+class VideoPanelWidget extends SquidlyFeatureWindow {
     /** @type {VideoDisplay} */
     host = null;
 
@@ -235,14 +244,18 @@ export class VideoPanelWidget extends SquidlyFeatureWindow {
 
         this.stack = this.createChild("div", {class: "stack"})
 
-        this.participant = this.stack.createChild(VideoDisplay, {events: {
+        let layoutEvents = {
             aspect: this._update_layout.bind(this),
+            toggle: this._update_layout.bind(this),
+        }
+        this.participant = this.stack.createChild(VideoDisplay, {events: {
+            ...layoutEvents,
             mute: (e) => this.dispatchEvent(new MuteEvent(e.track, "participant")),
         }});
         this.participant.userName = "participant";
 
         this.host = this.stack.createChild(VideoDisplay, {events: {
-            aspect: this._update_layout.bind(this),
+            ...layoutEvents,
             mute: (e) => this.dispatchEvent(new MuteEvent(e.track, "host")),
         }});
         this.host.userName = "host";
@@ -256,14 +269,6 @@ export class VideoPanelWidget extends SquidlyFeatureWindow {
         robs.observe(this.root);
     }
 
-
-    toggleUserVideoDisplay(user, show) {
-        let element = user === "host" ? this.host : this.participant;
-        if (element.shown !== show) {
-            element.shown = show;
-            this._update_layout();
-        }
-    }
 
     _update_layout() {
         let aspectA = this.host.shown ? this.host.aspect : 0;
@@ -301,8 +306,122 @@ export class VideoPanelWidget extends SquidlyFeatureWindow {
         }
     }
 
-
     static get usedStyleSheets(){
         return [relURL("./style.css", import.meta)]
     }
 }
+
+
+class WidgetManager {
+    #widgetLibrary = {};
+    #waitTimeouts = {};
+    #widgetProperties = {};
+
+
+    #all() {return Object.values(this.#widgetLibrary).map(info => info.widget);}
+
+    setWidgetProperty(user, prop, value) {
+        if (!this.#widgetProperties[user]) {
+            this.#widgetProperties[user] = {};
+        }
+        this.#widgetProperties[user][prop] = value;
+
+        this.#all().forEach(widget => {
+            if (widget[user] && typeof widget[user] === "object" ) {
+                widget[user][prop] = value;
+            }
+        });
+    }
+
+    getWidgetProperty(user, prop) {
+        return this.#widgetProperties[user]?.[prop] ?? null;
+    }
+
+
+    render(user, video) {
+        if (video != null) {
+            for (const name in this.#widgetLibrary) {
+                const widgetInfo = this.#widgetLibrary[name]
+                if (widgetInfo.visible()) {
+                    widgetInfo.widget[user] .captureFrame(video);
+                }
+            }
+        }
+    }
+
+    setMuteState(user, state, track) {
+        const prop =  track + "Muted";
+        this.setWidgetProperty(user, prop, state);
+    }
+
+    setUserName(user, name) {
+        this.setWidgetProperty(user, "userName", name);
+    }
+
+    setUserImage(user, image) {
+        this.setWidgetProperty(user, "userImage", image);
+    }
+
+    setTalking(user, talking) {
+        this.setWidgetProperty(user, "isTalking", talking);
+    }
+
+    setWaitingState(user, state, wait = 0) {
+        clearTimeout(this.#waitTimeouts[user]);
+        if (wait > 0) {
+            this.#waitTimeouts[user] = setTimeout(() => {
+                this.setWaitingState(user, state);
+            }, wait);
+        } else {
+            const lastState = this.getWidgetProperty(user, "waiting");
+            if (lastState !== state) {
+                this.setWidgetProperty(user, "waiting", state);
+            }
+        }
+    }
+
+    setVisibility(user, isVisible) {
+        this.setWidgetProperty(user, "shown", isVisible)
+    }
+
+    clear(user) {
+        this.setVisibility(user, false);
+    }
+
+        
+
+    remove(name){
+        delete this.#widgetLibrary[name];
+    }
+
+    create(name, isVisibleMethod){
+        const widget = new VideoPanelWidget();
+        this.#widgetLibrary[name] = {
+            widget: widget,
+            visible: isVisibleMethod
+        };
+
+        // Listen for mute events from the widget
+        widget.addEventListener("mute", (event) => {
+            this.onMuteClick?.(
+                event.track,
+                event.user,
+                event
+            );
+        });
+
+        // Apply existing widget properties 
+        // to the new widget instance
+        Object.entries(this.#widgetProperties).forEach(([user, props]) => {
+            Object.entries(props).forEach(([prop, value]) => {
+                if (widget[user] && typeof widget[user] === "object") {
+                    widget[user][prop] = value;
+                }
+            })
+        });
+        return widget;
+    }
+}
+
+
+export { VideoPanelWidget, WidgetManager };
