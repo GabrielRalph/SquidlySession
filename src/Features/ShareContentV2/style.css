@@ -210,6 +210,13 @@ file-loader[progress] .icon path {
     --outline: #ee5f0c;
 }   
 
+.grid-icon[color-theme="clear"] {
+    --main: #b1a09854;
+    --main-hover: #b1a0986b;
+    --main-active: #b1a09873;
+    --outline: #b1a098;
+}   
+
 .grid-icon[color-theme="dark-a"] {
     --main: #273037;
     --main-hover: #0c141a;
@@ -378,4 +385,16 @@ i-bw[i = "text"] {
 @keyframes fadeIn {
     from { pointer-events: none; }
     to { pointer-events: all; }
+}
+
+
+dice-roller-widget-display {
+    display: block;
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+dice-roller-widget-display canvas {
+    position: absolute;
+    inset: 0;
 }

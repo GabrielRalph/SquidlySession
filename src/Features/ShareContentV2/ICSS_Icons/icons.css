@@ -10,7 +10,12 @@
     --i-dice_4: url('data:image/svg+xml,<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g><rect x="21.34" y="54" width="25" height="25" rx="6.31" ry="6.31"/><rect x="54.34" y="54" width="25" height="25" rx="6.31" ry="6.31"/></g><g><rect x="20.66" y="21" width="25" height="25" rx="6.31" ry="6.31"/><rect x="53.66" y="21" width="25" height="25" rx="6.31" ry="6.31"/></g></svg>');
     --i-dice_5: url('data:image/svg+xml,<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g><rect x="21" y="21" width="25" height="25" rx="6.31" ry="6.31"/><rect x="54" y="21" width="25" height="25" rx="6.31" ry="6.31"/></g><g><rect x="4.5" y="54" width="25" height="25" rx="6.31" ry="6.31"/><rect x="37.5" y="54" width="25" height="25" rx="6.31" ry="6.31"/><rect x="70.5" y="54" width="25" height="25" rx="6.31" ry="6.31"/></g></svg>');
     --i-dice_6: url('data:image/svg+xml,<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g><rect x="4.5" y="21" width="25" height="25" rx="6.31" ry="6.31"/><rect x="37.5" y="21" width="25" height="25" rx="6.31" ry="6.31"/><rect x="70.5" y="21" width="25" height="25" rx="6.31" ry="6.31"/></g><g><rect x="4.5" y="54" width="25" height="25" rx="6.31" ry="6.31"/><rect x="37.5" y="54" width="25" height="25" rx="6.31" ry="6.31"/><rect x="70.5" y="54" width="25" height="25" rx="6.31" ry="6.31"/></g></svg>');
-    --i-dice_colors: url('data:image/svg+xml,<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g id="CLayer1"><path d="M16.5,48.5c0-8.27,6.73-15,15-15h6v-1.8c0-3.98-3.22-7.2-7.2-7.2h-15.6c-3.98,0-7.2,3.22-7.2,7.2v15.6c0,3.98,3.22,7.2,7.2,7.2h1.8V48.5Z" style="fill: blue;"/></g><g id="CLayer2"><circle cx="14.7" cy="31.7" r="3.73" style="fill: %23fff;"/></g><g id="CLayer3"><rect x="19.5" y="36.5" width="50" height="50" rx="12" ry="12" style="fill: red;"/></g><g id="CLayer4"><circle cx="31.5" cy="48.5" r="6.21" style="fill: %23fff;"/><circle cx="57.5" cy="74.5" r="6.21" style="fill: %23fff;"/></g><g id="CLayer5"><path d="M82.9,13.5h-20.8c-5.3,0-9.6,4.3-9.6,9.6v10.4h5c8.27,0,15,6.73,15,15v5h10.4c5.3,0,9.6-4.3,9.6-9.6v-20.8C92.5,17.8,88.2,13.5,82.9,13.5Z"/></g><g id="CLayer6"><circle cx="62.1" cy="23.1" r="4.97" style="fill: %23ff0;"/><circle cx="82.9" cy="43.9" r="4.97" style="fill: %23ff0;"/></g></svg>');
+    --i-dice_colors: url('data:image/svg+xml,<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g id="CLayer1"><path d="M16.5,48.5c0-8.27,6.73-15,15-15h6v-1.8c0-3.98-3.22-7.2-7.2-7.2h-15.6c-3.98,0-7.2,3.22-7.2,7.2v15.6c0,3.98,3.22,7.2,7.2,7.2h1.8V48.5Z" style="fill: blue;"/></g></svg>');
+    --i-dice_colors_1: url('data:image/svg+xml,<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g id="CLayer2"><circle cx="14.7" cy="31.7" r="3.73" style="fill: %23fff;"/></g></svg>');
+    --i-dice_colors_2: url('data:image/svg+xml,<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g id="CLayer3"><rect x="19.5" y="36.5" width="50" height="50" rx="12" ry="12" style="fill: red;"/></g></svg>');
+    --i-dice_colors_3: url('data:image/svg+xml,<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g id="CLayer4"><circle cx="31.5" cy="48.5" r="6.21" style="fill: %23fff;"/><circle cx="57.5" cy="74.5" r="6.21" style="fill: %23fff;"/></g></svg>');
+    --i-dice_colors_4: url('data:image/svg+xml,<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g id="CLayer5"><path d="M82.9,13.5h-20.8c-5.3,0-9.6,4.3-9.6,9.6v10.4h5c8.27,0,15,6.73,15,15v5h10.4c5.3,0,9.6-4.3,9.6-9.6v-20.8C92.5,17.8,88.2,13.5,82.9,13.5Z"/></g></svg>');
+    --i-dice_colors_5: url('data:image/svg+xml,<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g id="CLayer6"><circle cx="62.1" cy="23.1" r="4.97" style="fill: %23ff0;"/><circle cx="82.9" cy="43.9" r="4.97" style="fill: %23ff0;"/></g></svg>');
     --i-elbow: url('data:image/svg+xml,<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M12.5,19.022c35.117,0,37.625,61.957,75,61.957" style="fill: none; stroke: %23000; stroke-linecap: round; stroke-linejoin: round; stroke-width: 7.19px;"/></svg>');
     --i-ellipse: url('data:image/svg+xml,<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="37.5" style="fill: none; stroke: %23000; stroke-miterlimit: 10; stroke-width: 7px;"/><circle cx="50" cy="50" r="37.5" style="isolation: isolate; opacity: .5;"/></svg>');
     --i-eraser: url('data:image/svg+xml,<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><polygon points="28.59 57.077 8.695 31.938 28.59 14.51 45.247 14.51 57.739 28.391 28.59 57.077" style="opacity: .2;"/><path d="M82.592,53.231h0L47.44,13.329c-.916-1.04-2.236-1.636-3.622-1.636h-6.631s-.18-.09-.27-.09c-5.125,0-10.07,1.888-13.936,5.215l-14.359,12.636c-2.001,1.761-2.196,4.81-.435,6.812l9.31,10.582h0l35.152,39.902c.916,1.04,2.236,1.636,3.622,1.636h6.181c5.485.18,10.879-1.798,14.925-5.485l13.99-12.277c2.005-1.76,2.203-4.813.44-6.816l-9.305-10.577h.09ZM11.424,33.861c-.419-.474-.374-1.199.101-1.617l14.154-12.459c3.147-2.787,7.103-4.226,11.239-4.226h5.103c1.386,0,2.705.596,3.621,1.636l6.69,7.592c1.765,2.003,1.569,5.059-.438,6.819l-11.019,9.667c-4.136,3.596-9.441,5.574-14.925,5.574h-.792c-1.439,0-2.809-.62-3.758-1.702l-9.974-11.284Z"/></svg>');
@@ -87,7 +92,15 @@
 [i="dice_4"] { --i-bg: var(--i-dice_4); }
 [i="dice_5"] { --i-bg: var(--i-dice_5); }
 [i="dice_6"] { --i-bg: var(--i-dice_6); }
-[i="dice_colors"] { --i-bg: var(--i-dice_colors); }
+[i="dice_colors"] {
+    --layers: 6;
+    --i-bg: var(--i-dice_colors);
+    --i-bg_1: var(--i-dice_colors_1);
+    --i-bg_2: var(--i-dice_colors_2);
+    --i-bg_3: var(--i-dice_colors_3);
+    --i-bg_4: var(--i-dice_colors_4);
+    --i-bg_5: var(--i-dice_colors_5);
+}
 [i="elbow"] { --i-bg: var(--i-elbow); }
 [i="ellipse"] { --i-bg: var(--i-ellipse); }
 [i="eraser"] { --i-bg: var(--i-eraser); }
@@ -163,6 +176,8 @@ i-bw > i:nth-child(1) { mask-image: var(--i-bg); }
 i-bw > i:nth-child(2) { background-color: var(--i-color-1, black); mask-image: var(--i-bg_1); }
 i-bw > i:nth-child(3) { background-color: var(--i-color-2, black); mask-image: var(--i-bg_2); }
 i-bw > i:nth-child(4) { background-color: var(--i-color-3, black); mask-image: var(--i-bg_3); }
+i-bw > i:nth-child(5) { background-color: var(--i-color-4, black); mask-image: var(--i-bg_4); }
+i-bw > i:nth-child(6) { background-color: var(--i-color-5, black); mask-image: var(--i-bg_5); }
 i-bw {
     background-color: currentColor;
     mask-image: var(--i-bg);

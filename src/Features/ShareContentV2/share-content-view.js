@@ -6,8 +6,9 @@ import { AccessEvent } from "../../Utilities/Buttons/access-buttons.js";
 import { OccupiableWindow } from "../features-interface.js";
 import { WhiteBoard } from "./WhiteBoard/whiteboard.js";
 import { ContentDisplay } from "./content-display.js";
-import { TimerWidget } from "./Widgets/timer.js";
+import { TimerWidget } from "./Widgets/Timer/timer.js";
 import HINT_TEXT from "./hint-text.js";
+import { DiceWidget } from "./Widgets/Dice/dice-widget.js";
 
 const SPACE = 4;
 const BORDER_RADIUS = 14;
@@ -36,6 +37,7 @@ class ShareWidgets extends GL {
         this.class = "dynamic-options"
         this.widgets = {
             timer: new TimerWidget(),
+            dice: new DiceWidget()
         }
 
         for (const widgetName in this.widgets) {
@@ -190,7 +192,7 @@ class ShareContentTools extends SvgPlus {
         this.modeIcon = modeIcon;
 
         const shareTools = this.createChild(GL, {class: "dynamic"}, 1, 8)
-        const [screenIcon, fileIcon, timer, prevIcon, nextIcon] = shareTools.addGridIcons([
+        const [screenIcon, fileIcon, timer, dice, prevIcon, nextIcon] = shareTools.addGridIcons([
             {
                 symbol: "screen",
                 colorTheme: "action",
@@ -212,6 +214,14 @@ class ShareContentTools extends SvgPlus {
                 colorTheme: "action",
                 events: {
                     "access-click": (e) => this.shareWidgets.toggleWidget("timer")
+                },
+                props: {hint: HINT_TEXT.Timer}
+            },
+            {
+                symbol: "timer",
+                colorTheme: "action",
+                events: {
+                    "access-click": (e) => this.shareWidgets.toggleWidget("dice")
                 },
                 props: {hint: HINT_TEXT.Timer}
             },
