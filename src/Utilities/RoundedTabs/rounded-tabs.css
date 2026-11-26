@@ -1,0 +1,34 @@
+
+
+rounded-tabs {
+    position: relative;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    height: 100%;
+    width: 100%;
+
+    --fill-color: red;
+}
+
+rounded-tabs .tab-display {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+}
+rounded-tabs .tab-display path {
+    fill: var(--fill-color);
+}
+rounded-tabs .tabs-container {
+    display: flex;
+}
+rounded-tabs .tabs-container .tab {
+    cursor: pointer;
+    z-index: 1;
+}
+rounded-tabs .main-content {
+    z-index: 3;
+}
+

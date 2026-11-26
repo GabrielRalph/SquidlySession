@@ -1,0 +1,71 @@
+.slot, .slot-1, .slot-2 {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    display: flex;
+}
+
+/* Rotater Styles */
+
+.rotater {
+    width: 100%;
+    height: 100%;
+    perspective: 2000px;
+}
+
+.rotater > div {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    will-change: transform;
+}
+
+.rotater > div > .slot-2 {
+    transform: rotateY(180deg);
+}
+
+
+/* Slider Styles */
+
+
+.slider {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.slider-transitioner {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.slider .slot[mode="left"] {
+    transform: translateX(-100%)
+}
+
+.slider .slot[mode="right"] {
+    transform: translateX(100%)
+}
+
+.slider .slot[mode="up"] {
+    transform: translateY(100%)
+}
+
+.slider .slot[mode="down"] {
+    transform: translateY(-100%)
+}
+
+.slider .slot[mode="none"] {
+    display: none;
+}

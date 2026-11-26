@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Noise suppression file comparison</title>
+		<style>
+			body {
+				font-family: sans-serif;
+				max-width: 48rem;
+				margin: 2rem auto;
+				padding: 0 1rem;
+			}
+			section {
+				margin-top: 1.5rem;
+			}
+			audio {
+				display: block;
+				width: 100%;
+				margin-top: 0.5rem;
+			}
+			#status[data-error="true"] {
+				color: #b00020;
+			}
+		</style>
+	</head>
+	<body>
+		<main>
+			<h1>Noise suppression file comparison</h1>
+			<p>
+				Choose any audio format supported by this browser. The processed result
+				uses the same algorithm contract as the live AudioWorklet adapter.
+			</p>
+
+			<form id="file-test-form">
+				<label for="audio-file">Audio file</label>
+				<input id="audio-file" type="file" accept="audio/*" required />
+				<button type="submit">Process file</button>
+			</form>
+
+			<p id="status" role="status" aria-live="polite"></p>
+
+			<section>
+				<h2>Original</h2>
+				<audio id="original-audio" controls></audio>
+			</section>
+
+			<section>
+				<h2>Processed</h2>
+				<audio id="processed-audio" controls></audio>
+				<p><a id="download-output" hidden>Download processed WAV</a></p>
+			</section>
+		</main>
+
+		<script type="module" src="./noise-suppression-file-test.js"></script>
+	</body>
+</html>

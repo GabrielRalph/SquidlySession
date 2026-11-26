@@ -1,0 +1,206 @@
+:host {
+    --grid-layout-gap: 4px;
+
+    --_capped_cols: 5;
+    --_fs-w-ratio: calc( 0.1 + 0.02 * (( var(--_capped_cols) - 4 ) / 12) );
+    --_font-size-w: calc( var(--_cell-width) * var(--_fs-w-ratio) );
+    --_font-size-h: calc( var(--_cell-height) * 0.2);
+
+    font-size: min( var(--_font-size-w), var(--_font-size-h) );
+}
+
+grid-layout {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+aac-explore-root {
+    --panel-bg: #2e2e2e;
+    display: flex;
+    width: 100%;
+    height: 100%;
+    backdrop-filter: blur(10px);
+    padding: 4px;
+
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 200;
+
+
+    box-sizing: border-box;
+    background: linear-gradient(
+            to bottom, rgba(0, 0, 0, 0) 0%, 
+            var(--panel-bg) 100%
+        ), 
+        linear-gradient(
+            120deg, 
+            rgba(90, 101, 255, 0.8) 0%, 
+            rgba(255, 54, 54, 0.8) 50%, 
+            rgba(255, 153, 44, 0.8) 100%
+        );
+    border-radius: 24px 24px 0 0;
+    transition: 0.3s ease-in-out transform;
+}
+
+rounded-tabs {
+    --fill-color: #131212e3;
+}
+
+
+
+rounded-tabs .tabs-container {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+}
+
+rounded-tabs .tabs-container > .tab {
+    height: 15vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px;
+}
+
+rounded-tabs .main-content > grid-layout {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    padding: 3px;
+}
+
+.grid-icon[color-theme="textarea"] {
+    color: black;
+    --lines: 2;
+}
+
+.grid-icon[color-theme="textarea"] .content { 
+    display: grid;
+    grid-template-rows: 1fr auto;
+    justify-content: unset;
+}
+
+.grid-icon access-textarea { 
+    width: 100%;
+    height: 100%;
+    --caret-color: var(--outline);
+}
+
+
+  /* Container to stack both layers perfectly */
+.page-progress {
+    font-size: 0.6em;
+    --background: var(--main, white);
+    --active-color: var(--outline);
+    --inactive-color: #689bec;
+    --border: 5px;
+
+    position: relative;
+    width: 100%;
+    height: calc(1em + 2 * 0.2em + 2 * var(--border)); 
+    display: flex;
+    align-items: center;
+    padding-bottom: 0.3em;
+
+
+    --line: var(--border);
+    --text: "Page " attr(page-num) " / " attr(total-pages);
+}
+
+.page-progress[page-num="1"][total-pages="1"] {
+    display: none;
+}
+.page-progress[total-pages="0"] > * {
+    display: none;
+}
+.page-progress[total-pages="0"]::after {
+    content: "No results";
+}
+
+/* Base styles shared by both layers */
+.page-progress > div{
+    --_color: var(--inactive-color);
+    position: absolute;
+    width: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    height:     var(--line);
+    border-radius:  var(--line);
+    background-color: var(--_color)
+}
+.page-progress > div:last-of-type {
+    --_neg-line: calc(-1 * (var(--line) + 2em));
+    --_color: var(--active-color);
+    --_progress: calc(100% - var(--p) * 100%);
+    clip-path: inset(var(--_neg-line) var(--_progress) var(--_neg-line) var(--_neg-line));
+    transition: 0.2s ease-in-out clip-path;
+}
+
+.page-progress::after,
+.page-progress > div::after {
+    content: var(--text);
+    line-height: 1em;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: calc(var(--border) + 0.2em) calc(var(--border) + 0.4em);
+    border-radius: 2em;
+    white-space: nowrap;
+    background-color: var(--_color);
+}
+.page-progress::after {
+    padding: 0.2em 0.4em;
+    background-color: var(--background);
+}
+
+
+
+.grid-icon[color-theme="featured"] {
+    --main: hsl(211, 85%, 40%);
+    --main-hover: hsl(211, 85%, 30%);
+    --main-active: hsl(211, 85%, 20%);
+    --outline: hsl(211, 85%, 20%);
+
+    --tab: hsl(211, 87%, 29%);
+    --tab-hover: hsl(211, 66.5%, 49.6%);
+    --tab-active: hsl(211, 73.5%, 40.300000000000004%);
+
+    --icon-color: hsl(211, 100%, 24.9%);
+    --icon-color-hover: hsl(211, 100%, 12.45%);
+    --text: white;
+}
+
+.grid-icon[color-theme="public"] {
+    --main: hsl(98, 80%, 30%);
+    --main-hover: hsl(98, 80%, 23%);
+    --main-active: hsl(98, 80%, 15%);
+    --outline: hsl(98, 80%, 10%);
+
+    --tab: hsl(102, 93%, 17%);
+    --tab-hover: hsl(102, 66.5%, 48.800000000000004%);
+    --tab-active: hsl(102, 73.5%, 39.65%);
+
+    
+    --icon-color: hsl(102, 74%, 22.8%);
+    --icon-color-hover: hsl(102, 74%, 11.4%);
+    --text: white;
+}
+.grid-icon[color-theme="favourite"] {
+    --main: hsl(47, 85%, 40%);
+    --main-hover: hsl(47, 85%, 30%);
+    --main-active: hsl(47, 85%, 20%);
+    --outline: hsl(47, 85%, 10%);
+
+    --tab: hsl(47, 91%, 23%);
+    --tab-hover: hsl(47, 54.15%, 43.2%);
+    --tab-active: hsl(47, 59.85%, 35.1%);
+
+
+    --icon-color: hsl(47, 100%, 23.7%);
+    --icon-color-hover: hsl(47, 100%, 11.85%);
+    --text: white;
+}

@@ -1,0 +1,28 @@
+keyboard-window[shadow] {
+    --gap: 2px;
+
+    /* display: none; */
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    background: white;
+    pointer-events: all;
+}
+
+grid-layout {
+    position: absolute;
+    top: var(--gap);
+    left: var(--gap);
+    right: var(--gap);
+    bottom: var(--gap);
+}
+
+.grid-icon .content {
+    gap: 0;
+}
+
+
+.folder-keyboard .grid-icon[suggestion] .content {
+    font-size: 1.5em;
+}

@@ -1,0 +1,273 @@
+import terser from '@rollup/plugin-terser';
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
+import { get } from 'http';
+
+const outputDir = 'build';
+
+function colorText(text, hue) {
+    return `\x1b[38;5;${hue}m${text}\x1b[0m`;
+}
+
+
+function getURLSFromCSS(css) {
+    let urls = [];
+    let matches = css.matchAll(/url\(/g);
+    for (let match of matches) {
+        let idx = match.index + 4; // position after 'url('
+        let char = css[idx];
+        idx = char === '"' || char === "'" ? idx + 1 : idx; // skip opening quote if present
+        let closeChar = char === '"' || char === "'" ? char : ')';
+        for (let i = idx; i < css.length; i++) {
+            if (css[i] === closeChar) {
+                urls.push({url: css.substring(idx, i), index: match.index});
+                break;
+            }
+        }
+    }
+    return urls;
+}
+
+function relURLAssetPlugin({ srcDir = 'src'} = {}) {
+    const fileMap = {};
+    const cssAssetMap = {};
+    const cssToProcess = [];
+    return {
+        name: 'relurl-asset-plugin',
+
+        transform(code, id) {
+            // console.log("Transforming:", id);
+            let newCode = code;
+
+            // Only transform JS modules in srcDir
+            if (id.startsWith(path.resolve(srcDir))) {
+                newCode = code.replace(
+                    /relURL\([\s\n]*['"](.+?)['"][\s\n]*,[\s\n]*import\.meta,?[\s\n]*\)/g,
+                    (value, origPath) => {
+                        // For each matched relURL call
+                        const absPath = path.resolve(path.dirname(id), origPath.replace(/^(\.\/|\/)/, ''));
+                        
+                        // Check if file exists
+                        if (fs.existsSync(absPath)) {
+                         
+                            // If we've already processed this file, reuse the new path
+                            if (absPath in fileMap) {
+                                console.log(`${colorText("Reusing asset", 202)}: ${fileMap[absPath]}`);
+                                value = fileMap[absPath];
+
+                            // Otherwise if the file is a JS module, we will emit it.
+                            } else if (absPath.endsWith('.js')) {
+                                let id = this.emitFile({
+                                    type: 'chunk',
+                                    id: absPath,
+                                    name: path.basename(origPath, '.js')
+                                });
+                                value = `import.meta.ROLLUP_FILE_URL_${id}`;
+                                fileMap[absPath] = value;
+                                console.log(`${colorText("Emitted JS asset", 40)}: ${origPath} -> ${value}`);
+                            
+                                // Otherwise the file exists, is not a JS module, 
+                            // and we haven't processed it yet, so we copy it
+                            // to the output directory with a hashed name.
+                            } else if (absPath.endsWith(".css")) {
+                                let cssFile = fs.readFileSync(absPath, 'utf8');
+
+                                // Get urls that link to other assets in the CSS file.
+                                let urls = getURLSFromCSS(cssFile);
+                                urls = urls.filter(({url}) => 
+                                    !(url.startsWith('data:') || url.startsWith("#") || url.startsWith('http://') || url.startsWith('https://')) &&
+                                    fs.existsSync(path.resolve(path.dirname(absPath), url))
+                                );
+
+                                let urlMap = {};
+                                if (urls.length > 0) {
+                                    console.log(`${colorText("Processing CSS assets", 27)}: ${urls.map(u => u.url).join(', ')}`);
+                                    for (let {url} of urls) {
+                                        let assetPath = path.resolve(path.dirname(absPath), url);
+                                        
+                                        let id;
+                                        if (!(assetPath in cssAssetMap)) {
+                                            id = this.emitFile({    
+                                                type: 'asset',
+                                                name: path.basename(assetPath),
+                                                source: fs.readFileSync(assetPath),
+                                            });
+                                        } else {
+                                            id = cssAssetMap[assetPath];
+                                        }
+                                        urlMap[url] = id;
+                                    }
+                                    
+                                }
+
+                                let id = this.emitFile({
+                                    type: 'asset',
+                                    name: path.basename(origPath),
+                                    source: cssFile,
+                                    ext: '.css'
+                                });
+                                console.log(`${colorText("Emitted CSS asset", 27)}: ${origPath} -> import.meta.ROLLUP_FILE_URL_${id}`);
+                                value = `import.meta.ROLLUP_FILE_URL_${id}`;
+                                fileMap[absPath] = value;
+
+                                if (urls.length > 0) {
+                                    cssToProcess.push({
+                                        cssFile,
+                                        urlMap,
+                                        absPath,
+                                        origPath,
+                                        id
+                                    });
+                                }
+
+                            } else {
+                                let id = this.emitFile({
+                                    type: 'asset',
+                                    name: path.basename(origPath),
+                                    source: fs.readFileSync(absPath),
+                                    ext: path.extname(origPath)
+                                });
+                                value = `import.meta.ROLLUP_FILE_URL_${id}`;
+                                fileMap[absPath] = value;
+                                // let file = fs.readFileSync(absPath);
+                                // const oldName = path.basename(origPath);
+                                
+                                // const randId = crypto.randomBytes(6).toString('hex'); // 12-char hex
+                                // const newFileName = `${randId}-${oldName}`;
+                                // newRelPath = `'./assets/${newFileName}'`;
+                                // value = `relURL(${newRelPath}, import.meta)`;
+                                // fileMap[absPath] = value;
+
+                                // // Copy file to output dir
+                                // if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+                                // fs.writeFileSync(path.join(outDir, newFileName), file);
+                                console.log(`${colorText("Coppied asset", 212)}: ${origPath} -> ${value}`);
+                            }
+
+                            
+                        } else {
+                            console.warn(`relURL asset not found: ${absPath}`);
+                        }
+
+                        return value;
+                    }
+                );
+            }
+
+            return {
+                code: newCode,
+                map: null
+            };
+        },
+        generateBundle(_, bundle) {
+            for (const {cssFile, urlMap, id} of cssToProcess) {
+                const cssFileName = this.getFileName(id);
+                let cssContent = cssFile;
+                for (let url in urlMap) {
+                    const assetId = urlMap[url];
+                    const assetFileName = this.getFileName(assetId);
+                    const relPath = path.relative(path.dirname(cssFileName), assetFileName);
+                    cssContent = cssContent.replace(url, relPath);
+                    console.log(`${colorText("Updated CSS asset URL", 213)}: ${url} -> ${assetFileName} in ${cssFileName}`);
+                }
+
+                if (bundle[cssFileName]) {
+                    bundle[cssFileName].source = cssContent;
+                }
+            }
+        }
+    };
+}
+
+function getJSDOCCommentBlocks(code) {
+    const commentBlocks = [];
+    const regex = /\/\*\*([\s\S]*?)\*\//g;
+    let match;
+    while ((match = regex.exec(code)) !== null) {
+        commentBlocks.push(match);
+    }
+    return commentBlocks;
+}
+
+
+function rewriteJsDocImports({ outDir = 'build' } = {}) {
+    return {
+        name: 'rewrite-jsdoc-imports',
+        transform(code, id) {
+            // Only touch JS modules inside src/
+            if (!id.startsWith(path.resolve('src'))) return null;
+
+
+            // Find all JSDOC comment blocks and look for import(...) statements, 
+            // replacing them with just the imported name.
+            const jsDocBlocks = getJSDOCCommentBlocks(code);
+            let newCode = code;
+            for (let block of jsDocBlocks) {
+                let blockText = block[0];
+                let importMatches = blockText.matchAll(
+                    /import[\s\n\*]*\([\s\n\*]*["'](.*)["'][\s\n\*]*\)[\s\n\*]*\.[\s\n\*]*(\w+)/g
+                );
+                for (let match of importMatches) {
+                    newCode = newCode.replace(match[0], () => {
+                        const importedName = match[2];
+                        return importedName;
+                    });
+                }
+            }
+
+            // Additionally, remove any typedefs that are just of the form {TypeName} TypeName,
+            //  as these are redundant after the above replacement.
+            newCode = newCode.replace(
+                /@typedef[\s\n]*{[\s\n]*(\w+)[\s\n]*}[\s\n]*\1/g,
+                ""
+            )
+
+            return newCode === code ? null : { code: newCode, map: null };
+        }
+    };
+}
+
+// Delete all files in dist (synchronously)
+if (fs.existsSync(outputDir)) {
+    fs.rmSync(outputDir, { recursive: true, force: true });
+}
+
+export default [
+    {
+        input: ['src/squidly-session.js', 'src/Utilities/utilities.js'],
+        output: {
+            dir: outputDir,
+            format: 'es',
+            plugins: [
+                terser({
+                    mangle: {
+                        toplevel: true
+                    },
+                    compress: {
+                        passes: 3,
+                        pure_getters: true,
+                        unsafe: true
+                    },
+                    format: {
+                        comments: false
+                    }
+                })
+            ]
+        },
+        plugins: [
+            relURLAssetPlugin(),
+        ]
+    },
+    {
+        input: 'src/Utilities/utilities.js',
+        output: {
+            file: outputDir + '/utilities-dev.js',
+            format: 'es',
+        },
+        plugins: [
+            relURLAssetPlugin(),
+            rewriteJsDocImports()
+        ]
+    }
+];

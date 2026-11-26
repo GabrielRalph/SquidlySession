@@ -1,0 +1,47 @@
+## Bug Fixes
+- If page is refreshed on settigs/user/devices then no devices show
+
+
+## Minor changes
+- Sync share screen hide show buttons
+- AAC grid search
+
+## Minor Reworks
+- Eyegaze module needs reworking
+- Webcam module seperates algorithm from the process which is not great
+
+
+## Ideas 
+**Global Gridsize**
+- A global gridsize for the squidly session (currently its 5x4) but
+  what if you could change that to a different size.
+- Globally shared between users. 
+
+
+**Split screen**
+
+
+## Features
+**Dwell animation**, change the dwell loader?
+- Shrinking dot
+- Expanding dot
+- Pie
+- Ring
+- broadcast dwell
+
+**AAC Rework**
+- Combine all grid sets 
+- New sizes 
+- Remove hide option (to many clicks)
+- AAC Word search
+- AAC viewer that can be used outside of squidly
+- * Editor in session
+
+**Share screen rework**
+- Annotate on screen
+- Stop participant from annotating
+- Reduce the amount of space that the buttons take up
+
+**Fast switching** between apps and acc
+- More hotkeys
+- Hotkey labels

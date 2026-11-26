@@ -1,0 +1,405 @@
+share-content-view {
+    width: 100%;
+    height: 100%;
+    display: block;
+    position: relative;
+    --space: 8px;
+    --border-radius: 18px;
+    --grid-layout-gap: 8px;
+    background-color: rgb(34 33 33);
+}
+white-board {
+    pointer-events: all;
+}
+access-button, .grid-icon {
+    pointer-events: all;
+}
+.sc-tools, .content-grid {
+    position: absolute;
+    top: 0;
+    left: 0;    
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+.content-grid {
+    display: grid;
+    grid-template-rows: 1fr 8fr;
+    padding: var(--space);
+    padding-bottom: calc(2 * var(--space));
+    row-gap: calc(var(--space) * 2);
+    column-gap: var(--space);
+}
+
+.content-cell {
+    grid-row: 2;
+    position: relative;
+}
+
+.content-area {
+    position: absolute;
+    top: calc(-1 * var(--space));
+    left: 0;
+    bottom: calc(-1 * var(--space));
+    right: calc(-1 * var(--space));
+
+    background: white;
+    border-radius: calc(var(--border-radius) + var(--space));
+    overflow: hidden;
+
+    /* the area visible to everyone has the aspect ratio of the
+       participant's content area (--view-aspect, set by the view) */
+    container-type: size;
+    --view-width: min(100cqw, calc(100cqh * var(--view-aspect, 1)));
+    --view-height: min(100cqh, calc(100cqw / var(--view-aspect, 1)));
+}
+
+/* Dims the parts of the content area the participant can not see */
+border-frame {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: var(--view-width);
+    height: var(--view-height);
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 0 100vmax rgba(32, 29, 29, 0.522);
+    pointer-events: none;
+}
+
+/* ~~~~~~~~~~~~~~~~~~ shared content ~~~~~~~~~~~~~~~~~~ */
+
+/* The content sits under the whiteboard, which takes all input. The
+   whiteboard pans/zooms the active element with a CSS transform
+   (transform-origin must stay at the centre). */
+content-display {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    pointer-events: none;
+}
+
+/* The content is fitted into the shared visible area, so it is framed the
+   same on every screen. Content panned outside of it is still shown (and
+   dimmed by the border-frame) on larger screens. */
+content-frame {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--view-width);
+    height: var(--view-height);
+    margin: auto;
+    overflow: visible;
+}
+
+content-frame video {
+    opacity: 0;
+    position: absolute;
+    pointer-events: none;
+}
+
+content-frame canvas,
+content-frame .image {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    margin: auto;
+    transform-origin: 50% 50%;
+    user-select: none;
+}
+
+content-frame .blank {
+    width: 100%;
+    height: 100%;
+    transform-origin: 50% 50%;
+}
+
+file-loader {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    --progress: 0;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    pointer-events: all;
+}
+
+file-loader .icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    height: 20%;
+    max-width: 50%;
+    transform: translate(-50%, -50%);
+}
+
+file-loader[progress] .icon path {
+    stroke: var(--color-danger);
+    --l1: calc(var(--progress) * var(--length));
+    stroke-dasharray: var(--l1) var(--length);
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
+.sc-tools { 
+    display: grid;
+    grid-template-columns: 2fr 5fr; 
+    grid-template-rows: 1fr 8fr;
+    padding: var(--space);
+    padding-bottom: calc(2 * var(--space));
+    row-gap: calc(var(--space) * 2);
+    column-gap: var(--space);
+    pointer-events: none;
+}
+
+.dynamic-options {
+    grid-column: 2;
+    grid-row: 2;
+}
+
+.c-icon[transparent],
+.c-icon[white] {
+    outline: 2px solid #ccc;
+    border-radius: calc(var(--border-radius) + 2px);
+    position: relative;
+}
+
+.c-icon[transparent] .content::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    right: 2px;
+    bottom: 2px;
+    background: repeating-conic-gradient(#0000 0 90deg, #ccc 0 180deg);
+    border-radius: calc(var(--border-radius));
+}
+
+.c-icon[hover],
+.c-icon:hover {
+    outline: 2px solid black;
+    border-radius: calc(var(--border-radius) + 2px);
+
+}
+.grid-icon.c-icon[color-theme="white"] {
+    --main-hover: #fff0;
+    --main-active: #fff0;   
+    --outline: #fff;
+}
+
+.grid-icon[color-theme="dark"] {
+    --main: #444;
+    --main-hover: #333;
+    --main-active: #222;   
+    --tab: #555;
+    --tab-hover: #666;
+    --tab-active: #777;
+    --outline: #7f7e7e;
+}
+
+.grid-icon[color-theme="dark-s"] {
+    --main: #423630;
+    --main-hover: #36221a;
+    --main-active: #2e1a14;
+
+    --outline: #ee5f0c;
+}   
+
+.grid-icon[color-theme="clear"] {
+    --main: #b1a09854;
+    --main-hover: #b1a0986b;
+    --main-active: #b1a09873;
+    --outline: #b1a098;
+}   
+
+.grid-icon[color-theme="dark-a"] {
+    --main: #273037;
+    --main-hover: #0c141a;
+    --main-active: #08101a;
+
+    --outline: #1e82d4;
+}
+
+.grid-icon[color-theme="shapes-op"],
+.grid-icon[color-theme="shapes"] {
+    --main: #6ec13d;
+    --main-hover: #5aa32f;
+    --main-active: #4a8226;
+
+    --tab: #54a028;
+    --tab-hover: #4a8226;
+    --tab-active: #3a621f;
+}
+
+
+
+.grid-icon[color-theme="pen-tool"] {
+    --main: #14b4ed;
+    --main-hover: #0f9ed1;
+    --main-active: #0c7ca8;
+    --tab: #0c7ca8;
+    --tab-hover: #0a6586;
+    --tab-active: #084c63;
+}
+.grid-icon[color-theme="select-tool"] { 
+    --main: #f77823;
+    --main-hover: #d96b2e;
+    --main-active: #c55a27;
+}
+
+.grid-icon[color-theme="text-tool-op"],
+.grid-icon[color-theme="text-tool"] {
+    --main: #bb5dd2;
+    --main-hover: #a14ac1;
+    --main-active: #8c3fae;
+}
+.grid-icon[color-theme="text-tool-dark"]{
+    --main: #9b3db3;
+    --main-hover: #7d2793;
+    --main-active: #641977;
+}
+
+.grid-icon[color-theme="text-tool"],
+.grid-icon[color-theme="select-tool"],
+.grid-icon[color-theme="shapes"],
+.grid-icon[color-theme="pen-tool"] {
+    --icon: white;
+    --icon-hover: white;
+    --outline: white;
+}
+
+.grid-icon[color-theme="text-tool-op"],
+.grid-icon[color-theme="shapes-op"] {
+    --outline: black;
+}
+
+i-bw[i = "stroke"],
+i-bw[i = "fill"],
+i-bw[i = "text"] {
+    --i-color-1: white;
+}
+
+
+
+
+.grid-icon.time-input input[type=number] {
+    height: 100%;
+    width: 1.15em;
+    font-size: min(calc( var(--width) / 3), calc(var(--height) / 1.5));
+    color: currentColor;
+    background: transparent;
+    border: none;
+    outline: none;
+    -moz-appearance: textfield;
+    margin: 0;
+    padding: 0;
+}
+
+/* remove number spinners */
+.grid-icon.time-input input::-webkit-outer-spin-button,
+.grid-icon.time-input input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.grid-icon.time-input .content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: row !important;
+    font-size: 2.5em;
+    gap: 0.05em;
+}
+
+.grid-icon.time-input .content input:first-of-type {
+    text-align: right;
+}
+
+.grid-icon[hint]::after {
+     --__r: var(--hint-rows, 1);
+    --__c: var(--hint-cols, 4);
+    content: attr(hint);
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: calc(var(--width) * var(--__c) + (var(--__c) - 1) * var(--_grid-layout-gap));
+    transform: translate(0, calc(100% + var(--space) * 2));
+    background: #d1cdc8b8;
+    border-radius: var(--border-radius);
+    /* border: var(--_grid-icon-border) solid #8e8883; */
+    padding: 0.5em;
+    box-sizing: border-box;
+    color: black;
+    backdrop-filter: blur(15px);
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+
+.grid-icon[hint][hint-position="bottom-left"]::after {
+    left: auto;
+    right: 0;
+}
+
+.grid-icon[hint][hint-position="left"]::after {
+    left: auto;
+    right: 0;
+    transform: translate(calc(-1 * (var(--width) + var(--_grid-layout-gap) * 2) ), 0 );
+}
+
+
+
+.grid-icon[hint]:hover::after {
+    opacity: 1;
+    transition: opacity 0.5s ease 1s;  
+    pointer-events: all;
+}
+
+
+.grid-icon[hint]:hover::before {
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    position: absolute;
+    transform: translate(0, 50%);
+    content: '';
+    z-index: 999;
+    pointer-events: none;
+    animation: fadeIn 0.5s ease forwards;
+    animation-delay: 1s;
+}
+.grid-icon[hint][hint-position="left"]:hover::before {
+    left: 0;
+    transform: translate(-50%, 0);
+}
+
+@keyframes fadeIn {
+    from { pointer-events: none; }
+    to { pointer-events: all; }
+}
+
+
+dice-roller-widget-display {
+    display: block;
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+dice-roller-widget-display canvas {
+    position: absolute;
+    inset: 0;
+}
